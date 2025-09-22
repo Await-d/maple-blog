@@ -445,3 +445,14 @@ data/*.sqlite3
 # Temporary files
 *.tmp
 .spec-workflow/*
+
+# Build outputs
+backend/publish-net10/
+backend/dotnet-install.sh
+
+# Logs
+backend/src/MapleBlog.API/Logs/
+backend/publish-net10/Logs/
+
+# Test and temporary files
+*.bak
