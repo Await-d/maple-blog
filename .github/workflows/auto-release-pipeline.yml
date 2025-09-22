@@ -63,8 +63,15 @@ jobs:
           # Parse version components
           IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
 
-          # Check commit messages for version type
-          COMMIT_MESSAGES=$(git log --pretty=format:"%s" $(git describe --tags --abbrev=0 2>/dev/null || echo "HEAD~10")..HEAD)
+          # Get the base for comparison
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          if [ -z "$LATEST_TAG" ]; then
+            # No tags exist, get all commits
+            COMMIT_MESSAGES=$(git log --pretty=format:"%s" HEAD)
+          else
+            # Compare from latest tag to HEAD
+            COMMIT_MESSAGES=$(git log --pretty=format:"%s" ${LATEST_TAG}..HEAD)
+          fi
 
           if echo "$COMMIT_MESSAGES" | grep -qE "^(feat|feature)(\(.+\))?!:|^[^:]+!:|BREAKING CHANGE"; then
             # Major version bump for breaking changes
@@ -185,9 +192,10 @@ jobs:
 
           LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
           if [ -z "$LATEST_TAG" ]; then
-            CHANGELOG=$(git-cliff --unreleased --strip header)
+            # No tags exist, generate changelog for all commits
+            CHANGELOG=$(git-cliff --unreleased --strip header 2>/dev/null || echo "Initial release")
           else
-            CHANGELOG=$(git-cliff --latest --strip header)
+            CHANGELOG=$(git-cliff --latest --strip header 2>/dev/null || echo "See commit history for changes")
           fi
 
           # Save changelog to file and output
