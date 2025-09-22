@@ -117,7 +117,7 @@ jobs:
           echo "Backend build completed"
 
       - name: Set up Node.js
-        if: steps.check_changes.outputs.needs_version_bump == 'true'
+        if: steps.check_changes.outputs.needs_version_bump == 'true' && hashFiles('frontend/package.json') != ''
         uses: actions/setup-node@v4
         with:
           node-version: '20'
@@ -127,14 +127,19 @@ jobs:
       - name: Build frontend
         if: steps.check_changes.outputs.needs_version_bump == 'true'
         run: |
-          cd frontend
-          npm ci
-          npm run build
-          echo "Frontend build completed"
-          # Copy frontend build to backend wwwroot
-          rm -rf ../backend/src/MapleBlog.API/wwwroot
-          cp -r dist ../backend/src/MapleBlog.API/wwwroot
-          echo "Frontend assets copied to wwwroot"
+          if [ -d "frontend" ] && [ -f "frontend/package.json" ]; then
+            cd frontend
+            # Use legacy peer deps for React 19 compatibility
+            npm ci --legacy-peer-deps
+            npm run build
+            echo "Frontend build completed"
+            # Copy frontend build to backend wwwroot
+            rm -rf ../backend/src/MapleBlog.API/wwwroot
+            cp -r dist ../backend/src/MapleBlog.API/wwwroot
+            echo "Frontend assets copied to wwwroot"
+          else
+            echo "No frontend directory found, skipping frontend build"
+          fi
 
       - name: Install git-cliff for changelog
         if: steps.check_changes.outputs.needs_version_bump == 'true'
@@ -322,7 +327,7 @@ jobs:
             type=raw,value=latest
 
       - name: Build and push Frontend Docker image
-        if: steps.check_changes.outputs.needs_version_bump == 'true'
+        if: steps.check_changes.outputs.needs_version_bump == 'true' && hashFiles('frontend/package.json') != ''
         uses: docker/build-push-action@v5
         with:
           context: ./frontend
@@ -337,7 +342,7 @@ jobs:
             VERSION=${{ steps.calc_version.outputs.new_version }}
 
       - name: Build and push Admin Docker image
-        if: steps.check_changes.outputs.needs_version_bump == 'true'
+        if: steps.check_changes.outputs.needs_version_bump == 'true' && hashFiles('docker-compose.admin.yml') != ''
         uses: docker/build-push-action@v5
         with:
           context: .
