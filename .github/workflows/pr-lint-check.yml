@@ -1,0 +1,272 @@
+name: PR Lint Check
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - 'frontend/**/*.{js,jsx,ts,tsx,json}'
+      - 'backend/**/*.{cs,csproj}'
+      - '*.cs'
+      - '*.csproj'
+      - 'package*.json'
+      - 'Dockerfile'
+      - 'docker-compose*.yml'
+
+jobs:
+  frontend-lint:
+    runs-on: ubuntu-latest
+    if: contains(github.event.pull_request.changed_files, 'frontend/') || contains(github.event.pull_request.changed_files, 'package.json')
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: 'frontend/package-lock.json'
+
+      - name: Install frontend dependencies
+        run: |
+          cd frontend
+          npm ci
+
+      - name: Run frontend lint
+        run: |
+          cd frontend
+          npm run lint
+          echo "ESLint check completed"
+
+      - name: Run frontend type check
+        run: |
+          cd frontend
+          npm run typecheck
+          echo "TypeScript type checking completed"
+
+      - name: Run frontend build test
+        run: |
+          cd frontend
+          npm run build
+          echo "Frontend build test completed"
+
+      - name: Run frontend tests
+        run: |
+          cd frontend
+          # Run tests if test script exists
+          if grep -q "\"test\":" package.json; then
+            npm test -- --run
+          else
+            echo "No test script found, skipping tests"
+          fi
+
+  backend-lint:
+    runs-on: ubuntu-latest
+    if: contains(github.event.pull_request.changed_files, 'backend/') || contains(github.event.pull_request.changed_files, '*.cs') || contains(github.event.pull_request.changed_files, '*.csproj')
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+          dotnet-quality: 'preview'
+
+      - name: Install backend dependencies
+        run: |
+          cd backend
+          dotnet restore
+
+      - name: Run backend build
+        run: |
+          cd backend
+          dotnet build --configuration Release --no-restore
+          echo ".NET build completed"
+
+      - name: Run backend tests
+        run: |
+          cd backend
+          # Check if test projects exist
+          if ls tests/*.csproj 1> /dev/null 2>&1; then
+            dotnet test --no-build --configuration Release --logger "console;verbosity=normal"
+            echo "Backend tests completed"
+          else
+            echo "No test projects found, skipping tests"
+          fi
+
+      - name: Check for code formatting
+        run: |
+          cd backend
+          # Install dotnet format if needed
+          dotnet tool install -g dotnet-format || true
+          # Check formatting
+          dotnet format --verify-no-changes --verbosity diagnostic || echo "Code formatting issues found"
+
+      - name: Run code analysis
+        run: |
+          cd backend
+          # Run analyzers
+          dotnet build --configuration Release --no-restore /p:RunAnalyzersDuringBuild=true
+
+  docker-build:
+    runs-on: ubuntu-latest
+    if: contains(github.event.pull_request.changed_files, 'Dockerfile') || contains(github.event.pull_request.changed_files, 'docker-compose')
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Backend Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          push: false
+          tags: maple-blog-backend:pr-test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build Frontend Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          file: ./docker/frontend/Dockerfile
+          push: false
+          tags: maple-blog-frontend:pr-test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Test Docker compose config
+        run: |
+          # Validate docker-compose.yml syntax
+          docker compose config
+          docker compose -f docker-compose.prod.yml config
+
+  security-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v2
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+  pr-size-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check PR size
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const additions = pr.additions;
+            const deletions = pr.deletions;
+            const changes = additions + deletions;
+
+            console.log(`PR changes: +${additions} -${deletions} (total: ${changes})`);
+
+            if (changes > 2000) {
+              core.setFailed(`PR is too large (${changes} changes). Consider breaking it into smaller PRs.`);
+            } else if (changes > 1000) {
+              console.log(`⚠️ Large PR detected (${changes} changes). Consider reviewing carefully.`);
+            } else {
+              console.log(`✅ PR size is reasonable (${changes} changes).`);
+            }
+
+  conventional-commits:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check conventional commits
+        run: |
+          # Get PR commits
+          PR_COMMITS=$(git log --pretty=format:"%s" origin/${{ github.base_ref }}..HEAD)
+
+          echo "Checking commits for conventional format..."
+          VALID=true
+
+          while IFS= read -r commit; do
+            if [[ ! "$commit" =~ ^(feat|fix|docs|style|refactor|test|chore)(\(.+\))?: ]]; then
+              echo "❌ Invalid commit format: $commit"
+              echo "Expected format: type(scope): description"
+              echo "Valid types: feat, fix, docs, style, refactor, test, chore"
+              VALID=false
+            else
+              echo "✅ Valid commit: $commit"
+            fi
+          done <<< "$PR_COMMITS"
+
+          if [ "$VALID" = false ]; then
+            echo ""
+            echo "Please use conventional commit format:"
+            echo "feat: add new feature"
+            echo "fix: fix bug"
+            echo "docs: update documentation"
+            echo "style: format code"
+            echo "refactor: refactor code"
+            echo "test: add tests"
+            echo "chore: maintenance tasks"
+            exit 1
+          fi
+
+  dependencies-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check for dependency vulnerabilities (.NET)
+        run: |
+          cd backend
+          dotnet list package --vulnerable --include-transitive || true
+
+      - name: Check for dependency vulnerabilities (Node.js)
+        run: |
+          cd frontend
+          npm audit || true
+
+  code-quality:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: SonarCloud Scan
+        if: env.SONAR_TOKEN != ''
+        uses: SonarSource/sonarcloud-github-action@master
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          args: >
+            -Dsonar.projectKey=maple-blog
+            -Dsonar.organization=await-d
+            -Dsonar.sources=.
+            -Dsonar.exclusions=**/*.test.js,**/*.spec.js,**/node_modules/**,**/dist/**,**/build/**
+
+      - name: Code coverage check
+        run: |
+          echo "Code coverage check would run here if configured"
+          # Add actual coverage commands based on your setup
