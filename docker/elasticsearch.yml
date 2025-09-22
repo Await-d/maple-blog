@@ -1,0 +1,119 @@
+# Elasticsearch Configuration for Maple Blog
+# 生产环境Elasticsearch配置
+
+cluster.name: "maple-blog"
+node.name: "maple-blog-node-1"
+
+# 网络设置
+network.host: 0.0.0.0
+http.port: 9200
+transport.port: 9300
+
+# 发现设置 (单节点模式)
+discovery.type: single-node
+
+# 内存设置
+bootstrap.memory_lock: true
+
+# 日志设置
+logger.level: INFO
+
+# 索引设置
+index.number_of_shards: 1
+index.number_of_replicas: 0
+
+# 中文分词器设置
+# 需要安装IK分词器插件
+# docker exec -it elasticsearch /usr/share/elasticsearch/bin/elasticsearch-plugin install https://github.com/medcl/elasticsearch-analysis-ik/releases/download/v8.x.x/elasticsearch-analysis-ik-8.x.x.zip
+
+# 安全设置（生产环境）
+xpack.security.enabled: false
+xpack.security.enrollment.enabled: false
+xpack.security.http.ssl.enabled: false
+xpack.security.transport.ssl.enabled: false
+
+# 监控设置
+xpack.monitoring.collection.enabled: true
+
+# 性能优化
+indices.memory.index_buffer_size: 10%
+indices.memory.min_index_buffer_size: 48mb
+
+# 索引模板配置
+cluster.initial_master_nodes: ["maple-blog-node-1"]
+
+# 搜索线程池
+thread_pool.search.size: 4
+thread_pool.search.queue_size: 1000
+
+# 写入线程池
+thread_pool.write.size: 2
+thread_pool.write.queue_size: 200
+
+# 刷新间隔
+index.refresh_interval: 30s
+
+# 合并策略
+index.merge.policy.max_merge_at_once: 10
+index.merge.policy.segments_per_tier: 10
+
+# 缓存设置
+indices.queries.cache.size: 10%
+indices.fielddata.cache.size: 20%
+
+# 慢查询日志
+index.search.slowlog.threshold.query.warn: 10s
+index.search.slowlog.threshold.query.info: 5s
+index.search.slowlog.threshold.query.debug: 2s
+index.search.slowlog.threshold.query.trace: 500ms
+
+index.search.slowlog.threshold.fetch.warn: 1s
+index.search.slowlog.threshold.fetch.info: 800ms
+index.search.slowlog.threshold.fetch.debug: 500ms
+index.search.slowlog.threshold.fetch.trace: 200ms
+
+index.indexing.slowlog.threshold.index.warn: 10s
+index.indexing.slowlog.threshold.index.info: 5s
+index.indexing.slowlog.threshold.index.debug: 2s
+index.indexing.slowlog.threshold.index.trace: 500ms
+
+# 自定义中文分析器设置
+index.analysis.analyzer.chinese_analyzer.type: custom
+index.analysis.analyzer.chinese_analyzer.tokenizer: ik_max_word
+index.analysis.analyzer.chinese_analyzer.filter: ["lowercase", "stop"]
+
+index.analysis.analyzer.chinese_search_analyzer.type: custom
+index.analysis.analyzer.chinese_search_analyzer.tokenizer: ik_smart
+index.analysis.analyzer.chinese_search_analyzer.filter: ["lowercase", "stop"]
+
+# 英文分析器设置
+index.analysis.analyzer.english_analyzer.type: custom
+index.analysis.analyzer.english_analyzer.tokenizer: standard
+index.analysis.analyzer.english_analyzer.filter: ["lowercase", "stop", "snowball"]
+
+# 停用词设置
+index.analysis.filter.stop.type: stop
+index.analysis.filter.stop.stopwords: "_english_,_chinese_"
+
+# 自动创建索引模式
+action.auto_create_index: "maple_blog*,-*"
+
+# 最大返回结果数
+index.max_result_window: 50000
+
+# 最大词长度
+index.max_ngram_diff: 50
+index.max_shingle_diff: 8
+
+# 磁盘水位设置
+cluster.routing.allocation.disk.threshold_enabled: true
+cluster.routing.allocation.disk.watermark.low: 85%
+cluster.routing.allocation.disk.watermark.high: 90%
+cluster.routing.allocation.disk.watermark.flood_stage: 95%
+
+# 分片分配设置
+cluster.routing.allocation.node_concurrent_recoveries: 2
+cluster.routing.allocation.cluster_concurrent_rebalance: 2
+
+# GC设置（通过环境变量）
+# ES_JAVA_OPTS: "-Xms1g -Xmx1g"

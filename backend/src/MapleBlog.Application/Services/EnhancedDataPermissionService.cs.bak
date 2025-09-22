@@ -1,0 +1,1591 @@
+using System.Linq.Expressions;
+using System.Text.Json;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Caching.Distributed;
+using MapleBlog.Domain.Entities;
+using MapleBlog.Domain.Enums;
+using MapleBlog.Domain.Interfaces;
+using MapleBlog.Domain.Models;
+using MapleBlog.Application.Interfaces;
+using DataPermissionScopeClass = MapleBlog.Domain.Interfaces.DataPermissionScope;
+using DataPermissionScopeEnum = MapleBlog.Domain.Enums.DataPermissionScope;
+using MapleBlog.Application.Services.Permissions;
+using System.Security.Claims;
+using System.Diagnostics;
+using UserRoleEnum = MapleBlog.Domain.Enums.UserRole;
+
+namespace MapleBlog.Application.Services;
+
+/// <summary>
+/// 增强版数据权限控制服务
+/// 增加了Redis缓存、性能监控、审计日志等企业级功能
+/// </summary>
+public class EnhancedDataPermissionService : IDataPermissionService
+{
+    private readonly ILogger<EnhancedDataPermissionService> _logger;
+    private readonly IUserRepository _userRepository;
+    private readonly IRoleRepository _roleRepository;
+    private readonly IPermissionRepository _permissionRepository;
+    private readonly IDataPermissionRuleRepository _dataPermissionRuleRepository;
+    private readonly ITemporaryPermissionRepository _temporaryPermissionRepository;
+    private readonly IMemoryCache _memoryCache;
+    private readonly IDistributedCache _distributedCache;
+    private readonly PermissionRuleEngine _ruleEngine;
+    private readonly IAuditLogService _auditLogService;
+    private readonly PermissionStatistics _statistics;
+
+    private const string CACHE_PREFIX = "DataPermission";
+    private const string REDIS_CACHE_PREFIX = "DP";
+    private const int MEMORY_CACHE_DURATION_MINUTES = 5;
+    private const int REDIS_CACHE_DURATION_MINUTES = 30;
+
+    public EnhancedDataPermissionService(
+        ILogger<EnhancedDataPermissionService> logger,
+        IUserRepository userRepository,
+        IRoleRepository roleRepository,
+        IPermissionRepository permissionRepository,
+        IDataPermissionRuleRepository dataPermissionRuleRepository,
+        ITemporaryPermissionRepository temporaryPermissionRepository,
+        IMemoryCache memoryCache,
+        IDistributedCache distributedCache,
+        PermissionRuleEngine ruleEngine,
+        IAuditLogService auditLogService)
+    {
+        _logger = logger;
+        _userRepository = userRepository;
+        _roleRepository = roleRepository;
+        _permissionRepository = permissionRepository;
+        _dataPermissionRuleRepository = dataPermissionRuleRepository;
+        _temporaryPermissionRepository = temporaryPermissionRepository;
+        _memoryCache = memoryCache;
+        _distributedCache = distributedCache;
+        _ruleEngine = ruleEngine;
+        _auditLogService = auditLogService;
+        _statistics = new PermissionStatistics();
+    }
+
+    #region 核心权限检查方法
+
+    /// <summary>
+    /// 检查用户是否有权限对实体执行指定操作
+    /// </summary>
+    public async Task<bool> HasDataAccessAsync<T>(Guid userId, T entity, DataOperation operation) where T : class
+    {
+        var stopwatch = Stopwatch.StartNew();
+        try
+        {
+            _statistics.TotalPermissionChecks++;
+
+            if (entity == null)
+            {
+                _statistics.FailedChecks++;
+                await LogPermissionCheckAsync(userId, typeof(T).Name, Guid.Empty, operation, false, "Entity is null");
+                return false;
+            }
+
+            var resourceType = typeof(T).Name;
+            var resourceId = GetEntityId(entity);
+
+            // 检查缓存
+            var cacheKey = GenerateCacheKey("Access", userId, resourceType, resourceId, operation);
+            if (await TryGetCachedResultAsync<bool>(cacheKey) is { } cachedResult)
+            {
+                _statistics.CacheHits++;
+                return cachedResult;
+            }
+            _statistics.CacheMisses++;
+
+            var result = await CanAccessResourceInternalAsync(userId, resourceType, resourceId, operation);
+
+            // 缓存结果
+            await SetCacheAsync(cacheKey, result, TimeSpan.FromMinutes(MEMORY_CACHE_DURATION_MINUTES));
+
+            // 记录审计日志
+            await LogPermissionCheckAsync(userId, resourceType, resourceId, operation, result,
+                result ? "Access granted" : "Access denied");
+
+            if (result)
+                _statistics.SuccessfulChecks++;
+            else
+                _statistics.FailedChecks++;
+
+            return result;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error checking data access for user {UserId}, entity {EntityType}, operation {Operation}",
+                userId, typeof(T).Name, operation);
+            _statistics.FailedChecks++;
+            await LogPermissionCheckAsync(userId, typeof(T).Name, Guid.Empty, operation, false, $"Error: {ex.Message}");
+            return false;
+        }
+        finally
+        {
+            stopwatch.Stop();
+            UpdateStatistics(stopwatch.ElapsedMilliseconds);
+        }
+    }
+
+    /// <summary>
+    /// 检查用户是否可以访问指定资源
+    /// </summary>
+    public async Task<bool> CanAccessResourceAsync(Guid userId, string resourceType, Guid resourceId, DataOperation operation)
+    {
+        var stopwatch = Stopwatch.StartNew();
+        try
+        {
+            _statistics.TotalPermissionChecks++;
+
+            // 检查缓存
+            var cacheKey = GenerateCacheKey("Resource", userId, resourceType, resourceId, operation);
+            if (await TryGetCachedResultAsync<bool>(cacheKey) is { } cachedResult)
+            {
+                _statistics.CacheHits++;
+                return cachedResult;
+            }
+            _statistics.CacheMisses++;
+
+            var result = await CanAccessResourceInternalAsync(userId, resourceType, resourceId, operation);
+
+            // 缓存结果
+            await SetCacheAsync(cacheKey, result, TimeSpan.FromMinutes(MEMORY_CACHE_DURATION_MINUTES));
+
+            // 记录审计日志
+            await LogPermissionCheckAsync(userId, resourceType, resourceId, operation, result,
+                result ? "Resource access granted" : "Resource access denied");
+
+            if (result)
+                _statistics.SuccessfulChecks++;
+            else
+                _statistics.FailedChecks++;
+
+            return result;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error checking resource access for user {UserId}, resource {ResourceType}:{ResourceId}, operation {Operation}",
+                userId, resourceType, resourceId, operation);
+            _statistics.FailedChecks++;
+            await LogPermissionCheckAsync(userId, resourceType, resourceId, operation, false, $"Error: {ex.Message}");
+            return false;
+        }
+        finally
+        {
+            stopwatch.Stop();
+            UpdateStatistics(stopwatch.ElapsedMilliseconds);
+        }
+    }
+
+    #endregion
+
+    #region 批量权限检查
+
+    /// <summary>
+    /// 批量检查数据访问权限
+    /// </summary>
+    public async Task<Dictionary<Guid, bool>> CheckBatchDataAccessAsync<T>(Guid userId, IEnumerable<T> entities, DataOperation operation) where T : BaseEntity
+    {
+        var results = new Dictionary<Guid, bool>();
+        var entityList = entities.ToList();
+
+        if (!entityList.Any())
+            return results;
+
+        var stopwatch = Stopwatch.StartNew();
+        try
+        {
+            var resourceType = typeof(T).Name;
+
+            // 首先检查用户权限范围
+            var scope = await GetUserDataScopeAsync(userId, resourceType);
+            if (!scope.HasAccess)
+            {
+                // 如果用户没有访问权限，所有实体都返回false
+                foreach (var entity in entityList)
+                {
+                    results[entity.Id] = false;
+                }
+                await LogBatchPermissionCheckAsync(userId, resourceType, operation, entityList.Count, 0, "User has no access");
+                return results;
+            }
+
+            // 如果是管理员，所有实体都有权限
+            if (scope.CanAccessAllData)
+            {
+                foreach (var entity in entityList)
+                {
+                    results[entity.Id] = true;
+                }
+                await LogBatchPermissionCheckAsync(userId, resourceType, operation, entityList.Count, entityList.Count, "Admin access");
+                return results;
+            }
+
+            // 批量检查权限规则
+            var resourceIds = entityList.Select(e => e.Id).ToList();
+            var rules = await _dataPermissionRuleRepository.GetUserResourcePermissionsAsync(userId, resourceType, operation);
+
+            var allowedCount = 0;
+            foreach (var entity in entityList)
+            {
+                var hasAccess = await EvaluateEntityAccessAsync(userId, entity, operation, rules, scope);
+                results[entity.Id] = hasAccess;
+                if (hasAccess) allowedCount++;
+            }
+
+            await LogBatchPermissionCheckAsync(userId, resourceType, operation, entityList.Count, allowedCount, "Batch check completed");
+            return results;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error in batch permission check for user {UserId}, entity type {EntityType}",
+                userId, typeof(T).Name);
+
+            // 安全默认：所有实体都返回false
+            foreach (var entity in entityList)
+            {
+                results[entity.Id] = false;
+            }
+            await LogBatchPermissionCheckAsync(userId, typeof(T).Name, operation, entityList.Count, 0, $"Error: {ex.Message}");
+            return results;
+        }
+        finally
+        {
+            stopwatch.Stop();
+            UpdateStatistics(stopwatch.ElapsedMilliseconds);
+        }
+    }
+
+    /// <summary>
+    /// 过滤用户有权限访问的实体
+    /// </summary>
+    public async Task<IEnumerable<T>> FilterAccessibleEntitiesAsync<T>(Guid userId, IEnumerable<T> entities, DataOperation operation) where T : BaseEntity
+    {
+        var accessResults = await CheckBatchDataAccessAsync(userId, entities, operation);
+        return entities.Where(e => accessResults.TryGetValue(e.Id, out var hasAccess) && hasAccess);
+    }
+
+    #endregion
+
+    #region 查询过滤
+
+    /// <summary>
+    /// 根据数据权限过滤查询
+    /// </summary>
+    public async Task<IQueryable<T>> FilterByDataPermissionsAsync<T>(Guid userId, IQueryable<T> query, DataOperation operation) where T : BaseEntity
+    {
+        try
+        {
+            var scope = await GetUserDataScopeAsync(userId, typeof(T).Name);
+            if (!scope.HasAccess)
+            {
+                return query.Where(x => false); // 返回空结果
+            }
+
+            if (scope.CanAccessAllData)
+            {
+                return query; // 管理员可以访问所有数据
+            }
+
+            // 获取用户的权限规则并生成查询过滤器
+            var rules = await GetUserPermissionRulesAsync(userId, typeof(T).Name);
+            var filterExpression = _ruleEngine.GenerateQueryFilter<T>(rules, userId, operation);
+
+            return query.Where(filterExpression);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error filtering query by data permissions for user {UserId}, entity type {EntityType}",
+                userId, typeof(T).Name);
+            return query.Where(x => false); // 安全默认
+        }
+    }
+
+    /// <summary>
+    /// 应用用户数据权限过滤（兼容旧接口）
+    /// </summary>
+    public IQueryable<T> ApplyUserDataFilter<T>(IQueryable<T> query, Guid currentUserId, UserRoleEnum userRole) where T : BaseEntity
+    {
+        try
+        {
+            // 管理员可以访问所有数据
+            if (userRole.HasRole(UserRoleEnum.Admin))
+            {
+                _logger.LogDebug("Admin user {UserId} has access to all data of type {EntityType}",
+                    currentUserId, typeof(T).Name);
+                return query;
+            }
+
+            // 根据实体类型应用不同的过滤规则
+            if (typeof(T) == typeof(Post))
+            {
+                return ApplyPostDataFilter(query as IQueryable<Post>, currentUserId, userRole) as IQueryable<T>;
+            }
+
+            if (typeof(T) == typeof(Comment))
+            {
+                return ApplyCommentDataFilter(query as IQueryable<Comment>, currentUserId, userRole) as IQueryable<T>;
+            }
+
+            if (typeof(T) == typeof(User))
+            {
+                return ApplyUserDataFilter(query as IQueryable<User>, currentUserId, userRole) as IQueryable<T>;
+            }
+
+            if (typeof(T) == typeof(Category))
+            {
+                return ApplyCategoryDataFilter(query as IQueryable<Category>, currentUserId, userRole) as IQueryable<T>;
+            }
+
+            // 默认情况：普通用户只能访问自己创建的数据
+            if (HasCreatedByProperty<T>())
+            {
+                return query.Where(CreateOwnershipFilter<T>(currentUserId));
+            }
+
+            _logger.LogWarning("No specific data filter found for entity type {EntityType}, returning empty result",
+                typeof(T).Name);
+            return query.Where(x => false); // 返回空结果作为安全默认值
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error applying data filter for entity type {EntityType} and user {UserId}",
+                typeof(T).Name, currentUserId);
+            throw;
+        }
+    }
+
+    #endregion
+
+    #region 权限范围和规则
+
+    /// <summary>
+    /// 获取用户的数据权限范围
+    /// </summary>
+    public async Task<DataPermissionScopeClass> GetUserDataScopeAsync(Guid userId, string resourceType = null)
+    {
+        var stopwatch = Stopwatch.StartNew();
+        try
+        {
+            var cacheKey = GenerateCacheKey("Scope", userId, resourceType ?? "all");
+
+            // 先从内存缓存获取
+            if (_memoryCache.TryGetValue(cacheKey, out DataPermissionScopeClass cachedScope))
+            {
+                _statistics.CacheHits++;
+                return cachedScope;
+            }
+
+            // 再从Redis缓存获取
+            if (await TryGetCachedResultAsync<DataPermissionScopeClass>(cacheKey) is { } distributedCachedScope)
+            {
+                _statistics.CacheHits++;
+                // 同时设置到内存缓存
+                _memoryCache.Set(cacheKey, distributedCachedScope, TimeSpan.FromMinutes(MEMORY_CACHE_DURATION_MINUTES));
+                return distributedCachedScope;
+            }
+
+            _statistics.CacheMisses++;
+
+            var user = await _userRepository.GetByIdAsync(userId);
+            if (user == null)
+            {
+                return new DataPermissionScopeClass { HasAccess = false };
+            }
+
+            var scope = new DataPermissionScopeClass
+            {
+                HasAccess = user.IsActive,
+                UserId = userId,
+                UserRole = user.Role,
+                CanAccessAllData = user.Role.HasRole(UserRoleEnum.Admin),
+                CanAccessOwnData = true
+            };
+
+            // 应用自定义权限规则
+            await ApplyCustomPermissionRulesAsync(scope, userId, resourceType);
+
+            // 根据角色设置基础权限范围
+            ConfigureRoleBasedPermissions(scope, user.Role);
+
+            // 缓存结果
+            await SetCacheAsync(cacheKey, scope, TimeSpan.FromMinutes(REDIS_CACHE_DURATION_MINUTES));
+            _memoryCache.Set(cacheKey, scope, TimeSpan.FromMinutes(MEMORY_CACHE_DURATION_MINUTES));
+
+            return scope;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting data scope for user {UserId}", userId);
+            return new DataPermissionScopeClass { HasAccess = false };
+        }
+        finally
+        {
+            stopwatch.Stop();
+            UpdateStatistics(stopwatch.ElapsedMilliseconds);
+        }
+    }
+
+    /// <summary>
+    /// 获取用户的数据权限规则
+    /// </summary>
+    public async Task<IEnumerable<DataPermissionRule>> GetUserPermissionRulesAsync(Guid userId, string resourceType = null)
+    {
+        try
+        {
+            var cacheKey = GenerateCacheKey("Rules", userId, resourceType ?? "all");
+
+            if (await TryGetCachedResultAsync<IEnumerable<DataPermissionRule>>(cacheKey) is { } cachedRules)
+            {
+                _statistics.CacheHits++;
+                return cachedRules;
+            }
+            _statistics.CacheMisses++;
+
+            var rules = await _dataPermissionRuleRepository.GetByUserIdAsync(userId, resourceType);
+            var effectiveRules = rules.Where(r => r.IsEffective()).ToList();
+
+            await SetCacheAsync(cacheKey, effectiveRules, TimeSpan.FromMinutes(REDIS_CACHE_DURATION_MINUTES));
+            return effectiveRules;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting permission rules for user {UserId}, resource type {ResourceType}",
+                userId, resourceType);
+            return Enumerable.Empty<DataPermissionRule>();
+        }
+    }
+
+    /// <summary>
+    /// 检查用户是否有权限访问特定资源（兼容旧接口）
+    /// </summary>
+    public async Task<bool> HasPermissionAsync(Guid userId, string resource, string action, Guid? resourceId = null)
+    {
+        try
+        {
+            // 转换为新的权限检查方式
+            var operation = ConvertActionToDataOperation(action);
+            var actualResourceId = resourceId ?? Guid.Empty;
+
+            return await CanAccessResourceAsync(userId, resource, actualResourceId, operation);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error checking permission for user {UserId}, resource {Resource}, action {Action}",
+                userId, resource, action);
+            return false;
+        }
+    }
+
+    #endregion
+
+    #region 临时权限和委派
+
+    /// <summary>
+    /// 授予临时权限
+    /// </summary>
+    public async Task<bool> GrantTemporaryPermissionAsync(Guid userId, string resourceType, Guid resourceId, DataOperation operation, DateTime expiresAt, Guid grantedBy)
+    {
+        try
+        {
+            var temporaryPermission = new TemporaryPermission
+            {
+                Id = Guid.NewGuid(),
+                UserId = userId,
+                ResourceType = resourceType,
+                ResourceId = resourceId,
+                Operation = operation,
+                ExpiresAt = expiresAt,
+                GrantedBy = grantedBy,
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow,
+                CreatedBy = grantedBy
+            };
+
+            await _temporaryPermissionRepository.AddAsync(temporaryPermission);
+
+            // 清除相关缓存
+            await ClearUserPermissionCacheAsync(userId);
+
+            // 记录审计日志
+            await _auditLogService.LogAsync(new AuditLog
+            {
+                UserId = grantedBy,
+                Action = "GrantTemporaryPermission",
+                ResourceType = resourceType,
+                ResourceId = resourceId,
+                Details = JsonSerializer.Serialize(new
+                {
+                    TargetUserId = userId,
+                    Operation = operation.ToString(),
+                    ExpiresAt = expiresAt
+                }),
+                IPAddress = GetCurrentIPAddress(),
+                UserAgent = GetCurrentUserAgent(),
+                Success = true
+            });
+
+            _logger.LogInformation("Temporary permission granted to user {UserId} for {ResourceType}:{ResourceId} operation {Operation} by {GrantedBy}",
+                userId, resourceType, resourceId, operation, grantedBy);
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error granting temporary permission to user {UserId}", userId);
+            await LogErrorAuditAsync(grantedBy, "GrantTemporaryPermission", resourceType, resourceId, ex.Message);
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// 撤销临时权限
+    /// </summary>
+    public async Task<bool> RevokeTemporaryPermissionAsync(Guid userId, string resourceType, Guid resourceId, DataOperation operation)
+    {
+        try
+        {
+            var permissions = await _temporaryPermissionRepository.GetByUserAndResourceAsync(userId, resourceType, resourceId, operation);
+            var revokedCount = 0;
+
+            foreach (var permission in permissions.Where(p => p.IsActive))
+            {
+                permission.IsActive = false;
+                permission.UpdatedAt = DateTime.UtcNow;
+                _temporaryPermissionRepository.Update(permission);
+                revokedCount++;
+            }
+
+            if (revokedCount > 0)
+            {
+                await _temporaryPermissionRepository.SaveChangesAsync();
+            }
+
+            // 清除相关缓存
+            await ClearUserPermissionCacheAsync(userId);
+
+            // 记录审计日志
+            await _auditLogService.LogAsync(new AuditLog
+            {
+                UserId = GetCurrentUserId(),
+                Action = "RevokeTemporaryPermission",
+                ResourceType = resourceType,
+                ResourceId = resourceId,
+                Details = JsonSerializer.Serialize(new
+                {
+                    TargetUserId = userId,
+                    Operation = operation.ToString(),
+                    RevokedCount = revokedCount
+                }),
+                IPAddress = GetCurrentIPAddress(),
+                UserAgent = GetCurrentUserAgent(),
+                Success = true
+            });
+
+            _logger.LogInformation("Temporary permissions revoked for user {UserId} for {ResourceType}:{ResourceId} operation {Operation}, count: {Count}",
+                userId, resourceType, resourceId, operation, revokedCount);
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error revoking temporary permission for user {UserId}", userId);
+            await LogErrorAuditAsync(GetCurrentUserId(), "RevokeTemporaryPermission", resourceType, resourceId, ex.Message);
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// 委派权限给其他用户
+    /// </summary>
+    public async Task<bool> DelegatePermissionAsync(Guid fromUserId, Guid toUserId, string resourceType, Guid resourceId, DataOperation operation, DateTime expiresAt)
+    {
+        try
+        {
+            // 检查委派人是否有权限
+            var canDelegate = await CanAccessResourceAsync(fromUserId, resourceType, resourceId, operation);
+            if (!canDelegate)
+            {
+                _logger.LogWarning("User {FromUserId} attempted to delegate permission they don't have to user {ToUserId}",
+                    fromUserId, toUserId);
+                await LogErrorAuditAsync(fromUserId, "DelegatePermission", resourceType, resourceId, "Insufficient permissions");
+                return false;
+            }
+
+            // 创建委派权限规则
+            var delegationRule = new DataPermissionRule
+            {
+                Id = Guid.NewGuid(),
+                UserId = toUserId,
+                ResourceType = resourceType,
+                ResourceId = resourceId,
+                Operation = operation,
+                IsAllowed = true,
+                EffectiveFrom = DateTime.UtcNow,
+                EffectiveTo = expiresAt,
+                GrantedBy = fromUserId,
+                Source = PermissionSource.Delegated,
+                Remarks = $"Delegated from user {fromUserId}",
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow,
+                CreatedBy = fromUserId
+            };
+
+            await _dataPermissionRuleRepository.AddAsync(delegationRule);
+
+            // 清除相关缓存
+            await ClearUserPermissionCacheAsync(toUserId);
+
+            // 记录审计日志
+            await _auditLogService.LogAsync(new AuditLog
+            {
+                UserId = fromUserId,
+                Action = "DelegatePermission",
+                ResourceType = resourceType,
+                ResourceId = resourceId,
+                Details = JsonSerializer.Serialize(new
+                {
+                    ToUserId = toUserId,
+                    Operation = operation.ToString(),
+                    ExpiresAt = expiresAt,
+                    RuleId = delegationRule.Id
+                }),
+                IPAddress = GetCurrentIPAddress(),
+                UserAgent = GetCurrentUserAgent(),
+                Success = true
+            });
+
+            _logger.LogInformation("Permission delegated from user {FromUserId} to user {ToUserId} for {ResourceType}:{ResourceId} operation {Operation}",
+                fromUserId, toUserId, resourceType, resourceId, operation);
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error delegating permission from user {FromUserId} to user {ToUserId}",
+                fromUserId, toUserId);
+            await LogErrorAuditAsync(fromUserId, "DelegatePermission", resourceType, resourceId, ex.Message);
+            return false;
+        }
+    }
+
+    #endregion
+
+    #region 数据脱敏和安全
+
+    /// <summary>
+    /// 应用敏感数据脱敏
+    /// </summary>
+    public T ApplyDataMasking<T>(T entity, UserRoleEnum userRole) where T : class
+    {
+        if (entity == null) return entity;
+
+        try
+        {
+            // 管理员不需要脱敏
+            if (userRole.HasRole(UserRoleEnum.Admin))
+            {
+                return entity;
+            }
+
+            // 对User实体进行脱敏
+            if (entity is User user)
+            {
+                return MaskUserData(user, userRole) as T;
+            }
+
+            // 对于其他实体类型，可以在这里添加脱敏逻辑
+            return entity;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error applying data masking for entity type {EntityType}", typeof(T).Name);
+            return entity;
+        }
+    }
+
+    /// <summary>
+    /// 批量应用数据脱敏
+    /// </summary>
+    public async Task<IEnumerable<T>> ApplyBatchDataMaskingAsync<T>(IEnumerable<T> entities, Guid userId) where T : class
+    {
+        try
+        {
+            var user = await _userRepository.GetByIdAsync(userId);
+            if (user == null)
+            {
+                return entities;
+            }
+
+            return entities.Select(entity => ApplyDataMasking(entity, user.Role));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error applying batch data masking for user {UserId}", userId);
+            return entities;
+        }
+    }
+
+    #endregion
+
+    #region 权限缓存和性能
+
+    /// <summary>
+    /// 清除用户权限缓存
+    /// </summary>
+    public async Task<bool> ClearUserPermissionCacheAsync(Guid userId)
+    {
+        try
+        {
+            var patterns = new List<string>
+            {
+                $"{REDIS_CACHE_PREFIX}:Scope:{userId}:*",
+                $"{REDIS_CACHE_PREFIX}:Rules:{userId}:*",
+                $"{REDIS_CACHE_PREFIX}:Access:{userId}:*",
+                $"{REDIS_CACHE_PREFIX}:Resource:{userId}:*"
+            };
+
+            // 清除Redis缓存
+            foreach (var pattern in patterns)
+            {
+                await ClearCacheByPatternAsync(pattern);
+            }
+
+            // 清除内存缓存
+            var resourceTypes = new[] { "Posts", "Comments", "Users", "Categories", "Tags", "all" };
+            foreach (var resourceType in resourceTypes)
+            {
+                var keys = new[]
+                {
+                    $"{CACHE_PREFIX}:Scope:{userId}:{resourceType}",
+                    $"{CACHE_PREFIX}:Rules:{userId}:{resourceType}"
+                };
+
+                foreach (var key in keys)
+                {
+                    _memoryCache.Remove(key);
+                }
+            }
+
+            _logger.LogDebug("Cleared permission cache for user {UserId}", userId);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error clearing permission cache for user {UserId}", userId);
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// 预热用户权限缓存
+    /// </summary>
+    public async Task<bool> WarmupUserPermissionCacheAsync(Guid userId)
+    {
+        try
+        {
+            var resourceTypes = new[] { "Posts", "Comments", "Users", "Categories", "Tags" };
+            var operations = new[] { DataOperation.Read, DataOperation.Create, DataOperation.Update, DataOperation.Delete };
+
+            // 预加载权限范围
+            foreach (var resourceType in resourceTypes)
+            {
+                await GetUserDataScopeAsync(userId, resourceType);
+                await GetUserPermissionRulesAsync(userId, resourceType);
+            }
+
+            _logger.LogDebug("Warmed up permission cache for user {UserId}", userId);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error warming up permission cache for user {UserId}", userId);
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// 获取权限检查统计信息
+    /// </summary>
+    public async Task<PermissionStatistics> GetPermissionStatisticsAsync()
+    {
+        try
+        {
+            var ruleStats = await _dataPermissionRuleRepository.GetStatisticsAsync();
+
+            _statistics.ActiveRulesCount = ruleStats.ActiveRules;
+            _statistics.TemporaryPermissionsCount = ruleStats.TemporaryRules;
+
+            return _statistics;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting permission statistics");
+            return _statistics;
+        }
+    }
+
+    #endregion
+
+    #region 私有辅助方法
+
+    /// <summary>
+    /// 内部权限检查实现
+    /// </summary>
+    private async Task<bool> CanAccessResourceInternalAsync(Guid userId, string resourceType, Guid resourceId, DataOperation operation)
+    {
+        // 检查用户是否存在且激活
+        var user = await _userRepository.GetByIdAsync(userId);
+        if (user == null || !user.IsActive)
+        {
+            return false;
+        }
+
+        // 管理员拥有所有权限
+        if (user.Role.HasRole(UserRoleEnum.Admin))
+        {
+            return true;
+        }
+
+        // 检查临时权限
+        var hasTemporaryPermission = await CheckTemporaryPermissionAsync(userId, resourceType, resourceId, operation);
+        if (hasTemporaryPermission)
+        {
+            return true;
+        }
+
+        // 检查数据权限规则
+        var hasRulePermission = await CheckDataPermissionRulesAsync(userId, resourceType, resourceId, operation);
+        if (hasRulePermission)
+        {
+            return true;
+        }
+
+        // 检查基础角色权限
+        return await CheckBasicRolePermissionAsync(user.Role, resourceType, operation, resourceId);
+    }
+
+    /// <summary>
+    /// 生成缓存键
+    /// </summary>
+    private string GenerateCacheKey(string prefix, params object[] parts)
+    {
+        var keyParts = new[] { REDIS_CACHE_PREFIX, prefix }.Concat(parts.Select(p => p?.ToString() ?? "null"));
+        return string.Join(":", keyParts);
+    }
+
+    /// <summary>
+    /// 尝试从缓存获取结果
+    /// </summary>
+    private async Task<T?> TryGetCachedResultAsync<T>(string key) where T : class
+    {
+        try
+        {
+            var cachedData = await _distributedCache.GetStringAsync(key);
+            if (cachedData != null)
+            {
+                return JsonSerializer.Deserialize<T>(cachedData);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Error retrieving cached data for key {Key}", key);
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// 设置缓存
+    /// </summary>
+    private async Task SetCacheAsync<T>(string key, T value, TimeSpan expiration)
+    {
+        try
+        {
+            var options = new DistributedCacheEntryOptions
+            {
+                AbsoluteExpirationRelativeToNow = expiration
+            };
+
+            var serializedValue = JsonSerializer.Serialize(value);
+            await _distributedCache.SetStringAsync(key, serializedValue, options);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Error setting cache for key {Key}", key);
+        }
+    }
+
+    /// <summary>
+    /// 按模式清除缓存
+    /// </summary>
+    private async Task ClearCacheByPatternAsync(string pattern)
+    {
+        try
+        {
+            // 注意：这里需要根据具体的Redis实现来清除匹配模式的键
+            // 在生产环境中，可能需要使用更复杂的缓存清除策略
+            await _distributedCache.RemoveAsync(pattern);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Error clearing cache pattern {Pattern}", pattern);
+        }
+    }
+
+    /// <summary>
+    /// 记录权限检查审计日志
+    /// </summary>
+    private async Task LogPermissionCheckAsync(Guid userId, string resourceType, Guid resourceId, DataOperation operation, bool success, string reason)
+    {
+        try
+        {
+            await _auditLogService.LogAsync(new AuditLog
+            {
+                UserId = userId,
+                Action = "PermissionCheck",
+                ResourceType = resourceType,
+                ResourceId = resourceId,
+                Details = JsonSerializer.Serialize(new
+                {
+                    Operation = operation.ToString(),
+                    Success = success,
+                    Reason = reason
+                }),
+                IPAddress = GetCurrentIPAddress(),
+                UserAgent = GetCurrentUserAgent(),
+                Success = success
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Error logging permission check audit");
+        }
+    }
+
+    /// <summary>
+    /// 记录批量权限检查审计日志
+    /// </summary>
+    private async Task LogBatchPermissionCheckAsync(Guid userId, string resourceType, DataOperation operation, int totalCount, int allowedCount, string reason)
+    {
+        try
+        {
+            await _auditLogService.LogAsync(new AuditLog
+            {
+                UserId = userId,
+                Action = "BatchPermissionCheck",
+                ResourceType = resourceType,
+                Details = JsonSerializer.Serialize(new
+                {
+                    Operation = operation.ToString(),
+                    TotalCount = totalCount,
+                    AllowedCount = allowedCount,
+                    Reason = reason
+                }),
+                IPAddress = GetCurrentIPAddress(),
+                UserAgent = GetCurrentUserAgent(),
+                Success = true
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Error logging batch permission check audit");
+        }
+    }
+
+    /// <summary>
+    /// 记录错误审计日志
+    /// </summary>
+    private async Task LogErrorAuditAsync(Guid userId, string action, string resourceType, Guid resourceId, string error)
+    {
+        try
+        {
+            await _auditLogService.LogAsync(new AuditLog
+            {
+                UserId = userId,
+                Action = action,
+                ResourceType = resourceType,
+                ResourceId = resourceId,
+                Details = JsonSerializer.Serialize(new { Error = error }),
+                IPAddress = GetCurrentIPAddress(),
+                UserAgent = GetCurrentUserAgent(),
+                Success = false
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Error logging error audit");
+        }
+    }
+
+    // 实现其他私有方法...
+    // [由于篇幅限制，这里省略了其他私有方法的实现，它们基本与原始DataPermissionService相同]
+
+    #endregion
+
+    #region 兼容性辅助方法
+
+    private DataOperation ConvertActionToDataOperation(string action)
+    {
+        return action.ToLowerInvariant() switch
+        {
+            "create" => DataOperation.Create,
+            "read" => DataOperation.Read,
+            "update" => DataOperation.Update,
+            "delete" => DataOperation.Delete,
+            "list" => DataOperation.List,
+            "export" => DataOperation.Export,
+            "approve" => DataOperation.Approve,
+            "publish" => DataOperation.Publish,
+            "archive" => DataOperation.Archive,
+            "manage" => DataOperation.Manage,
+            _ => DataOperation.Read
+        };
+    }
+
+    private string GetCurrentIPAddress()
+    {
+        // 这里应该从HttpContext获取IP地址
+        // 暂时返回默认值
+        return "127.0.0.1";
+    }
+
+    private string GetCurrentUserAgent()
+    {
+        // 这里应该从HttpContext获取User-Agent
+        // 暂时返回默认值
+        return "Unknown";
+    }
+
+    private Guid GetCurrentUserId()
+    {
+        // 这里应该从HttpContext获取当前用户ID
+        // 暂时返回空值
+        return Guid.Empty;
+    }
+
+    #endregion
+
+    /// <summary>
+    /// 应用自定义权限规则到权限范围
+    /// </summary>
+    private async Task ApplyCustomPermissionRulesAsync(DataPermissionScopeClass scope, Guid userId, string resourceType)
+    {
+        try
+        {
+            var rules = await GetUserPermissionRulesAsync(userId, resourceType);
+
+            foreach (var rule in rules.Where(r => r.IsAllowed))
+            {
+                // 根据规则类型应用特定权限
+                ApplyRuleToScope(scope, rule);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error applying custom permission rules for user {UserId}", userId);
+        }
+    }
+
+    /// <summary>
+    /// 配置基于角色的权限
+    /// </summary>
+    private void ConfigureRoleBasedPermissions(DataPermissionScopeClass scope, UserRoleEnum userRole)
+    {
+        if (userRole.HasRole(UserRoleEnum.Admin))
+        {
+            scope.CanAccessAllUsers = true;
+            scope.CanAccessAllPosts = true;
+            scope.CanAccessAllComments = true;
+            scope.CanManageSystem = true;
+        }
+        else if (userRole.HasRole(UserRoleEnum.Moderator))
+        {
+            scope.CanAccessPublicUsers = true;
+            scope.CanAccessAllPosts = true;
+            scope.CanAccessOwnPosts = true;
+            scope.CanAccessRelatedComments = true;
+        }
+        else if (userRole.HasRole(UserRoleEnum.Author))
+        {
+            scope.CanAccessPublicUsers = true;
+            scope.CanAccessAllPosts = true;
+            scope.CanAccessOwnPosts = true;
+            scope.CanAccessRelatedComments = true;
+        }
+        else if (userRole.HasRole(UserRoleEnum.User))
+        {
+            scope.CanAccessPublicUsers = false;
+            scope.CanAccessPublishedPosts = true;
+            scope.CanAccessOwnComments = true;
+        }
+    }
+
+    /// <summary>
+    /// 应用规则到权限范围
+    /// </summary>
+    private void ApplyRuleToScope(DataPermissionScopeClass scope, DataPermissionRule rule)
+    {
+        switch (rule.ResourceType.ToLowerInvariant())
+        {
+            case "users":
+                if (rule.Operation == DataOperation.Read)
+                {
+                    scope.CanAccessAllUsers = true;
+                }
+                break;
+            case "posts":
+                if (rule.Operation == DataOperation.Read)
+                {
+                    scope.CanAccessAllPosts = true;
+                }
+                break;
+            case "comments":
+                if (rule.Operation == DataOperation.Read)
+                {
+                    scope.CanAccessAllComments = true;
+                }
+                break;
+        }
+    }
+
+    /// <summary>
+    /// 检查临时权限
+    /// </summary>
+    private async Task<bool> CheckTemporaryPermissionAsync(Guid userId, string resourceType, Guid resourceId, DataOperation operation)
+    {
+        try
+        {
+            var permissions = await _temporaryPermissionRepository.GetActiveByUserAndResourceAsync(userId, resourceType, resourceId, operation);
+            return permissions.Any(p => p.IsActive && p.ExpiresAt > DateTime.UtcNow);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error checking temporary permission for user {UserId}", userId);
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// 检查数据权限规则
+    /// </summary>
+    private async Task<bool> CheckDataPermissionRulesAsync(Guid userId, string resourceType, Guid resourceId, DataOperation operation)
+    {
+        try
+        {
+            var rules = await _dataPermissionRuleRepository.GetUserResourcePermissionsAsync(userId, resourceType, operation, resourceId);
+
+            // 按优先级排序，优先级高的规则优先
+            var sortedRules = rules.Where(r => r.IsEffective()).OrderByDescending(r => r.Priority);
+
+            foreach (var rule in sortedRules)
+            {
+                if (rule.Matches(resourceType, operation, resourceId))
+                {
+                    // 如果有条件表达式，需要评估
+                    if (!string.IsNullOrEmpty(rule.Conditions))
+                    {
+                        var conditionResult = await EvaluateConditionsAsync(rule.Conditions, userId, resourceId);
+                        return rule.IsAllowed && conditionResult;
+                    }
+
+                    return rule.IsAllowed;
+                }
+            }
+
+            return false;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error checking data permission rules for user {UserId}", userId);
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// 检查基础角色权限
+    /// </summary>
+    private async Task<bool> CheckBasicRolePermissionAsync(UserRoleEnum userRole, string resourceType, DataOperation operation, Guid resourceId)
+    {
+        // 使用现有的角色权限检查逻辑
+        return await CheckRolePermissionAsync(userRole, resourceType, operation.ToString());
+    }
+
+    /// <summary>
+    /// 检查角色是否有指定权限
+    /// </summary>
+    private async Task<bool> CheckRolePermissionAsync(UserRoleEnum userRole, string resource, string action)
+    {
+        // 基于角色的基本权限检查
+        if (userRole.HasRole(UserRoleEnum.Admin))
+            return true; // 管理员拥有所有权限
+
+        if (userRole.HasRole(UserRoleEnum.Moderator))
+            return await CheckModeratorPermissionAsync(resource, action);
+
+        if (userRole.HasRole(UserRoleEnum.Author))
+            return await CheckAuthorPermissionAsync(resource, action);
+
+        return await CheckUserPermissionAsync(resource, action);
+    }
+
+    /// <summary>
+    /// 检查版主权限
+    /// </summary>
+    private async Task<bool> CheckModeratorPermissionAsync(string resource, string action)
+    {
+        var allowedPermissions = new Dictionary<string, string[]>
+        {
+            { "Posts", new[] { "Create", "Read", "Update", "Delete", "Moderate" } },
+            { "Comments", new[] { "Read", "Update", "Delete", "Moderate" } },
+            { "Categories", new[] { "Read", "Create", "Update" } },
+            { "Tags", new[] { "Read", "Create", "Update" } },
+            { "Users", new[] { "Read", "Update" } }
+        };
+
+        if (allowedPermissions.TryGetValue(resource, out var actions))
+        {
+            return actions.Contains(action, StringComparer.OrdinalIgnoreCase);
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// 检查作者权限
+    /// </summary>
+    private async Task<bool> CheckAuthorPermissionAsync(string resource, string action)
+    {
+        var allowedPermissions = new Dictionary<string, string[]>
+        {
+            { "Posts", new[] { "Create", "Read", "Update", "Delete" } },
+            { "Comments", new[] { "Read", "Update", "Delete", "Moderate" } },
+            { "Categories", new[] { "Read" } },
+            { "Tags", new[] { "Read", "Create" } },
+            { "Users", new[] { "Read" } }
+        };
+
+        if (allowedPermissions.TryGetValue(resource, out var actions))
+        {
+            return actions.Contains(action, StringComparer.OrdinalIgnoreCase);
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// 检查普通用户权限
+    /// </summary>
+    private async Task<bool> CheckUserPermissionAsync(string resource, string action)
+    {
+        var allowedPermissions = new Dictionary<string, string[]>
+        {
+            { "Posts", new[] { "Read" } },
+            { "Comments", new[] { "Create", "Read", "Update", "Delete" } },
+            { "Categories", new[] { "Read" } },
+            { "Tags", new[] { "Read" } },
+            { "Users", new[] { "Read" } }
+        };
+
+        if (allowedPermissions.TryGetValue(resource, out var actions))
+        {
+            return actions.Contains(action, StringComparer.OrdinalIgnoreCase);
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// 评估实体访问权限
+    /// </summary>
+    private async Task<bool> EvaluateEntityAccessAsync<T>(Guid userId, T entity, DataOperation operation, IEnumerable<DataPermissionRule> rules, DataPermissionScopeClass scope) where T : BaseEntity
+    {
+        try
+        {
+            // 检查是否是实体所有者
+            if (entity.CreatedBy == userId)
+            {
+                return scope.CanAccessOwnData;
+            }
+
+            // 检查特定规则
+            var applicableRules = rules.Where(r => r.Matches(typeof(T).Name, operation, entity.Id));
+
+            foreach (var rule in applicableRules.OrderByDescending(r => r.Priority))
+            {
+                if (!string.IsNullOrEmpty(rule.Conditions))
+                {
+                    var conditionResult = await EvaluateConditionsAsync(rule.Conditions, userId, entity.Id);
+                    if (conditionResult)
+                    {
+                        return rule.IsAllowed;
+                    }
+                }
+                else
+                {
+                    return rule.IsAllowed;
+                }
+            }
+
+            // 使用默认权限
+            return await CheckBasicRolePermissionAsync(scope.UserRole, typeof(T).Name, operation, entity.Id);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error evaluating entity access for user {UserId}, entity {EntityId}", userId, entity.Id);
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// 评估条件表达式（兼容权限规则引擎）
+    /// </summary>
+    public async Task<bool> EvaluateConditionsAsync(string conditions, Guid userId, Guid resourceId)
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(conditions))
+            {
+                return true;
+            }
+
+            var conditionDict = JsonSerializer.Deserialize<Dictionary<string, object>>(conditions);
+            if (conditionDict == null)
+            {
+                return true;
+            }
+
+            // 替换变量
+            var processedConditions = new Dictionary<string, object>();
+            foreach (var kvp in conditionDict)
+            {
+                var value = kvp.Value?.ToString();
+                if (value == "{UserId}")
+                {
+                    processedConditions[kvp.Key] = userId;
+                }
+                else if (value == "{ResourceId}")
+                {
+                    processedConditions[kvp.Key] = resourceId;
+                }
+                else
+                {
+                    processedConditions[kvp.Key] = kvp.Value;
+                }
+            }
+
+            return await EvaluateSimpleConditionsAsync(processedConditions, userId, resourceId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error evaluating conditions: {Conditions}", conditions);
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// 简化的条件评估
+    /// </summary>
+    private async Task<bool> EvaluateSimpleConditionsAsync(Dictionary<string, object> conditions, Guid userId, Guid resourceId)
+    {
+        try
+        {
+            // 检查用户相关条件
+            if (conditions.ContainsKey("CreatedBy"))
+            {
+                var createdBy = conditions["CreatedBy"];
+                if (createdBy is Guid createdById && createdById != userId)
+                {
+                    return false;
+                }
+            }
+
+            // 检查时间相关条件
+            if (conditions.ContainsKey("StartDate") || conditions.ContainsKey("EndDate"))
+            {
+                var now = DateTime.UtcNow;
+
+                if (conditions.ContainsKey("StartDate") &&
+                    DateTime.TryParse(conditions["StartDate"]?.ToString(), out var startDate) &&
+                    now < startDate)
+                {
+                    return false;
+                }
+
+                if (conditions.ContainsKey("EndDate") &&
+                    DateTime.TryParse(conditions["EndDate"]?.ToString(), out var endDate) &&
+                    now > endDate)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error in simple condition evaluation");
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// 获取实体ID
+    /// </summary>
+    private Guid GetEntityId<T>(T entity) where T : class
+    {
+        if (entity is BaseEntity baseEntity)
+        {
+            return baseEntity.Id;
+        }
+
+        var idProperty = typeof(T).GetProperty("Id");
+        if (idProperty != null && idProperty.PropertyType == typeof(Guid))
+        {
+            return (Guid)idProperty.GetValue(entity);
+        }
+
+        return Guid.Empty;
+    }
+
+    /// <summary>
+    /// 更新统计信息
+    /// </summary>
+    private void UpdateStatistics(double elapsedMilliseconds)
+    {
+        if (_statistics.TotalPermissionChecks == 1)
+        {
+            _statistics.MinCheckTime = elapsedMilliseconds;
+            _statistics.MaxCheckTime = elapsedMilliseconds;
+            _statistics.AverageCheckTime = elapsedMilliseconds;
+        }
+        else
+        {
+            _statistics.MinCheckTime = Math.Min(_statistics.MinCheckTime, elapsedMilliseconds);
+            _statistics.MaxCheckTime = Math.Max(_statistics.MaxCheckTime, elapsedMilliseconds);
+            _statistics.AverageCheckTime = (_statistics.AverageCheckTime * (_statistics.TotalPermissionChecks - 1) + elapsedMilliseconds) / _statistics.TotalPermissionChecks;
+        }
+    }
+
+    // 数据过滤方法（从原始DataPermissionService复制）
+    private IQueryable<Post> ApplyPostDataFilter(IQueryable<Post> query, Guid currentUserId, UserRoleEnum userRole)
+    {
+        if (userRole.HasRole(UserRoleEnum.Admin))
+            return query;
+
+        if (userRole.HasRole(UserRoleEnum.Author))
+            return query.Where(p => p.IsPublished || p.CreatedBy == currentUserId);
+
+        return query.Where(p => p.IsPublished);
+    }
+
+    private IQueryable<Comment> ApplyCommentDataFilter(IQueryable<Comment> query, Guid currentUserId, UserRoleEnum userRole)
+    {
+        if (userRole.HasRole(UserRoleEnum.Admin))
+            return query;
+
+        if (userRole.HasRole(UserRoleEnum.Author) || userRole.HasRole(UserRoleEnum.Moderator))
+            return query.Where(c => c.Post.CreatedBy == currentUserId || c.CreatedBy == currentUserId);
+
+        return query.Where(c => c.IsApproved || c.CreatedBy == currentUserId);
+    }
+
+    private IQueryable<User> ApplyUserDataFilter(IQueryable<User> query, Guid currentUserId, UserRoleEnum userRole)
+    {
+        if (userRole.HasRole(UserRoleEnum.Admin))
+            return query;
+
+        if (userRole.HasRole(UserRoleEnum.Author) || userRole.HasRole(UserRoleEnum.Moderator))
+            return query.Where(u => u.IsActive || u.Id == currentUserId);
+
+        return query.Where(u => u.Id == currentUserId);
+    }
+
+    private IQueryable<Category> ApplyCategoryDataFilter(IQueryable<Category> query, Guid currentUserId, UserRoleEnum userRole)
+    {
+        if (userRole.HasRole(UserRoleEnum.Admin))
+            return query;
+
+        return query.Where(c => c.IsActive);
+    }
+
+    /// <summary>
+    /// 创建所有权过滤表达式
+    /// </summary>
+    private Expression<Func<T, bool>> CreateOwnershipFilter<T>(Guid userId) where T : BaseEntity
+    {
+        var parameter = Expression.Parameter(typeof(T), "x");
+        var property = Expression.Property(parameter, nameof(BaseEntity.CreatedBy));
+        var userIdConstant = Expression.Constant(userId);
+        var equality = Expression.Equal(property, userIdConstant);
+        return Expression.Lambda<Func<T, bool>>(equality, parameter);
+    }
+
+    /// <summary>
+    /// 检查实体是否有CreatedBy属性
+    /// </summary>
+    private bool HasCreatedByProperty<T>()
+    {
+        return typeof(T).GetProperty(nameof(BaseEntity.CreatedBy)) != null;
+    }
+
+    /// <summary>
+    /// 对用户数据进行脱敏
+    /// </summary>
+    private User MaskUserData(User user, UserRoleEnum viewerRole)
+    {
+        var maskedUser = new User
+        {
+            Id = user.Id,
+            UserName = user.UserName,
+            DisplayName = user.DisplayName,
+            IsActive = user.IsActive,
+            CreatedAt = user.CreatedAt,
+        };
+
+        switch (viewerRole)
+        {
+            case UserRoleEnum.Author:
+            case UserRoleEnum.Moderator:
+                maskedUser.Email = user.Email;
+                maskedUser.Role = user.Role;
+                maskedUser.LastLoginAt = user.LastLoginAt;
+                break;
+
+            case UserRoleEnum.User:
+            default:
+                if (!string.IsNullOrEmpty(user.Email?.Value))
+                {
+                    maskedUser.Email = MaskEmail(user.Email.Value);
+                }
+                break;
+        }
+
+        return maskedUser;
+    }
+
+    /// <summary>
+    /// 邮箱脱敏
+    /// </summary>
+    private Domain.ValueObjects.Email MaskEmail(string email)
+    {
+        if (string.IsNullOrEmpty(email) || !email.Contains('@'))
+        {
+            return Domain.ValueObjects.Email.Create("***@***.***");
+        }
+
+        var parts = email.Split('@');
+        var localPart = parts[0];
+        var domainPart = parts[1];
+
+        if (localPart.Length <= 3)
+        {
+            localPart = new string('*', localPart.Length);
+        }
+        else
+        {
+            localPart = localPart.Substring(0, 2) + new string('*', localPart.Length - 3) + localPart.Substring(localPart.Length - 1);
+        }
+
+        return Domain.ValueObjects.Email.Create($"{localPart}@{domainPart}");
+    }
+}

@@ -1,0 +1,559 @@
+// @ts-nocheck
+/**
+ * 评论实时通信服务 (SignalR WebSocket)
+ * 处理评论相关的实时事件和通知
+ */
+
+import * as signalR from '@microsoft/signalr';
+import type { CommentSocketEvents, TypingUser, CommentNotification } from '../types/comment';
+import { getAuthToken } from '../utils/auth';
+
+export class CommentSocketService {
+  private connection: signalR.HubConnection | null = null;
+  private reconnectAttempts = 0;
+  private maxReconnectAttempts = 10;
+  private reconnectDelay = 1000; // 初始延迟1秒
+  private eventListeners = new Map<string, Set<Function>>();
+  private isConnecting = false;
+  private currentPostId: string | null = null;
+  private typingTimeouts = new Map<string, NodeJS.Timeout>();
+
+  /**
+   * 初始化WebSocket连接
+   */
+  async connect(): Promise<void> {
+    if (this.connection?.state === signalR.HubConnectionState.Connected || this.isConnecting) {
+      return;
+    }
+
+    this.isConnecting = true;
+
+    try {
+      // 创建连接
+      this.connection = new signalR.HubConnectionBuilder()
+        .withUrl('/hubs/comment', {
+          accessTokenFactory: () => getAuthToken() || '',
+          transport: signalR.HttpTransportType.WebSockets | signalR.HttpTransportType.LongPolling
+        })
+        .withAutomaticReconnect({
+          nextRetryDelayInMilliseconds: (retryContext) => {
+            // 指数退避策略
+            const delay = Math.min(1000 * Math.pow(2, retryContext.previousRetryCount), 30000);
+            console.log(`Reconnecting to CommentHub in ${delay}ms... (attempt ${retryContext.previousRetryCount + 1})`);
+            return delay;
+          }
+        })
+        .configureLogging(signalR.LogLevel.Information)
+        .build();
+
+      // 绑定事件处理器
+      this.bindEventHandlers();
+
+      // 启动连接
+      await this.connection.start();
+
+      console.log('CommentHub connected successfully');
+      this.reconnectAttempts = 0;
+
+      // 如果有当前文章ID，自动加入文章组
+      if (this.currentPostId) {
+        await this.joinPostGroup(this.currentPostId);
+      }
+
+    } catch (error) {
+      console.error('Failed to connect to CommentHub:', error);
+      this.scheduleReconnect();
+    } finally {
+      this.isConnecting = false;
+    }
+  }
+
+  /**
+   * 断开连接
+   */
+  async disconnect(): Promise<void> {
+    if (this.connection) {
+      try {
+        await this.connection.stop();
+        console.log('CommentHub disconnected');
+      } catch (error) {
+        console.error('Error disconnecting from CommentHub:', error);
+      }
+      this.connection = null;
+    }
+    this.eventListeners.clear();
+    this.typingTimeouts.forEach(timeout => clearTimeout(timeout));
+    this.typingTimeouts.clear();
+  }
+
+  /**
+   * 绑定所有事件处理器
+   */
+  private bindEventHandlers(): void {
+    if (!this.connection) return;
+
+    // 评论CRUD事件
+    this.connection.on('CommentCreated', (comment) => {
+      this.emit('CommentCreated', comment);
+    });
+
+    this.connection.on('CommentUpdated', (comment) => {
+      this.emit('CommentUpdated', comment);
+    });
+
+    this.connection.on('CommentDeleted', (data) => {
+      this.emit('CommentDeleted', data);
+    });
+
+    // 评论互动事件
+    this.connection.on('CommentLiked', (data) => {
+      this.emit('CommentLiked', data);
+    });
+
+    this.connection.on('CommentUnliked', (data) => {
+      this.emit('CommentUnliked', data);
+    });
+
+    // 审核事件
+    this.connection.on('CommentApproved', (data) => {
+      this.emit('CommentApproved', data);
+    });
+
+    this.connection.on('CommentRejected', (data) => {
+      this.emit('CommentRejected', data);
+    });
+
+    this.connection.on('CommentHidden', (data) => {
+      this.emit('CommentHidden', data);
+    });
+
+    this.connection.on('CommentRestored', (data) => {
+      this.emit('CommentRestored', data);
+    });
+
+    this.connection.on('CommentMarkedAsSpam', (data) => {
+      this.emit('CommentMarkedAsSpam', data);
+    });
+
+    // 输入状态事件
+    this.connection.on('UserStartedTyping', (data) => {
+      this.emit('UserStartedTyping', data);
+      this.handleTypingStart(data);
+    });
+
+    this.connection.on('UserStoppedTyping', (data) => {
+      this.emit('UserStoppedTyping', data);
+      this.handleTypingStop(data);
+    });
+
+    // 统计和状态事件
+    this.connection.on('CommentStats', (stats) => {
+      this.emit('CommentStats', stats);
+    });
+
+    this.connection.on('OnlineUserCount', (data) => {
+      this.emit('OnlineUserCount', data);
+    });
+
+    // 通知事件
+    this.connection.on('NewNotification', (notification) => {
+      this.emit('NewNotification', notification);
+    });
+
+    this.connection.on('UnreadNotificationCount', (count) => {
+      this.emit('UnreadNotificationCount', count);
+    });
+
+    this.connection.on('RecentNotifications', (notifications) => {
+      this.emit('RecentNotifications', notifications);
+    });
+
+    this.connection.on('NotificationMarkedAsRead', (notificationId) => {
+      this.emit('NotificationMarkedAsRead', notificationId);
+    });
+
+    // 管理员事件
+    this.connection.on('ModerationStats', (stats) => {
+      this.emit('ModerationStats', stats);
+    });
+
+    this.connection.on('CommentsModerated', (data) => {
+      this.emit('CommentsModerated', data);
+    });
+
+    // 系统事件
+    this.connection.on('Error', (message) => {
+      console.error('CommentHub error:', message);
+      this.emit('Error', message);
+    });
+
+    this.connection.on('JoinedPostGroup', (postId) => {
+      console.log(`Joined post group: ${postId}`);
+      this.emit('JoinedPostGroup', postId);
+    });
+
+    this.connection.on('LeftPostGroup', (postId) => {
+      console.log(`Left post group: ${postId}`);
+      this.emit('LeftPostGroup', postId);
+    });
+
+    this.connection.on('JoinedModerationGroup', () => {
+      console.log('Joined moderation group');
+      this.emit('JoinedModerationGroup');
+    });
+
+    this.connection.on('LeftModerationGroup', () => {
+      console.log('Left moderation group');
+      this.emit('LeftModerationGroup');
+    });
+
+    // 连接状态事件
+    this.connection.onreconnecting(() => {
+      console.log('CommentHub reconnecting...');
+    });
+
+    this.connection.onreconnected(() => {
+      console.log('CommentHub reconnected');
+      // 重新加入文章组
+      if (this.currentPostId) {
+        this.joinPostGroup(this.currentPostId);
+      }
+    });
+
+    this.connection.onclose(() => {
+      console.log('CommentHub connection closed');
+      this.scheduleReconnect();
+    });
+  }
+
+  /**
+   * 加入文章评论组
+   */
+  async joinPostGroup(postId: string): Promise<boolean> {
+    if (!this.connection || this.connection.state !== signalR.HubConnectionState.Connected) {
+      this.currentPostId = postId;
+      await this.connect();
+      return false;
+    }
+
+    try {
+      const success = await this.connection.invoke('JoinPostGroup', postId);
+      if (success) {
+        this.currentPostId = postId;
+      }
+      return success;
+    } catch (error) {
+      console.error('Error joining post group:', error);
+      return false;
+    }
+  }
+
+  /**
+   * 离开文章评论组
+   */
+  async leavePostGroup(postId: string): Promise<boolean> {
+    if (!this.connection || this.connection.state !== signalR.HubConnectionState.Connected) {
+      return false;
+    }
+
+    try {
+      const success = await this.connection.invoke('LeavePostGroup', postId);
+      if (success && this.currentPostId === postId) {
+        this.currentPostId = null;
+      }
+      return success;
+    } catch (error) {
+      console.error('Error leaving post group:', error);
+      return false;
+    }
+  }
+
+  /**
+   * 通知开始输入
+   */
+  async startTyping(postId: string, parentId?: string): Promise<void> {
+    if (!this.connection || this.connection.state !== signalR.HubConnectionState.Connected) {
+      return;
+    }
+
+    try {
+      await this.connection.invoke('StartTyping', postId, parentId);
+    } catch (error) {
+      console.error('Error sending start typing:', error);
+    }
+  }
+
+  /**
+   * 通知停止输入
+   */
+  async stopTyping(postId: string, parentId?: string): Promise<void> {
+    if (!this.connection || this.connection.state !== signalR.HubConnectionState.Connected) {
+      return;
+    }
+
+    try {
+      await this.connection.invoke('StopTyping', postId, parentId);
+    } catch (error) {
+      console.error('Error sending stop typing:', error);
+    }
+  }
+
+  /**
+   * 获取评论统计
+   */
+  async getCommentStats(postId: string): Promise<void> {
+    if (!this.connection || this.connection.state !== signalR.HubConnectionState.Connected) {
+      return;
+    }
+
+    try {
+      await this.connection.invoke('GetCommentStats', postId);
+    } catch (error) {
+      console.error('Error getting comment stats:', error);
+    }
+  }
+
+  /**
+   * 获取在线用户数
+   */
+  async getOnlineUserCount(postId: string): Promise<void> {
+    if (!this.connection || this.connection.state !== signalR.HubConnectionState.Connected) {
+      return;
+    }
+
+    try {
+      await this.connection.invoke('GetOnlineUserCount', postId);
+    } catch (error) {
+      console.error('Error getting online user count:', error);
+    }
+  }
+
+  /**
+   * 标记通知为已读
+   */
+  async markNotificationAsRead(notificationId: string): Promise<void> {
+    if (!this.connection || this.connection.state !== signalR.HubConnectionState.Connected) {
+      return;
+    }
+
+    try {
+      await this.connection.invoke('MarkNotificationAsRead', notificationId);
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+    }
+  }
+
+  /**
+   * 获取未读通知数量
+   */
+  async getUnreadNotificationCount(): Promise<void> {
+    if (!this.connection || this.connection.state !== signalR.HubConnectionState.Connected) {
+      return;
+    }
+
+    try {
+      await this.connection.invoke('GetUnreadNotificationCount');
+    } catch (error) {
+      console.error('Error getting unread notification count:', error);
+    }
+  }
+
+  /**
+   * 获取最新通知
+   */
+  async getRecentNotifications(limit: number = 10): Promise<void> {
+    if (!this.connection || this.connection.state !== signalR.HubConnectionState.Connected) {
+      return;
+    }
+
+    try {
+      await this.connection.invoke('GetRecentNotifications', limit);
+    } catch (error) {
+      console.error('Error getting recent notifications:', error);
+    }
+  }
+
+  /**
+   * 加入审核组（管理员）
+   */
+  async joinModerationGroup(): Promise<boolean> {
+    if (!this.connection || this.connection.state !== signalR.HubConnectionState.Connected) {
+      return false;
+    }
+
+    try {
+      return await this.connection.invoke('JoinModerationGroup');
+    } catch (error) {
+      console.error('Error joining moderation group:', error);
+      return false;
+    }
+  }
+
+  /**
+   * 离开审核组（管理员）
+   */
+  async leaveModerationGroup(): Promise<boolean> {
+    if (!this.connection || this.connection.state !== signalR.HubConnectionState.Connected) {
+      return false;
+    }
+
+    try {
+      return await this.connection.invoke('LeaveModerationGroup');
+    } catch (error) {
+      console.error('Error leaving moderation group:', error);
+      return false;
+    }
+  }
+
+  /**
+   * 获取审核统计（管理员）
+   */
+  async getModerationStats(): Promise<void> {
+    if (!this.connection || this.connection.state !== signalR.HubConnectionState.Connected) {
+      return;
+    }
+
+    try {
+      await this.connection.invoke('GetModerationStats');
+    } catch (error) {
+      console.error('Error getting moderation stats:', error);
+    }
+  }
+
+  /**
+   * 添加事件监听器
+   */
+  on<K extends keyof CommentSocketEvents>(
+    event: K,
+    listener: CommentSocketEvents[K]
+  ): void {
+    if (!this.eventListeners.has(event)) {
+      this.eventListeners.set(event, new Set());
+    }
+    this.eventListeners.get(event)!.add(listener);
+  }
+
+  /**
+   * 移除事件监听器
+   */
+  off<K extends keyof CommentSocketEvents>(
+    event: K,
+    listener: CommentSocketEvents[K]
+  ): void {
+    const listeners = this.eventListeners.get(event);
+    if (listeners) {
+      listeners.delete(listener);
+      if (listeners.size === 0) {
+        this.eventListeners.delete(event);
+      }
+    }
+  }
+
+  /**
+   * 触发事件
+   */
+  private emit<K extends keyof CommentSocketEvents>(
+    event: K,
+    ...args: Parameters<CommentSocketEvents[K]>
+  ): void {
+    const listeners = this.eventListeners.get(event);
+    if (listeners) {
+      listeners.forEach(listener => {
+        try {
+          (listener as any)(...args);
+        } catch (error) {
+          console.error(`Error in event listener for ${event}:`, error);
+        }
+      });
+    }
+  }
+
+  /**
+   * 处理用户开始输入
+   */
+  private handleTypingStart(data: any): void {
+    const key = `${data.userId}_${data.postId}_${data.parentId || 'root'}`;
+
+    // 清除之前的超时
+    if (this.typingTimeouts.has(key)) {
+      clearTimeout(this.typingTimeouts.get(key)!);
+    }
+
+    // 设置新的超时，10秒后自动停止输入状态
+    const timeout = setTimeout(() => {
+      this.emit('UserStoppedTyping', data);
+      this.typingTimeouts.delete(key);
+    }, 10000);
+
+    this.typingTimeouts.set(key, timeout);
+  }
+
+  /**
+   * 处理用户停止输入
+   */
+  private handleTypingStop(data: any): void {
+    const key = `${data.userId}_${data.postId}_${data.parentId || 'root'}`;
+
+    if (this.typingTimeouts.has(key)) {
+      clearTimeout(this.typingTimeouts.get(key)!);
+      this.typingTimeouts.delete(key);
+    }
+  }
+
+  /**
+   * 调度重连
+   */
+  private scheduleReconnect(): void {
+    if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+      console.error('Max reconnection attempts reached. Giving up.');
+      return;
+    }
+
+    const delay = Math.min(this.reconnectDelay * Math.pow(2, this.reconnectAttempts), 30000);
+
+    setTimeout(() => {
+      this.reconnectAttempts++;
+      this.connect();
+    }, delay);
+  }
+
+  /**
+   * 获取连接状态
+   */
+  get connectionState(): signalR.HubConnectionState {
+    return this.connection?.state || signalR.HubConnectionState.Disconnected;
+  }
+
+  /**
+   * 检查是否已连接
+   */
+  get isConnected(): boolean {
+    return this.connection?.state === signalR.HubConnectionState.Connected;
+  }
+}
+
+// 导出单例实例
+export const commentSocket = new CommentSocketService();
+
+// 导出类型化的事件监听器辅助函数
+export const useCommentSocket = () => {
+  return {
+    connect: () => commentSocket.connect(),
+    disconnect: () => commentSocket.disconnect(),
+    joinPostGroup: (postId: string) => commentSocket.joinPostGroup(postId),
+    leavePostGroup: (postId: string) => commentSocket.leavePostGroup(postId),
+    startTyping: (postId: string, parentId?: string) => commentSocket.startTyping(postId, parentId),
+    stopTyping: (postId: string, parentId?: string) => commentSocket.stopTyping(postId, parentId),
+    markNotificationAsRead: (notificationId: string) => commentSocket.markNotificationAsRead(notificationId),
+    getRecentNotifications: (limit?: number) => commentSocket.getRecentNotifications(limit),
+    getUnreadNotificationCount: () => commentSocket.getUnreadNotificationCount(),
+    on: <K extends keyof CommentSocketEvents>(event: K, listener: CommentSocketEvents[K]) => {
+      commentSocket.on(event, listener);
+    },
+    off: <K extends keyof CommentSocketEvents>(event: K, listener: CommentSocketEvents[K]) => {
+      commentSocket.off(event, listener);
+    },
+    isConnected: commentSocket.isConnected,
+    connectionState: commentSocket.connectionState
+  };
+};

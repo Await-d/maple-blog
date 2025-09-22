@@ -1,0 +1,410 @@
+# Maple Blog Admin Dashboard Production Docker Compose 配置
+# 管理后台生产环境专用配置
+
+services:
+  # Admin Frontend - React 19 管理后台前端
+  admin-frontend:
+    build:
+      context: ./frontend/admin
+      dockerfile: Dockerfile
+      target: production
+      args:
+        - NODE_ENV=production
+        - REACT_APP_API_URL=/admin/api
+        - REACT_APP_ENVIRONMENT=production
+        - REACT_APP_ADMIN_TITLE=Maple Blog Admin
+    container_name: maple-blog-admin-frontend
+    expose:
+      - "80"
+    environment:
+      - REACT_APP_API_URL=/admin/api
+      - REACT_APP_ENVIRONMENT=production
+      - REACT_APP_VERSION=${APP_VERSION:-1.0.0}
+      - REACT_APP_BUILD_DATE=${BUILD_DATE}
+    volumes:
+      - admin_static_files:/usr/share/nginx/html/static
+    networks:
+      - maple-blog-admin-network
+      - maple-blog-network
+    restart: unless-stopped
+    deploy:
+      replicas: 2
+      update_config:
+        parallelism: 1
+        delay: 15s
+        failure_action: rollback
+        monitor: 60s
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+        window: 120s
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 256M
+          cpus: '0.25'
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.admin-frontend.rule=Host(`admin.${DOMAIN_NAME:-localhost}`)"
+      - "traefik.http.routers.admin-frontend.tls=true"
+      - "traefik.http.routers.admin-frontend.tls.certresolver=letsencrypt"
+
+  # Admin Backend - .NET 10 管理后台API
+  admin-backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: production
+      args:
+        - PROJECT_NAME=MapleBlog.Admin
+        - CONFIGURATION=Release
+    container_name: maple-blog-admin-backend
+    expose:
+      - "80"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:80
+      - Database__Provider=${DATABASE_PROVIDER:-PostgreSQL}
+      - Database__ConnectionStrings__PostgreSQL=${POSTGRES_CONNECTION_STRING}
+      - Redis__ConnectionString=redis:6379
+      - Redis__Database=1
+      - JWT__SecretKey=${JWT_SECRET_KEY}
+      - JWT__Issuer=${JWT_ISSUER:-MapleBlog.Admin}
+      - JWT__Audience=${JWT_AUDIENCE:-MapleBlog.Admin.Users}
+      - JWT__ExpirationMinutes=${JWT_EXPIRATION_MINUTES:-60}
+      - JWT__RefreshTokenExpirationDays=${JWT_REFRESH_EXPIRATION_DAYS:-7}
+      - Admin__RequireHttps=${ADMIN_REQUIRE_HTTPS:-true}
+      - Admin__SessionTimeout=${ADMIN_SESSION_TIMEOUT:-30}
+      - Admin__MaxLoginAttempts=${ADMIN_MAX_LOGIN_ATTEMPTS:-5}
+      - Admin__LockoutDurationMinutes=${ADMIN_LOCKOUT_DURATION:-15}
+      - Logging__LogLevel__Default=Information
+      - Logging__LogLevel__Microsoft=Warning
+      - Logging__LogLevel__MapleBlog=Information
+      - Serilog__MinimumLevel=Information
+      - Serilog__WriteTo__0__Name=Console
+      - Serilog__WriteTo__1__Name=File
+      - Serilog__WriteTo__1__Args__path=logs/admin-.log
+      - Serilog__WriteTo__1__Args__rollingInterval=Day
+      - Serilog__WriteTo__1__Args__retainedFileCountLimit=30
+      - Monitoring__Enabled=true
+      - Monitoring__MetricsPath=/metrics
+      - Performance__EnableCaching=true
+      - Performance__CacheExpirationMinutes=${CACHE_EXPIRATION_MINUTES:-10}
+      - Security__RequireStrongPasswords=true
+      - Security__PasswordMinLength=${PASSWORD_MIN_LENGTH:-12}
+      - Security__RequireNonAlphanumeric=true
+      - Security__RequireUppercase=true
+      - Security__RequireLowercase=true
+      - Security__RequireDigit=true
+      - Security__MaxFailedAccessAttempts=3
+      - Security__DefaultLockoutTimeSpan=00:15:00
+      - RateLimiting__Enabled=true
+      - RateLimiting__RequestsPerMinute=${RATE_LIMIT_RPM:-100}
+      - RateLimiting__BurstSize=${RATE_LIMIT_BURST:-20}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - maple-blog-admin-network
+      - maple-blog-network
+    restart: unless-stopped
+    deploy:
+      replicas: 3
+      update_config:
+        parallelism: 1
+        delay: 30s
+        failure_action: rollback
+        monitor: 120s
+      restart_policy:
+        condition: on-failure
+        delay: 15s
+        max_attempts: 3
+        window: 180s
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1'
+        reservations:
+          memory: 512M
+          cpus: '0.5'
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 15s
+      retries: 3
+      start_period: 90s
+    volumes:
+      - admin_logs:/app/logs
+      - admin_uploads:/app/uploads
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.admin-backend.rule=Host(`admin-api.${DOMAIN_NAME:-localhost}`)"
+      - "traefik.http.routers.admin-backend.tls=true"
+      - "traefik.http.routers.admin-backend.tls.certresolver=letsencrypt"
+
+  # Admin Nginx Reverse Proxy
+  admin-nginx:
+    image: nginx:1.25-alpine
+    container_name: maple-blog-admin-nginx
+    ports:
+      - "${ADMIN_HTTP_PORT:-8080}:80"
+      - "${ADMIN_HTTPS_PORT:-8443}:443"
+    volumes:
+      - ./nginx/admin.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+      - admin_static_files:/var/www/admin/static:ro
+      - admin_logs:/var/log/nginx
+      - ./nginx/security.conf:/etc/nginx/security.conf:ro
+      - ./nginx/ssl.conf:/etc/nginx/ssl.conf:ro
+    depends_on:
+      - admin-frontend
+      - admin-backend
+    networks:
+      - maple-blog-admin-network
+    restart: unless-stopped
+    deploy:
+      replicas: 2
+      update_config:
+        parallelism: 1
+        delay: 10s
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 60s
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
+        reservations:
+          memory: 128M
+          cpus: '0.25'
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.admin-nginx.rule=Host(`admin.${DOMAIN_NAME:-localhost}`)"
+      - "traefik.http.routers.admin-nginx.tls=true"
+      - "traefik.http.routers.admin-nginx.tls.certresolver=letsencrypt"
+
+  # Dedicated Redis for Admin (separate from main app)
+  admin-redis:
+    image: redis:7-alpine
+    container_name: maple-blog-admin-redis
+    command: redis-server --appendonly yes --maxmemory 128mb --maxmemory-policy allkeys-lru --requirepass ${REDIS_PASSWORD}
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+    volumes:
+      - admin_redis_data:/data
+      - ./redis/admin-redis.conf:/usr/local/etc/redis/redis.conf:ro
+    networks:
+      - maple-blog-admin-network
+    restart: unless-stopped
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.3'
+        reservations:
+          memory: 128M
+          cpus: '0.1'
+    healthcheck:
+      test: ["CMD", "redis-cli", "--no-auth-warning", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    labels:
+      - "traefik.enable=false"
+
+  # Admin Log Aggregator (Fluent Bit)
+  admin-fluent-bit:
+    image: fluent/fluent-bit:latest
+    container_name: maple-blog-admin-fluent-bit
+    volumes:
+      - ./logging/admin-fluent-bit.conf:/fluent-bit/etc/fluent-bit.conf:ro
+      - admin_logs:/var/log/admin:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+    depends_on:
+      - admin-backend
+      - admin-nginx
+    networks:
+      - maple-blog-admin-network
+      - maple-blog-monitoring-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: '0.2'
+        reservations:
+          memory: 64M
+          cpus: '0.1'
+
+  # Admin Metrics Exporter (Prometheus)
+  admin-metrics-exporter:
+    image: prom/node-exporter:latest
+    container_name: maple-blog-admin-metrics
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.rootfs=/rootfs'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    networks:
+      - maple-blog-admin-network
+      - maple-blog-monitoring-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: '0.2'
+        reservations:
+          memory: 64M
+          cpus: '0.1'
+
+  # Admin Security Scanner (Trivy)
+  admin-security-scanner:
+    image: aquasecurity/trivy:latest
+    container_name: maple-blog-admin-security
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - admin_security_reports:/reports
+    command: ["server", "--listen", "0.0.0.0:4954"]
+    networks:
+      - maple-blog-admin-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 256M
+          cpus: '0.25'
+
+volumes:
+  admin_static_files:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${ADMIN_STATIC_PATH:-./data/admin/static}
+
+  admin_logs:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${ADMIN_LOGS_PATH:-./data/admin/logs}
+
+  admin_uploads:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${ADMIN_UPLOADS_PATH:-./data/admin/uploads}
+
+  admin_redis_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${ADMIN_REDIS_DATA_PATH:-./data/admin/redis}
+
+  admin_security_reports:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${ADMIN_SECURITY_REPORTS_PATH:-./data/admin/security}
+
+networks:
+  maple-blog-admin-network:
+    driver: overlay
+    encrypted: true
+    attachable: true
+    labels:
+      - "network.purpose=admin"
+      - "network.security=high"
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.20.0.0/16
+          gateway: 172.20.0.1
+
+  maple-blog-network:
+    external: true
+
+  maple-blog-monitoring-network:
+    external: true
+
+configs:
+  admin_nginx_config:
+    file: ./nginx/admin.conf
+
+  admin_fluent_bit_config:
+    file: ./logging/admin-fluent-bit.conf
+
+  admin_redis_config:
+    file: ./redis/admin-redis.conf
+
+secrets:
+  admin_jwt_secret:
+    external: true
+
+  admin_redis_password:
+    external: true
+
+  admin_ssl_cert:
+    external: true
+
+  admin_ssl_key:
+    external: true
+
+  admin_postgres_password:
+    external: true
+
+# 扩展配置
+x-common-variables: &common-variables
+  TZ: Asia/Shanghai
+
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+x-security-labels: &security-labels
+  - "security.scan=enabled"
+  - "security.compliance=required"
+  - "security.monitoring=enabled"
+
+# 应用所有服务的通用配置
+x-defaults: &default-settings
+  logging: *default-logging
+  environment: *common-variables
+  labels: *security-labels

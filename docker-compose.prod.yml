@@ -1,8 +1,6 @@
 # Maple Blog Production Docker Compose 配置
 # 生产环境使用
 
-version: '3.8'
-
 services:
   # Nginx 反向代理和负载均衡
   nginx:
@@ -46,7 +44,7 @@ services:
       restart_policy:
         condition: on-failure
 
-  # 后端API - .NET 10 生产版
+  # 后端API - .NET 9 生产版
   backend:
     build:
       context: ./backend

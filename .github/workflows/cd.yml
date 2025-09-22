@@ -1,0 +1,294 @@
+# Continuous Deployment Workflow for Maple Blog
+# 自动化部署到不同环境
+
+name: CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+    tags:
+      - 'v*'
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  # Deploy to Staging
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/develop'
+    environment:
+      name: staging
+      url: https://staging.maple-blog.com
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup kubectl
+      uses: azure/setup-kubectl@v3
+      with:
+        version: 'v1.28.0'
+
+    - name: Configure kubectl
+      run: |
+        mkdir -p ~/.kube
+        echo "${{ secrets.KUBE_CONFIG_STAGING }}" | base64 -d > ~/.kube/config
+
+    - name: Deploy to staging
+      run: |
+        # Update image tags in kustomization
+        cd k8s/overlays/staging
+        kustomize edit set image \
+          ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:develop-${{ github.sha }} \
+          ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend:develop-${{ github.sha }}
+
+        # Apply to cluster
+        kubectl apply -k . --wait --timeout=300s
+
+    - name: Wait for rollout
+      run: |
+        kubectl rollout status deployment/frontend deployment/backend -n maple-blog --timeout=600s
+
+    - name: Run smoke tests
+      run: |
+        # Wait for services to be ready
+        sleep 60
+
+        # Health check
+        curl -f https://staging.maple-blog.com/health || exit 1
+        curl -f https://staging.maple-blog.com/api/health || exit 1
+
+    - name: Notify staging deployment
+      uses: 8398a7/action-slack@v3
+      if: always()
+      with:
+        status: ${{ job.status }}
+        channel: '#deployments'
+        text: |
+          ${{ job.status == 'success' && '🚀' || '❌' }} Staging deployment ${{ job.status }}!
+          Environment: staging.maple-blog.com
+          Commit: ${{ github.sha }}
+        webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+
+  # Deploy to Production
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
+    environment:
+      name: production
+      url: https://maple-blog.com
+    needs: []
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup kubectl
+      uses: azure/setup-kubectl@v3
+      with:
+        version: 'v1.28.0'
+
+    - name: Configure kubectl
+      run: |
+        mkdir -p ~/.kube
+        echo "${{ secrets.KUBE_CONFIG_PRODUCTION }}" | base64 -d > ~/.kube/config
+
+    - name: Pre-deployment backup
+      run: |
+        # Create database backup before deployment
+        kubectl create job backup-pre-deploy-${{ github.run_number }} \
+          --from=cronjob/backup-cronjob -n maple-blog
+
+        # Wait for backup completion
+        kubectl wait --for=condition=complete job/backup-pre-deploy-${{ github.run_number }} \
+          -n maple-blog --timeout=600s
+
+    - name: Deploy to production (Blue-Green)
+      run: |
+        # Create new deployment with green suffix
+        cd k8s/overlays/prod
+
+        # Update image tags
+        kustomize edit set image \
+          ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:main-${{ github.sha }} \
+          ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend:main-${{ github.sha }}
+
+        # Deploy green environment
+        kustomize build . | sed 's/name: /name: green-/' | kubectl apply -f - --wait --timeout=300s
+
+    - name: Wait for green deployment
+      run: |
+        kubectl rollout status deployment/green-frontend deployment/green-backend \
+          -n maple-blog --timeout=600s
+
+    - name: Run health checks on green
+      run: |
+        # Get green service endpoints
+        GREEN_FRONTEND_IP=$(kubectl get svc green-frontend-service -n maple-blog -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+        GREEN_BACKEND_IP=$(kubectl get svc green-backend-service -n maple-blog -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+
+        # Health checks
+        curl -f http://${GREEN_BACKEND_IP}/health || exit 1
+        curl -f http://${GREEN_FRONTEND_IP}/health || exit 1
+
+    - name: Run integration tests against green
+      run: |
+        # Run comprehensive integration tests
+        ./scripts/run-integration-tests.sh green
+
+    - name: Switch traffic to green (Blue-Green Switch)
+      run: |
+        # Update service selectors to point to green deployment
+        kubectl patch service frontend-service -n maple-blog \
+          -p '{"spec":{"selector":{"app":"green-frontend"}}}'
+
+        kubectl patch service backend-service -n maple-blog \
+          -p '{"spec":{"selector":{"app":"green-backend"}}}'
+
+        # Update ingress to point to new services
+        kubectl apply -f k8s/overlays/prod/ingress-green.yaml
+
+    - name: Verify production deployment
+      run: |
+        # Final verification
+        sleep 60
+        curl -f https://maple-blog.com/health || exit 1
+        curl -f https://maple-blog.com/api/health || exit 1
+
+    - name: Cleanup old blue deployment
+      run: |
+        # Remove old blue deployment after successful green deployment
+        kubectl delete deployment frontend backend -n maple-blog --ignore-not-found=true
+
+        # Rename green to blue for next deployment
+        kubectl patch deployment green-frontend -n maple-blog \
+          -p '{"metadata":{"name":"frontend"}}'
+        kubectl patch deployment green-backend -n maple-blog \
+          -p '{"metadata":{"name":"backend"}}'
+
+    - name: Notify production deployment
+      uses: 8398a7/action-slack@v3
+      if: always()
+      with:
+        status: ${{ job.status }}
+        channel: '#deployments'
+        text: |
+          ${{ job.status == 'success' && '🎉' || '🚨' }} Production deployment ${{ job.status }}!
+          Environment: maple-blog.com
+          Version: ${{ github.ref }}
+          Commit: ${{ github.sha }}
+        webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+
+  # Rollback Production (Manual Trigger)
+  rollback-production:
+    name: Rollback Production
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
+    environment:
+      name: production
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup kubectl
+      uses: azure/setup-kubectl@v3
+      with:
+        version: 'v1.28.0'
+
+    - name: Configure kubectl
+      run: |
+        mkdir -p ~/.kube
+        echo "${{ secrets.KUBE_CONFIG_PRODUCTION }}" | base64 -d > ~/.kube/config
+
+    - name: Rollback deployment
+      run: |
+        # Rollback to previous revision
+        kubectl rollout undo deployment/frontend -n maple-blog
+        kubectl rollout undo deployment/backend -n maple-blog
+
+        # Wait for rollback completion
+        kubectl rollout status deployment/frontend deployment/backend -n maple-blog --timeout=600s
+
+    - name: Verify rollback
+      run: |
+        # Health checks after rollback
+        sleep 60
+        curl -f https://maple-blog.com/health || exit 1
+        curl -f https://maple-blog.com/api/health || exit 1
+
+    - name: Notify rollback
+      uses: 8398a7/action-slack@v3
+      if: always()
+      with:
+        status: ${{ job.status }}
+        channel: '#deployments'
+        text: |
+          ${{ job.status == 'success' && '⏪' || '❌' }} Production rollback ${{ job.status }}!
+          Environment: maple-blog.com
+          Triggered by: ${{ github.actor }}
+        webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+
+  # Performance Testing
+  performance-test:
+    name: Performance Testing
+    runs-on: ubuntu-latest
+    needs: [deploy-staging]
+    if: github.ref == 'refs/heads/develop'
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Run performance tests
+      run: |
+        # Install k6
+        sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
+        echo "deb https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
+        sudo apt-get update
+        sudo apt-get install k6
+
+        # Run performance tests
+        k6 run --out json=performance-results.json tests/performance/load-test.js
+
+    - name: Upload performance results
+      uses: actions/upload-artifact@v3
+      with:
+        name: performance-results
+        path: performance-results.json
+
+    - name: Analyze performance results
+      run: |
+        # Parse results and check thresholds
+        node scripts/analyze-performance.js performance-results.json
+
+  # Security Testing
+  security-test:
+    name: Security Testing
+    runs-on: ubuntu-latest
+    needs: [deploy-staging]
+    if: github.ref == 'refs/heads/develop'
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Run OWASP ZAP security scan
+      uses: zaproxy/action-full-scan@v0.7.0
+      with:
+        target: 'https://staging.maple-blog.com'
+        rules_file_name: '.zap/rules.tsv'
+        cmd_options: '-a'
+
+    - name: Upload ZAP report
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: zap-report
+        path: report_html.html

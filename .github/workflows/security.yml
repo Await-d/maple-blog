@@ -1,0 +1,370 @@
+# Security Scanning Workflow for Maple Blog
+# 定期安全扫描和漏洞检测
+
+name: Security Scan
+
+on:
+  schedule:
+    - cron: '0 2 * * 1'  # Weekly on Mondays at 2 AM
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  # Dependency Vulnerability Scanning
+  dependency-scan:
+    name: Dependency Vulnerability Scan
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        component: [frontend, backend]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js (Frontend)
+      if: matrix.component == 'frontend'
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+
+    - name: Setup .NET (Backend)
+      if: matrix.component == 'backend'
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '10.0.x'
+
+    - name: Install dependencies (Frontend)
+      if: matrix.component == 'frontend'
+      run: |
+        cd frontend
+        npm audit --audit-level=moderate
+        npm ci
+
+    - name: Install dependencies (Backend)
+      if: matrix.component == 'backend'
+      run: |
+        cd backend
+        dotnet restore
+
+    - name: Run npm audit (Frontend)
+      if: matrix.component == 'frontend'
+      run: |
+        cd frontend
+        npm audit --json > npm-audit-results.json || true
+        npx audit-ci --config audit-ci.json
+
+    - name: Run dotnet list package vulnerabilities (Backend)
+      if: matrix.component == 'backend'
+      run: |
+        cd backend
+        dotnet list package --vulnerable --include-transitive > vulnerability-report.txt
+        if grep -q "has the following vulnerable packages" vulnerability-report.txt; then
+          echo "Vulnerable packages found!"
+          cat vulnerability-report.txt
+          exit 1
+        fi
+
+    - name: Upload vulnerability reports
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: vulnerability-reports-${{ matrix.component }}
+        path: |
+          frontend/npm-audit-results.json
+          backend/vulnerability-report.txt
+
+  # Container Image Scanning
+  container-scan:
+    name: Container Image Security Scan
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        component: [frontend, backend]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Build Docker image
+      run: |
+        docker build -t ${{ matrix.component }}-test ./${{ matrix.component }}
+
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: '${{ matrix.component }}-test'
+        format: 'sarif'
+        output: 'trivy-${{ matrix.component }}.sarif'
+
+    - name: Upload Trivy scan results
+      uses: github/codeql-action/upload-sarif@v2
+      if: always()
+      with:
+        sarif_file: 'trivy-${{ matrix.component }}.sarif'
+
+    - name: Run Snyk Docker security scan
+      uses: snyk/actions/docker@master
+      env:
+        SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+      with:
+        image: '${{ matrix.component }}-test'
+        args: --severity-threshold=high
+      continue-on-error: true
+
+  # Static Code Analysis
+  static-analysis:
+    name: Static Code Analysis
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '10.0.x'
+
+    - name: Install frontend dependencies
+      run: |
+        cd frontend
+        npm ci
+
+    - name: Install backend dependencies
+      run: |
+        cd backend
+        dotnet restore
+
+    - name: Run ESLint security rules (Frontend)
+      run: |
+        cd frontend
+        npx eslint . --ext .js,.jsx,.ts,.tsx --format json --output-file eslint-results.json || true
+
+    - name: Run security-related .NET analyzers (Backend)
+      run: |
+        cd backend
+        dotnet build --configuration Release --verbosity normal \
+          -p:TreatWarningsAsErrors=false \
+          -p:WarningsAsErrors="" \
+          -p:RunAnalyzersDuringBuild=true
+
+    - name: Run Semgrep security scan
+      uses: returntocorp/semgrep-action@v1
+      with:
+        config: >-
+          p/security-audit
+          p/secrets
+          p/owasp-top-ten
+          p/cwe-top-25
+
+    - name: Upload Semgrep results
+      uses: github/codeql-action/upload-sarif@v2
+      if: always()
+      with:
+        sarif_file: semgrep.sarif
+
+  # Secrets Scanning
+  secrets-scan:
+    name: Secrets Scanning
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Run TruffleHog secrets scan
+      uses: trufflesecurity/trufflehog@main
+      with:
+        path: ./
+        base: main
+        head: HEAD
+
+    - name: Run GitLeaks secrets scan
+      uses: gitleaks/gitleaks-action@v2
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Infrastructure Security Scan
+  infrastructure-scan:
+    name: Infrastructure Security Scan
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Run Checkov IaC security scan
+      uses: bridgecrewio/checkov-action@master
+      with:
+        directory: .
+        framework: kubernetes,dockerfile,docker_compose
+        output_format: sarif
+        output_file_path: checkov-results.sarif
+
+    - name: Upload Checkov results
+      uses: github/codeql-action/upload-sarif@v2
+      if: always()
+      with:
+        sarif_file: checkov-results.sarif
+
+    - name: Run kube-score security analysis
+      run: |
+        # Install kube-score
+        curl -L https://github.com/zegl/kube-score/releases/latest/download/kube-score_linux_amd64.tar.gz | tar xz
+        chmod +x kube-score
+
+        # Analyze Kubernetes manifests
+        find k8s -name "*.yaml" -exec ./kube-score score {} \; > kube-score-results.txt || true
+
+    - name: Upload kube-score results
+      uses: actions/upload-artifact@v3
+      with:
+        name: kube-score-results
+        path: kube-score-results.txt
+
+  # License Compliance Check
+  license-check:
+    name: License Compliance Check
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+
+    - name: Install frontend dependencies
+      run: |
+        cd frontend
+        npm ci
+
+    - name: Check frontend licenses
+      run: |
+        cd frontend
+        npx license-checker --onlyAllow "MIT;Apache-2.0;BSD-2-Clause;BSD-3-Clause;ISC;Unlicense" --json > frontend-licenses.json
+
+    - name: Check backend licenses
+      run: |
+        cd backend
+        dotnet restore
+        # Use dotnet-project-licenses tool to check .NET package licenses
+        dotnet tool install --global dotnet-project-licenses
+        dotnet-project-licenses --input . --output-format json > backend-licenses.json
+
+    - name: Upload license reports
+      uses: actions/upload-artifact@v3
+      with:
+        name: license-reports
+        path: |
+          frontend/frontend-licenses.json
+          backend/backend-licenses.json
+
+  # Security Summary Report
+  security-summary:
+    name: Security Summary Report
+    runs-on: ubuntu-latest
+    needs: [dependency-scan, container-scan, static-analysis, secrets-scan, infrastructure-scan, license-check]
+    if: always()
+
+    steps:
+    - name: Download all artifacts
+      uses: actions/download-artifact@v3
+
+    - name: Generate security summary
+      run: |
+        echo "# Security Scan Summary" > security-summary.md
+        echo "" >> security-summary.md
+        echo "Generated: $(date)" >> security-summary.md
+        echo "" >> security-summary.md
+
+        # Check job statuses
+        echo "## Scan Results" >> security-summary.md
+        echo "" >> security-summary.md
+
+        if [ "${{ needs.dependency-scan.result }}" = "success" ]; then
+          echo "✅ Dependency Scan: Passed" >> security-summary.md
+        else
+          echo "❌ Dependency Scan: Failed" >> security-summary.md
+        fi
+
+        if [ "${{ needs.container-scan.result }}" = "success" ]; then
+          echo "✅ Container Scan: Passed" >> security-summary.md
+        else
+          echo "❌ Container Scan: Failed" >> security-summary.md
+        fi
+
+        if [ "${{ needs.static-analysis.result }}" = "success" ]; then
+          echo "✅ Static Analysis: Passed" >> security-summary.md
+        else
+          echo "❌ Static Analysis: Failed" >> security-summary.md
+        fi
+
+        if [ "${{ needs.secrets-scan.result }}" = "success" ]; then
+          echo "✅ Secrets Scan: Passed" >> security-summary.md
+        else
+          echo "❌ Secrets Scan: Failed" >> security-summary.md
+        fi
+
+        if [ "${{ needs.infrastructure-scan.result }}" = "success" ]; then
+          echo "✅ Infrastructure Scan: Passed" >> security-summary.md
+        else
+          echo "❌ Infrastructure Scan: Failed" >> security-summary.md
+        fi
+
+        if [ "${{ needs.license-check.result }}" = "success" ]; then
+          echo "✅ License Check: Passed" >> security-summary.md
+        else
+          echo "❌ License Check: Failed" >> security-summary.md
+        fi
+
+    - name: Upload security summary
+      uses: actions/upload-artifact@v3
+      with:
+        name: security-summary
+        path: security-summary.md
+
+    - name: Comment PR with security summary
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          const summary = fs.readFileSync('security-summary.md', 'utf8');
+
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: summary
+          });
+
+    - name: Notify security team
+      if: contains(needs.*.result, 'failure')
+      uses: 8398a7/action-slack@v3
+      with:
+        status: failure
+        channel: '#security'
+        text: |
+          🚨 Security scan failures detected!
+          Repository: ${{ github.repository }}
+          Branch: ${{ github.ref }}
+          View results: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        webhook_url: ${{ secrets.SECURITY_SLACK_WEBHOOK }}

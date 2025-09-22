@@ -1,0 +1,256 @@
+/* Maple Blog API文档自定义样式 */
+
+/* 主题色彩 */
+:root {
+    --maple-primary: #d32f2f;
+    --maple-secondary: #f57c00;
+    --maple-accent: #388e3c;
+    --maple-background: #fafafa;
+    --maple-surface: #ffffff;
+    --maple-text: #212121;
+    --maple-text-secondary: #757575;
+}
+
+/* 整体布局 */
+.swagger-ui {
+    font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+}
+
+/* 标题栏自定义 */
+.swagger-ui .topbar {
+    background: linear-gradient(135deg, var(--maple-primary), var(--maple-secondary));
+    border-bottom: 3px solid var(--maple-accent);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.swagger-ui .topbar .download-url-wrapper {
+    display: none;
+}
+
+.swagger-ui .topbar .link {
+    content: url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIwIiBoZWlnaHQ9IjQwIiB2aWV3Qm94PSIwIDAgMTIwIDQwIiBmaWxsPSJub25lIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjx0ZXh0IHg9IjEwIiB5PSIyNSIgZmlsbD0id2hpdGUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxOCIgZm9udC13ZWlnaHQ9ImJvbGQiPk1hcGxlIEJsb2c8L3RleHQ+PC9zdmc+');
+}
+
+/* 信息区域 */
+.swagger-ui .info {
+    margin: 20px 0;
+    padding: 20px;
+    background: var(--maple-surface);
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.swagger-ui .info .title {
+    color: var(--maple-primary);
+    font-size: 36px;
+    font-weight: 300;
+    margin-bottom: 10px;
+}
+
+.swagger-ui .info .description {
+    color: var(--maple-text-secondary);
+    font-size: 16px;
+    line-height: 1.6;
+}
+
+/* 标签分组 */
+.swagger-ui .opblock-tag {
+    background: var(--maple-background);
+    border-radius: 6px;
+    margin-bottom: 10px;
+    border-left: 4px solid var(--maple-primary);
+}
+
+.swagger-ui .opblock-tag-section h3 {
+    color: var(--maple-primary);
+    font-weight: 600;
+    padding: 10px 15px;
+    margin: 0;
+}
+
+/* API操作块 */
+.swagger-ui .opblock {
+    border-radius: 6px;
+    margin-bottom: 10px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    transition: box-shadow 0.2s ease;
+}
+
+.swagger-ui .opblock:hover {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+
+.swagger-ui .opblock.opblock-get .opblock-summary {
+    border-color: var(--maple-accent);
+}
+
+.swagger-ui .opblock.opblock-post .opblock-summary {
+    border-color: var(--maple-secondary);
+}
+
+.swagger-ui .opblock.opblock-put .opblock-summary {
+    border-color: var(--maple-primary);
+}
+
+.swagger-ui .opblock.opblock-delete .opblock-summary {
+    border-color: #d32f2f;
+}
+
+/* 响应码样式 */
+.swagger-ui .responses-inner h4 {
+    color: var(--maple-text);
+    font-weight: 600;
+}
+
+.swagger-ui .response-col_status {
+    font-weight: 600;
+}
+
+/* 模型展示 */
+.swagger-ui .model-box {
+    background: var(--maple-background);
+    border-radius: 6px;
+    border: 1px solid #e0e0e0;
+}
+
+.swagger-ui .model .model-title {
+    color: var(--maple-primary);
+    font-weight: 600;
+}
+
+/* 参数表格 */
+.swagger-ui .parameters thead tr th {
+    background: var(--maple-background);
+    color: var(--maple-text);
+    font-weight: 600;
+}
+
+.swagger-ui .parameter__name {
+    color: var(--maple-primary);
+    font-weight: 600;
+}
+
+/* 执行按钮 */
+.swagger-ui .btn.execute {
+    background: var(--maple-primary);
+    border-color: var(--maple-primary);
+    color: white;
+    font-weight: 600;
+    transition: all 0.2s ease;
+}
+
+.swagger-ui .btn.execute:hover {
+    background: #b71c1c;
+    border-color: #b71c1c;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+/* 清空按钮 */
+.swagger-ui .btn.clear {
+    background: transparent;
+    border-color: var(--maple-text-secondary);
+    color: var(--maple-text-secondary);
+}
+
+.swagger-ui .btn.clear:hover {
+    background: var(--maple-text-secondary);
+    color: white;
+}
+
+/* 认证区域 */
+.swagger-ui .auth-wrapper {
+    background: var(--maple-surface);
+    border-radius: 6px;
+    border: 2px solid var(--maple-primary);
+}
+
+.swagger-ui .auth-container .auth-btn-wrapper {
+    text-align: center;
+    padding: 20px;
+}
+
+.swagger-ui .auth-btn {
+    background: var(--maple-primary);
+    border-color: var(--maple-primary);
+    color: white;
+    font-weight: 600;
+    border-radius: 20px;
+    padding: 10px 30px;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+    .swagger-ui .info .title {
+        font-size: 28px;
+    }
+
+    .swagger-ui .opblock-summary {
+        flex-wrap: wrap;
+    }
+
+    .swagger-ui .opblock-summary-method {
+        margin-right: 5px;
+        margin-bottom: 5px;
+    }
+}
+
+/* 深色模式支持 */
+@media (prefers-color-scheme: dark) {
+    :root {
+        --maple-background: #121212;
+        --maple-surface: #1e1e1e;
+        --maple-text: #ffffff;
+        --maple-text-secondary: #b3b3b3;
+    }
+
+    .swagger-ui {
+        background: var(--maple-background);
+        color: var(--maple-text);
+    }
+
+    .swagger-ui .scheme-container {
+        background: var(--maple-surface);
+    }
+}
+
+/* 加载动画 */
+.swagger-ui .loading-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 200px;
+}
+
+.swagger-ui .loading-container::after {
+    content: '';
+    width: 40px;
+    height: 40px;
+    border: 4px solid var(--maple-background);
+    border-top: 4px solid var(--maple-primary);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* 自定义滚动条 */
+.swagger-ui ::-webkit-scrollbar {
+    width: 8px;
+}
+
+.swagger-ui ::-webkit-scrollbar-track {
+    background: var(--maple-background);
+}
+
+.swagger-ui ::-webkit-scrollbar-thumb {
+    background: var(--maple-text-secondary);
+    border-radius: 4px;
+}
+
+.swagger-ui ::-webkit-scrollbar-thumb:hover {
+    background: var(--maple-primary);
+}

@@ -1,8 +1,6 @@
 # Maple Blog Docker Compose 配置
 # 开发环境使用
 
-version: '3.8'
-
 services:
   # 前端应用 - React 19
   frontend:
@@ -24,7 +22,7 @@ services:
       - maple-blog-network
     restart: unless-stopped
 
-  # 后端API - .NET 10
+  # 后端API - .NET 9
   backend:
     build:
       context: ./backend

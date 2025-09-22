@@ -1,0 +1,312 @@
+# Continuous Integration Workflow for Maple Blog
+# 自动化测试、构建和质量检查
+
+name: CI Pipeline
+
+on:
+  push:
+    branches: [ main, develop, 'feature/**' ]
+  pull_request:
+    branches: [ main, develop ]
+
+env:
+  NODE_VERSION: '20'
+  DOTNET_VERSION: '10.0.x'
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  # Frontend CI Job
+  frontend-ci:
+    name: Frontend CI
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./frontend
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+
+    - name: Cache node modules
+      uses: actions/cache@v3
+      with:
+        path: ~/.npm
+        key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+        restore-keys: |
+          ${{ runner.os }}-node-
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Run type check
+      run: npm run typecheck
+
+    - name: Run linting
+      run: npm run lint
+
+    - name: Run tests
+      run: npm test -- --coverage --watchAll=false
+      env:
+        CI: true
+
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./frontend/coverage/lcov.info
+        flags: frontend
+        name: frontend-coverage
+
+    - name: Build application
+      run: npm run build
+      env:
+        REACT_APP_API_URL: /api
+        REACT_APP_ENVIRONMENT: production
+
+    - name: Archive build artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: frontend-build
+        path: frontend/build/
+        retention-days: 30
+
+  # Backend CI Job
+  backend-ci:
+    name: Backend CI
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./backend
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: maple_blog_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+      redis:
+        image: redis:7
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+
+    - name: Cache .NET packages
+      uses: actions/cache@v3
+      with:
+        path: ~/.nuget/packages
+        key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
+        restore-keys: |
+          ${{ runner.os }}-nuget-
+
+    - name: Restore dependencies
+      run: dotnet restore
+
+    - name: Build solution
+      run: dotnet build --no-restore --configuration Release
+
+    - name: Run unit tests
+      run: dotnet test --no-build --configuration Release --verbosity normal --collect:"XPlat Code Coverage"
+      env:
+        Database__ConnectionStrings__PostgreSQL: "Host=localhost;Database=maple_blog_test;Username=postgres;Password=postgres"
+        Redis__ConnectionString: "localhost:6379"
+
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        file: backend/tests/*/coverage.cobertura.xml
+        flags: backend
+        name: backend-coverage
+
+    - name: Run integration tests
+      run: dotnet test tests/MapleBlog.IntegrationTests --no-build --configuration Release --verbosity normal
+      env:
+        Database__ConnectionStrings__PostgreSQL: "Host=localhost;Database=maple_blog_test;Username=postgres;Password=postgres"
+        Redis__ConnectionString: "localhost:6379"
+
+    - name: Publish application
+      run: dotnet publish src/MapleBlog.API/MapleBlog.API.csproj -c Release -o publish --no-build
+
+    - name: Archive publish artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: backend-publish
+        path: backend/publish/
+        retention-days: 30
+
+  # Security Scan Job
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    needs: [frontend-ci, backend-ci]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'fs'
+        scan-ref: '.'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+
+    - name: Upload Trivy scan results to GitHub Security tab
+      uses: github/codeql-action/upload-sarif@v2
+      if: always()
+      with:
+        sarif_file: 'trivy-results.sarif'
+
+    - name: Run CodeQL Analysis
+      uses: github/codeql-action/analyze@v2
+      with:
+        languages: javascript, csharp
+
+  # Quality Gate Job
+  quality-gate:
+    name: Quality Gate
+    runs-on: ubuntu-latest
+    needs: [frontend-ci, backend-ci, security-scan]
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: SonarCloud Scan
+      uses: SonarSource/sonarcloud-github-action@master
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      with:
+        args: >
+          -Dsonar.projectKey=maple-blog_maple-blog
+          -Dsonar.organization=maple-blog
+          -Dsonar.sources=.
+          -Dsonar.exclusions=**/node_modules/**,**/bin/**,**/obj/**,**/*.spec.ts,**/*.test.tsx
+          -Dsonar.tests=.
+          -Dsonar.test.inclusions=**/*.spec.ts,**/*.test.tsx,**/*Tests.cs
+          -Dsonar.javascript.lcov.reportPaths=frontend/coverage/lcov.info
+          -Dsonar.cs.dotcover.reportsPaths=backend/tests/*/coverage.cobertura.xml
+
+  # Build and Push Docker Images
+  build-images:
+    name: Build Docker Images
+    runs-on: ubuntu-latest
+    needs: [quality-gate]
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
+
+    strategy:
+      matrix:
+        component: [frontend, backend]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Log in to Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.component }}
+        tags: |
+          type=ref,event=branch
+          type=ref,event=pr
+          type=sha,prefix={{branch}}-
+          type=raw,value=latest,enable={{is_default_branch}}
+
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: ./${{ matrix.component }}
+        file: ./${{ matrix.component }}/Dockerfile
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        build-args: |
+          BUILD_DATE=${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.created'] }}
+          VCS_REF=${{ github.sha }}
+          VERSION=${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.version'] }}
+
+  # Notify Success
+  notify-success:
+    name: Notify Success
+    runs-on: ubuntu-latest
+    needs: [build-images]
+    if: always() && needs.build-images.result == 'success'
+
+    steps:
+    - name: Notify Slack Success
+      uses: 8398a7/action-slack@v3
+      with:
+        status: success
+        channel: '#ci-cd'
+        text: |
+          ✅ CI Pipeline completed successfully!
+          Repository: ${{ github.repository }}
+          Branch: ${{ github.ref }}
+          Commit: ${{ github.sha }}
+        webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+
+  # Notify Failure
+  notify-failure:
+    name: Notify Failure
+    runs-on: ubuntu-latest
+    needs: [frontend-ci, backend-ci, security-scan, quality-gate, build-images]
+    if: always() && (contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled'))
+
+    steps:
+    - name: Notify Slack Failure
+      uses: 8398a7/action-slack@v3
+      with:
+        status: failure
+        channel: '#ci-cd'
+        text: |
+          ❌ CI Pipeline failed!
+          Repository: ${{ github.repository }}
+          Branch: ${{ github.ref }}
+          Commit: ${{ github.sha }}
+          Failed Jobs: ${{ join(needs.*.result) }}
+        webhook_url: ${{ secrets.SLACK_WEBHOOK }}

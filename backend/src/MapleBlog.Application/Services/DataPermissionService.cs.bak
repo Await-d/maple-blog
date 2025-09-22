@@ -1,0 +1,536 @@
+using System.Linq.Expressions;
+using Microsoft.Extensions.Logging;
+using MapleBlog.Domain.Entities;
+using MapleBlog.Domain.Enums;
+using MapleBlog.Domain.Interfaces;
+using System.Security.Claims;
+using UserRoleEnum = MapleBlog.Domain.Enums.UserRole;
+
+namespace MapleBlog.Application.Services;
+
+/// <summary>
+/// 数据权限控制服务
+/// 实现基于角色和用户的数据过滤和权限控制
+/// </summary>
+public class DataPermissionService : IDataPermissionService
+{
+    private readonly ILogger<DataPermissionService> _logger;
+    private readonly IUserRepository _userRepository;
+    private readonly IRoleRepository _roleRepository;
+    private readonly IPermissionRepository _permissionRepository;
+
+    public DataPermissionService(
+        ILogger<DataPermissionService> logger,
+        IUserRepository userRepository,
+        IRoleRepository roleRepository,
+        IPermissionRepository permissionRepository)
+    {
+        _logger = logger;
+        _userRepository = userRepository;
+        _roleRepository = roleRepository;
+        _permissionRepository = permissionRepository;
+    }
+
+    /// <summary>
+    /// 应用用户数据权限过滤
+    /// </summary>
+    /// <typeparam name="T">实体类型</typeparam>
+    /// <param name="query">查询</param>
+    /// <param name="currentUserId">当前用户ID</param>
+    /// <param name="userRole">用户角色</param>
+    /// <returns>过滤后的查询</returns>
+    public IQueryable<T> ApplyUserDataFilter<T>(IQueryable<T> query, Guid currentUserId, UserRole userRole) where T : BaseEntity
+    {
+        try
+        {
+            // 管理员可以访问所有数据
+            if (userRole == UserRole.Admin)
+            {
+                _logger.LogDebug("Admin user {UserId} has access to all data of type {EntityType}",
+                    currentUserId, typeof(T).Name);
+                return query;
+            }
+
+            // 根据实体类型应用不同的过滤规则
+            if (typeof(T) == typeof(Post))
+            {
+                return ApplyPostDataFilter(query as IQueryable<Post>, currentUserId, userRole) as IQueryable<T>;
+            }
+
+            if (typeof(T) == typeof(Comment))
+            {
+                return ApplyCommentDataFilter(query as IQueryable<Comment>, currentUserId, userRole) as IQueryable<T>;
+            }
+
+            if (typeof(T) == typeof(User))
+            {
+                return ApplyUserDataFilter(query as IQueryable<User>, currentUserId, userRole) as IQueryable<T>;
+            }
+
+            if (typeof(T) == typeof(Category))
+            {
+                return ApplyCategoryDataFilter(query as IQueryable<Category>, currentUserId, userRole) as IQueryable<T>;
+            }
+
+            // 默认情况：普通用户只能访问自己创建的数据
+            if (HasCreatedByProperty<T>())
+            {
+                return query.Where(CreateOwnershipFilter<T>(currentUserId));
+            }
+
+            _logger.LogWarning("No specific data filter found for entity type {EntityType}, returning empty result",
+                typeof(T).Name);
+            return query.Where(x => false); // 返回空结果作为安全默认值
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error applying data filter for entity type {EntityType} and user {UserId}",
+                typeof(T).Name, currentUserId);
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// 应用文章数据权限过滤
+    /// </summary>
+    private IQueryable<Post> ApplyPostDataFilter(IQueryable<Post> query, Guid currentUserId, UserRole userRole)
+    {
+        switch (userRole)
+        {
+            case UserRole.Admin:
+                return query; // 管理员可以访问所有文章
+
+            case UserRole.Author:
+                // 作者可以访问所有已发布的文章和自己的文章
+                return query.Where(p => p.IsPublished || p.CreatedBy == currentUserId);
+
+            case UserRole.User:
+            default:
+                // 普通用户只能访问已发布的文章
+                return query.Where(p => p.IsPublished);
+        }
+    }
+
+    /// <summary>
+    /// 应用评论数据权限过滤
+    /// </summary>
+    private IQueryable<Comment> ApplyCommentDataFilter(IQueryable<Comment> query, Guid currentUserId, UserRole userRole)
+    {
+        switch (userRole)
+        {
+            case UserRole.Admin:
+                return query; // 管理员可以访问所有评论
+
+            case UserRole.Author:
+                // 作者可以访问自己文章的评论和自己的评论
+                return query.Where(c => c.Post.CreatedBy == currentUserId || c.CreatedBy == currentUserId);
+
+            case UserRole.User:
+            default:
+                // 普通用户可以访问已审核的评论和自己的评论
+                return query.Where(c => c.IsApproved || c.CreatedBy == currentUserId);
+        }
+    }
+
+    /// <summary>
+    /// 应用用户数据权限过滤
+    /// </summary>
+    private IQueryable<User> ApplyUserDataFilter(IQueryable<User> query, Guid currentUserId, UserRole userRole)
+    {
+        switch (userRole)
+        {
+            case UserRole.Admin:
+                return query; // 管理员可以访问所有用户
+
+            case UserRole.Author:
+                // 作者可以访问公开用户信息和自己的信息
+                return query.Where(u => u.IsActive || u.Id == currentUserId);
+
+            case UserRole.User:
+            default:
+                // 普通用户只能访问自己的信息
+                return query.Where(u => u.Id == currentUserId);
+        }
+    }
+
+    /// <summary>
+    /// 应用分类数据权限过滤
+    /// </summary>
+    private IQueryable<Category> ApplyCategoryDataFilter(IQueryable<Category> query, Guid currentUserId, UserRole userRole)
+    {
+        switch (userRole)
+        {
+            case UserRole.Admin:
+                return query; // 管理员可以访问所有分类
+
+            case UserRole.Author:
+            case UserRole.User:
+            default:
+                // 作者和普通用户只能访问激活的分类
+                return query.Where(c => c.IsActive);
+        }
+    }
+
+    /// <summary>
+    /// 检查用户是否有权限访问特定资源
+    /// </summary>
+    /// <param name="userId">用户ID</param>
+    /// <param name="resource">资源名称</param>
+    /// <param name="action">操作名称</param>
+    /// <param name="resourceId">资源ID（可选）</param>
+    /// <returns>是否有权限</returns>
+    public async Task<bool> HasPermissionAsync(Guid userId, string resource, string action, Guid? resourceId = null)
+    {
+        try
+        {
+            var user = await _userRepository.GetByIdAsync(userId);
+            if (user == null || !user.IsActive)
+            {
+                _logger.LogWarning("Permission check failed: User {UserId} not found or inactive", userId);
+                return false;
+            }
+
+            // 管理员拥有所有权限
+            if (user.Role == UserRole.Admin)
+            {
+                _logger.LogDebug("Admin user {UserId} granted permission for {Resource}.{Action}",
+                    userId, resource, action);
+                return true;
+            }
+
+            // 检查是否有资源的所有权
+            if (resourceId.HasValue && await IsResourceOwnerAsync(userId, resource, resourceId.Value))
+            {
+                _logger.LogDebug("Resource owner {UserId} granted permission for {Resource}.{Action}",
+                    userId, resource, action);
+                return true;
+            }
+
+            // 检查角色权限
+            var hasPermission = await CheckRolePermissionAsync(user.Role, resource, action);
+
+            _logger.LogDebug("Permission check for user {UserId}, resource {Resource}, action {Action}: {Result}",
+                userId, resource, action, hasPermission);
+
+            return hasPermission;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error checking permission for user {UserId}, resource {Resource}, action {Action}",
+                userId, resource, action);
+            return false; // 安全默认值
+        }
+    }
+
+    /// <summary>
+    /// 检查角色是否有指定权限
+    /// </summary>
+    private async Task<bool> CheckRolePermissionAsync(UserRole userRole, string resource, string action)
+    {
+        // 基于角色的基本权限检查
+        switch (userRole)
+        {
+            case UserRole.Admin:
+                return true; // 管理员拥有所有权限
+
+            case UserRole.Author:
+                return await CheckAuthorPermissionAsync(resource, action);
+
+            case UserRole.User:
+            default:
+                return await CheckUserPermissionAsync(resource, action);
+        }
+    }
+
+    /// <summary>
+    /// 检查作者权限
+    /// </summary>
+    private async Task<bool> CheckAuthorPermissionAsync(string resource, string action)
+    {
+        // 作者的权限规则
+        var allowedPermissions = new Dictionary<string, string[]>
+        {
+            { "Posts", new[] { "Create", "Read", "Update", "Delete" } },
+            { "Comments", new[] { "Read", "Update", "Delete", "Moderate" } },
+            { "Categories", new[] { "Read" } },
+            { "Tags", new[] { "Read", "Create" } },
+            { "Users", new[] { "Read" } } // 限制为只读其他用户
+        };
+
+        if (allowedPermissions.TryGetValue(resource, out var actions))
+        {
+            return actions.Contains(action, StringComparer.OrdinalIgnoreCase);
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// 检查普通用户权限
+    /// </summary>
+    private async Task<bool> CheckUserPermissionAsync(string resource, string action)
+    {
+        // 普通用户的权限规则
+        var allowedPermissions = new Dictionary<string, string[]>
+        {
+            { "Posts", new[] { "Read" } },
+            { "Comments", new[] { "Create", "Read", "Update", "Delete" } }, // 只能操作自己的评论
+            { "Categories", new[] { "Read" } },
+            { "Tags", new[] { "Read" } },
+            { "Users", new[] { "Read" } } // 只能查看自己的信息
+        };
+
+        if (allowedPermissions.TryGetValue(resource, out var actions))
+        {
+            return actions.Contains(action, StringComparer.OrdinalIgnoreCase);
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// 检查用户是否为资源所有者
+    /// </summary>
+    private async Task<bool> IsResourceOwnerAsync(Guid userId, string resource, Guid resourceId)
+    {
+        try
+        {
+            switch (resource.ToLowerInvariant())
+            {
+                case "posts":
+                    var post = await _userRepository.GetByIdAsync(resourceId);
+                    return post?.CreatedBy == userId;
+
+                case "comments":
+                    // 需要实现评论仓储的获取方法
+                    // var comment = await _commentRepository.GetByIdAsync(resourceId);
+                    // return comment?.CreatedBy == userId;
+                    return false; // 临时返回false，等待评论仓储实现
+
+                case "users":
+                    return resourceId == userId; // 用户只能操作自己的资料
+
+                default:
+                    return false;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error checking resource ownership for user {UserId}, resource {Resource}, resourceId {ResourceId}",
+                userId, resource, resourceId);
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// 应用敏感数据脱敏
+    /// </summary>
+    /// <typeparam name="T">实体类型</typeparam>
+    /// <param name="entity">实体对象</param>
+    /// <param name="userRole">用户角色</param>
+    /// <returns>脱敏后的实体</returns>
+    public T ApplyDataMasking<T>(T entity, UserRole userRole) where T : class
+    {
+        if (entity == null) return entity;
+
+        try
+        {
+            // 管理员不需要脱敏
+            if (userRole == UserRole.Admin)
+            {
+                return entity;
+            }
+
+            // 对User实体进行脱敏
+            if (entity is User user)
+            {
+                return MaskUserData(user, userRole) as T;
+            }
+
+            // 对于其他实体类型，可以在这里添加脱敏逻辑
+            return entity;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error applying data masking for entity type {EntityType}", typeof(T).Name);
+            return entity;
+        }
+    }
+
+    /// <summary>
+    /// 对用户数据进行脱敏
+    /// </summary>
+    private User MaskUserData(User user, UserRole viewerRole)
+    {
+        // 创建副本以避免修改原始数据
+        var maskedUser = new User
+        {
+            Id = user.Id,
+            UserName = user.UserName,
+            DisplayName = user.DisplayName,
+            IsActive = user.IsActive,
+            CreatedAt = user.CreatedAt,
+            // 只显示基本公开信息
+        };
+
+        // 根据查看者角色决定显示哪些信息
+        switch (viewerRole)
+        {
+            case UserRole.Author:
+                // 作者可以看到更多信息
+                maskedUser.Email = user.Email;
+                maskedUser.Role = user.Role;
+                maskedUser.LastLoginAt = user.LastLoginAt;
+                break;
+
+            case UserRole.User:
+            default:
+                // 普通用户只能看到最基本的信息
+                // 邮箱进行部分脱敏
+                if (!string.IsNullOrEmpty(user.Email?.Value))
+                {
+                    maskedUser.Email = MaskEmail(user.Email.Value);
+                }
+                break;
+        }
+
+        return maskedUser;
+    }
+
+    /// <summary>
+    /// 邮箱脱敏
+    /// </summary>
+    private Domain.ValueObjects.Email MaskEmail(string email)
+    {
+        if (string.IsNullOrEmpty(email) || !email.Contains('@'))
+        {
+            return Domain.ValueObjects.Email.Create("***@***.***");
+        }
+
+        var parts = email.Split('@');
+        var localPart = parts[0];
+        var domainPart = parts[1];
+
+        // 保留前2位和后1位字符
+        if (localPart.Length <= 3)
+        {
+            localPart = new string('*', localPart.Length);
+        }
+        else
+        {
+            localPart = localPart.Substring(0, 2) + new string('*', localPart.Length - 3) + localPart.Substring(localPart.Length - 1);
+        }
+
+        return Domain.ValueObjects.Email.Create($"{localPart}@{domainPart}");
+    }
+
+    /// <summary>
+    /// 创建所有权过滤表达式
+    /// </summary>
+    private Expression<Func<T, bool>> CreateOwnershipFilter<T>(Guid userId) where T : BaseEntity
+    {
+        var parameter = Expression.Parameter(typeof(T), "x");
+        var property = Expression.Property(parameter, nameof(BaseEntity.CreatedBy));
+        var userIdConstant = Expression.Constant(userId);
+        var equality = Expression.Equal(property, userIdConstant);
+        return Expression.Lambda<Func<T, bool>>(equality, parameter);
+    }
+
+    /// <summary>
+    /// 检查实体是否有CreatedBy属性
+    /// </summary>
+    private bool HasCreatedByProperty<T>()
+    {
+        return typeof(T).GetProperty(nameof(BaseEntity.CreatedBy)) != null;
+    }
+
+    /// <summary>
+    /// 获取用户的数据权限范围
+    /// </summary>
+    /// <param name="userId">用户ID</param>
+    /// <returns>数据权限范围信息</returns>
+    public async Task<DataPermissionScope> GetUserDataScopeAsync(Guid userId)
+    {
+        try
+        {
+            var user = await _userRepository.GetByIdAsync(userId);
+            if (user == null)
+            {
+                return new DataPermissionScope { HasAccess = false };
+            }
+
+            var scope = new DataPermissionScope
+            {
+                HasAccess = user.IsActive,
+                UserId = userId,
+                UserRole = user.Role,
+                CanAccessAllData = user.Role == UserRole.Admin,
+                CanAccessOwnData = true
+            };
+
+            // 根据角色设置权限范围
+            switch (user.Role)
+            {
+                case UserRole.Admin:
+                    scope.CanAccessAllUsers = true;
+                    scope.CanAccessAllPosts = true;
+                    scope.CanAccessAllComments = true;
+                    scope.CanManageSystem = true;
+                    break;
+
+                case UserRole.Author:
+                    scope.CanAccessPublicUsers = true;
+                    scope.CanAccessAllPosts = true;
+                    scope.CanAccessOwnPosts = true;
+                    scope.CanAccessRelatedComments = true;
+                    break;
+
+                case UserRole.User:
+                default:
+                    scope.CanAccessPublicUsers = false;
+                    scope.CanAccessPublishedPosts = true;
+                    scope.CanAccessOwnComments = true;
+                    break;
+            }
+
+            return scope;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting data scope for user {UserId}", userId);
+            return new DataPermissionScope { HasAccess = false };
+        }
+    }
+}
+
+/// <summary>
+/// 数据权限范围
+/// </summary>
+public class DataPermissionScope
+{
+    public bool HasAccess { get; set; }
+    public Guid UserId { get; set; }
+    public UserRole UserRole { get; set; }
+    public bool CanAccessAllData { get; set; }
+    public bool CanAccessOwnData { get; set; }
+    public bool CanAccessAllUsers { get; set; }
+    public bool CanAccessPublicUsers { get; set; }
+    public bool CanAccessAllPosts { get; set; }
+    public bool CanAccessOwnPosts { get; set; }
+    public bool CanAccessPublishedPosts { get; set; }
+    public bool CanAccessAllComments { get; set; }
+    public bool CanAccessOwnComments { get; set; }
+    public bool CanAccessRelatedComments { get; set; }
+    public bool CanManageSystem { get; set; }
+}
+
+/// <summary>
+/// 数据权限服务接口
+/// </summary>
+public interface IDataPermissionService
+{
+    IQueryable<T> ApplyUserDataFilter<T>(IQueryable<T> query, Guid currentUserId, UserRole userRole) where T : BaseEntity;
+    Task<bool> HasPermissionAsync(Guid userId, string resource, string action, Guid? resourceId = null);
+    T ApplyDataMasking<T>(T entity, UserRole userRole) where T : class;
+    Task<DataPermissionScope> GetUserDataScopeAsync(Guid userId);
+}

@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Maple Blog - 现代化的AI驱动博客系统" />
+    <meta name="keywords" content="博客,React,TypeScript,AI,技术分享" />
+    <meta name="author" content="Maple Blog Team" />
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://maple-blog.com/" />
+    <meta property="og:title" content="Maple Blog" />
+    <meta property="og:description" content="现代化的AI驱动博客系统" />
+    <meta property="og:image" content="/og-image.png" />
+
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image" />
+    <meta property="twitter:url" content="https://maple-blog.com/" />
+    <meta property="twitter:title" content="Maple Blog" />
+    <meta property="twitter:description" content="现代化的AI驱动博客系统" />
+    <meta property="twitter:image" content="/og-image.png" />
+
+    <!-- Preconnect to external domains -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+
+    <!-- Modern CSS reset and base styles -->
+    <style>
+      /* CSS Reset and base styles */
+      *, *::before, *::after {
+        box-sizing: border-box;
+      }
+
+      html {
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        line-height: 1.5;
+        -webkit-text-size-adjust: 100%;
+        -moz-tab-size: 4;
+        tab-size: 4;
+        scroll-behavior: smooth;
+      }
+
+      body {
+        margin: 0;
+        background-color: #ffffff;
+        color: #1f2937;
+        font-feature-settings: 'kern' 1, 'liga' 1;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+      }
+
+      /* Dark mode preference */
+      @media (prefers-color-scheme: dark) {
+        body {
+          background-color: #0f172a;
+          color: #f1f5f9;
+        }
+      }
+
+      /* Loading spinner */
+      .loading-container {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background-color: #ffffff;
+        z-index: 9999;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        .loading-container {
+          background-color: #0f172a;
+        }
+      }
+
+      .loading-spinner {
+        width: 48px;
+        height: 48px;
+        border: 4px solid #e5e7eb;
+        border-top: 4px solid #3b82f6;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        .loading-spinner {
+          border-color: #374151;
+          border-top-color: #60a5fa;
+        }
+      }
+
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+
+      /* Hide loading when app loads */
+      .app-loaded .loading-container {
+        display: none;
+      }
+
+      /* Error boundary styles */
+      .error-boundary {
+        padding: 2rem;
+        text-align: center;
+        background-color: #fef2f2;
+        border: 1px solid #fecaca;
+        border-radius: 8px;
+        margin: 2rem;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        .error-boundary {
+          background-color: #451a1a;
+          border-color: #991b1b;
+        }
+      }
+    </style>
+
+    <title>Maple Blog</title>
+  </head>
+  <body>
+    <!-- Loading indicator -->
+    <div class="loading-container" id="loading">
+      <div class="loading-spinner"></div>
+    </div>
+
+    <!-- React app root -->
+    <div id="root"></div>
+
+    <!-- Fallback for users with JavaScript disabled -->
+    <noscript>
+      <div style="text-align: center; padding: 2rem; font-family: system-ui, sans-serif;">
+        <h1>需要启用JavaScript</h1>
+        <p>此应用程序需要JavaScript才能正常工作。请在浏览器设置中启用JavaScript并刷新页面。</p>
+        <p>This app requires JavaScript to function properly. Please enable JavaScript in your browser settings and refresh the page.</p>
+      </div>
+    </noscript>
+
+    <!-- Main script -->
+    <script type="module" src="/src/main.tsx"></script>
+
+    <!-- Performance and analytics scripts would go here -->
+    <script>
+      // Hide loading spinner when the app starts
+      window.addEventListener('DOMContentLoaded', function() {
+        // Add a small delay to prevent flash
+        setTimeout(function() {
+          document.body.classList.add('app-loaded');
+        }, 100);
+      });
+
+      // Error tracking for critical errors
+      window.addEventListener('error', function(event) {
+        console.error('Global error:', event.error);
+        // Here you would typically send error to analytics service
+      });
+
+      window.addEventListener('unhandledrejection', function(event) {
+        console.error('Unhandled promise rejection:', event.reason);
+        // Here you would typically send error to analytics service
+      });
+    </script>
+  </body>
+</html>

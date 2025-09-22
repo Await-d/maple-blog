@@ -1,0 +1,299 @@
+# Release Workflow for Maple Blog
+# 自动化版本发布和变更日志生成
+
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  # Create Release
+  create-release:
+    name: Create Release
+    runs-on: ubuntu-latest
+
+    outputs:
+      release-id: ${{ steps.create-release.outputs.id }}
+      release-upload-url: ${{ steps.create-release.outputs.upload_url }}
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Generate changelog
+      id: changelog
+      run: |
+        # Get previous tag
+        PREVIOUS_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+        CURRENT_TAG=${GITHUB_REF#refs/tags/}
+
+        # Generate changelog
+        if [ -n "$PREVIOUS_TAG" ]; then
+          CHANGELOG=$(git log --pretty=format:"- %s (%h)" $PREVIOUS_TAG..HEAD)
+        else
+          CHANGELOG=$(git log --pretty=format:"- %s (%h)")
+        fi
+
+        # Format changelog
+        cat > CHANGELOG.md << EOF
+        ## What's Changed
+
+        $CHANGELOG
+
+        **Full Changelog**: https://github.com/${{ github.repository }}/compare/$PREVIOUS_TAG...$CURRENT_TAG
+        EOF
+
+        # Set output
+        echo "changelog<<EOF" >> $GITHUB_OUTPUT
+        cat CHANGELOG.md >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+
+    - name: Create Release
+      id: create-release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref_name }}
+        release_name: Maple Blog ${{ github.ref_name }}
+        body: ${{ steps.changelog.outputs.changelog }}
+        draft: false
+        prerelease: ${{ contains(github.ref, 'beta') || contains(github.ref, 'alpha') }}
+
+  # Build Release Assets
+  build-assets:
+    name: Build Release Assets
+    runs-on: ubuntu-latest
+    needs: [create-release]
+
+    strategy:
+      matrix:
+        component: [frontend, backend]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js (Frontend)
+      if: matrix.component == 'frontend'
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+
+    - name: Setup .NET (Backend)
+      if: matrix.component == 'backend'
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '10.0.x'
+
+    - name: Build Frontend
+      if: matrix.component == 'frontend'
+      run: |
+        cd frontend
+        npm ci
+        npm run build
+        tar -czf ../maple-blog-frontend-${{ github.ref_name }}.tar.gz -C build .
+
+    - name: Build Backend
+      if: matrix.component == 'backend'
+      run: |
+        cd backend
+        dotnet restore
+        dotnet publish src/MapleBlog.API/MapleBlog.API.csproj -c Release -o publish
+        tar -czf ../maple-blog-backend-${{ github.ref_name }}.tar.gz -C publish .
+
+    - name: Upload Release Asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ needs.create-release.outputs.release-upload-url }}
+        asset_path: ./maple-blog-${{ matrix.component }}-${{ github.ref_name }}.tar.gz
+        asset_name: maple-blog-${{ matrix.component }}-${{ github.ref_name }}.tar.gz
+        asset_content_type: application/gzip
+
+  # Build and Push Release Docker Images
+  build-release-images:
+    name: Build Release Docker Images
+    runs-on: ubuntu-latest
+    needs: [create-release]
+
+    strategy:
+      matrix:
+        component: [frontend, backend]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Log in to Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.component }}
+        tags: |
+          type=semver,pattern={{version}}
+          type=semver,pattern={{major}}.{{minor}}
+          type=semver,pattern={{major}}
+          type=raw,value=stable
+
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: ./${{ matrix.component }}
+        file: ./${{ matrix.component }}/Dockerfile
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        build-args: |
+          BUILD_DATE=${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.created'] }}
+          VCS_REF=${{ github.sha }}
+          VERSION=${{ github.ref_name }}
+
+  # Deploy Release to Production
+  deploy-release:
+    name: Deploy Release to Production
+    runs-on: ubuntu-latest
+    needs: [create-release, build-release-images]
+    environment:
+      name: production
+      url: https://maple-blog.com
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup kubectl
+      uses: azure/setup-kubectl@v3
+      with:
+        version: 'v1.28.0'
+
+    - name: Configure kubectl
+      run: |
+        mkdir -p ~/.kube
+        echo "${{ secrets.KUBE_CONFIG_PRODUCTION }}" | base64 -d > ~/.kube/config
+
+    - name: Pre-deployment backup
+      run: |
+        kubectl create job backup-release-${{ github.ref_name }} \
+          --from=cronjob/backup-cronjob -n maple-blog
+        kubectl wait --for=condition=complete job/backup-release-${{ github.ref_name }} \
+          -n maple-blog --timeout=600s
+
+    - name: Deploy release
+      run: |
+        cd k8s/overlays/prod
+        kustomize edit set image \
+          ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:${{ github.ref_name }} \
+          ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend:${{ github.ref_name }}
+        kubectl apply -k . --wait --timeout=600s
+
+    - name: Wait for deployment
+      run: |
+        kubectl rollout status deployment/frontend deployment/backend -n maple-blog --timeout=900s
+
+    - name: Run post-deployment tests
+      run: |
+        sleep 60
+        curl -f https://maple-blog.com/health || exit 1
+        curl -f https://maple-blog.com/api/health || exit 1
+
+    - name: Update release with deployment info
+      run: |
+        gh release edit ${{ github.ref_name }} --notes-file <(
+          echo "## Deployment Information"
+          echo ""
+          echo "- **Environment**: Production"
+          echo "- **Deployed At**: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+          echo "- **Frontend Image**: \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:${{ github.ref_name }}\`"
+          echo "- **Backend Image**: \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend:${{ github.ref_name }}\`"
+          echo ""
+          gh release view ${{ github.ref_name }} --json body -q '.body'
+        )
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Update Documentation
+  update-docs:
+    name: Update Documentation
+    runs-on: ubuntu-latest
+    needs: [deploy-release]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Update version in docs
+      run: |
+        # Update version in README
+        sed -i "s/Version: [0-9.]\+/Version: ${{ github.ref_name }}/g" README.md
+
+        # Update Docker Compose files
+        find . -name "docker-compose*.yml" -exec sed -i "s/:latest/:${{ github.ref_name }}/g" {} \;
+
+    - name: Commit version updates
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add -A
+        git diff --staged --quiet || git commit -m "docs: update version to ${{ github.ref_name }}"
+        git push
+
+  # Notify Release
+  notify-release:
+    name: Notify Release
+    runs-on: ubuntu-latest
+    needs: [create-release, deploy-release, update-docs]
+    if: always()
+
+    steps:
+    - name: Notify Slack
+      uses: 8398a7/action-slack@v3
+      with:
+        status: ${{ contains(needs.*.result, 'failure') && 'failure' || 'success' }}
+        channel: '#releases'
+        text: |
+          ${{ contains(needs.*.result, 'failure') && '❌' || '🎉' }} Release ${{ github.ref_name }} ${{ contains(needs.*.result, 'failure') && 'failed' || 'completed' }}!
+
+          **Repository**: ${{ github.repository }}
+          **Release**: https://github.com/${{ github.repository }}/releases/tag/${{ github.ref_name }}
+          **Production**: https://maple-blog.com
+          **Status**: ${{ contains(needs.*.result, 'failure') && 'Failed' || 'Success' }}
+        webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+
+    - name: Notify Discord
+      uses: sarisia/actions-status-discord@v1
+      if: always()
+      with:
+        webhook: ${{ secrets.DISCORD_WEBHOOK }}
+        title: "Maple Blog Release ${{ github.ref_name }}"
+        description: |
+          Release ${{ github.ref_name }} has been ${{ contains(needs.*.result, 'failure') && 'failed' || 'completed successfully' }}!
+
+          🔗 [View Release](https://github.com/${{ github.repository }}/releases/tag/${{ github.ref_name }})
+          🌐 [Visit Site](https://maple-blog.com)
+        color: ${{ contains(needs.*.result, 'failure') && '0xff0000' || '0x00ff00' }}

@@ -444,3 +444,4 @@ data/*.sqlite3
 
 # Temporary files
 *.tmp
+.spec-workflow/*

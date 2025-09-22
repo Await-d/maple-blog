@@ -1,0 +1,16 @@
+// @ts-nocheck
+import React from 'react';
+import { Card, Typography } from 'antd';
+
+const { Title, Text } = Typography;
+
+const SystemLogs: React.FC = () => {
+  return (
+    <Card className="page-container">
+      <Title level={2}>SystemLogs</Title>
+      <Text type="secondary">SystemLogs页面正在开发中...</Text>
+    </Card>
+  );
+};
+
+export default SystemLogs;

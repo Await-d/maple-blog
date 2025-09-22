@@ -1,0 +1,56 @@
+{
+  "ContentModeration": {
+    "EnableAI": false,
+    "AIEndpoint": "https://api.perspective.googleusercontent.com/v1alpha1/comments:analyze",
+    "AIApiKey": "your-google-perspective-api-key",
+    "SpamThreshold": 0.7,
+    "ToxicityThreshold": 0.8,
+    "HateSpeechThreshold": 0.9,
+    "EnableSensitiveWordFilter": true,
+    "SensitiveWordsFilePath": "Data/sensitive-words.txt"
+  },
+
+  "CommentCache": {
+    "Enabled": true,
+    "DefaultExpirationMinutes": 15,
+    "CommentListExpirationMinutes": 5,
+    "StatsExpirationMinutes": 10,
+    "KeyPrefix": "comment:",
+    "RedisConnectionString": null
+  },
+
+  "Notifications": {
+    "EnableRealtime": true,
+    "EnableEmail": false,
+    "EnableMobilePush": false,
+    "DefaultFrequencyLimitMinutes": 5,
+    "ExpirationDays": 30,
+
+    "Email": {
+      "SmtpServer": "smtp.gmail.com",
+      "SmtpPort": 587,
+      "EnableSsl": true,
+      "Username": "your-email@gmail.com",
+      "Password": "your-app-password",
+      "FromEmail": "your-email@gmail.com",
+      "FromName": "Maple Blog"
+    },
+
+    "MobilePush": {
+      "FirebaseServerKey": "your-firebase-server-key",
+      "FirebaseProjectId": "your-firebase-project-id",
+      "ApnsCertificatePath": null,
+      "ApnsCertificatePassword": null,
+      "IsProduction": false
+    }
+  },
+
+  "Cors": {
+    "AllowedOrigins": [
+      "http://localhost:3000",
+      "https://localhost:3000",
+      "http://127.0.0.1:3000",
+      "https://127.0.0.1:3000"
+    ]
+  }
+}

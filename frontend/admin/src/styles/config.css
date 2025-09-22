@@ -1,0 +1,462 @@
+/* Configuration Management Styles */
+
+.config-form {
+  .ant-form-item-label {
+    padding-bottom: 2px;
+  }
+
+  .ant-form-item-with-help {
+    margin-bottom: 16px;
+  }
+
+  .ant-collapse-content-box {
+    padding: 16px !important;
+  }
+
+  .ant-card-small .ant-card-body {
+    padding: 12px;
+  }
+}
+
+.config-editor {
+  .ant-tabs-content-holder {
+    padding: 0;
+  }
+
+  .monaco-editor {
+    border: 1px solid #d9d9d9;
+    border-radius: 6px;
+  }
+
+  .ant-tree {
+    background: transparent;
+  }
+
+  .config-section-card {
+    margin-bottom: 16px;
+    border: 1px solid #f0f0f0;
+
+    .ant-card-head {
+      min-height: 36px;
+      padding: 0 12px;
+
+      .ant-card-head-title {
+        padding: 8px 0;
+        font-size: 14px;
+        font-weight: 500;
+      }
+    }
+
+    .ant-card-body {
+      padding: 12px;
+    }
+  }
+
+  .config-field-group {
+    border: 1px solid #f0f0f0;
+    border-radius: 4px;
+    padding: 12px;
+    margin-bottom: 12px;
+    background: #fafafa;
+
+    .config-field-group-title {
+      font-weight: 500;
+      margin-bottom: 8px;
+      color: #262626;
+    }
+  }
+
+  .config-field-with-warning {
+    .ant-form-item-label label {
+      color: #ff4d4f;
+    }
+  }
+
+  .config-validation-error {
+    border-color: #ff4d4f;
+
+    &:focus,
+    &:hover {
+      border-color: #ff4d4f;
+      box-shadow: 0 0 0 2px rgba(255, 77, 79, 0.2);
+    }
+  }
+
+  .config-diff-view {
+    .diff-added {
+      background-color: #f6ffed;
+      border-left: 3px solid #52c41a;
+      padding-left: 8px;
+    }
+
+    .diff-removed {
+      background-color: #fff2f0;
+      border-left: 3px solid #ff4d4f;
+      padding-left: 8px;
+    }
+
+    .diff-modified {
+      background-color: #fff7e6;
+      border-left: 3px solid #fa8c16;
+      padding-left: 8px;
+    }
+  }
+
+  .config-template-card {
+    transition: all 0.3s ease;
+    cursor: pointer;
+
+    &:hover {
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      transform: translateY(-2px);
+    }
+
+    .config-template-category {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+    }
+  }
+
+  .config-impact-analysis {
+    .impact-high {
+      color: #ff4d4f;
+    }
+
+    .impact-medium {
+      color: #fa8c16;
+    }
+
+    .impact-low {
+      color: #52c41a;
+    }
+
+    .impact-service-card {
+      border: 1px solid #f0f0f0;
+      border-radius: 4px;
+      padding: 8px;
+      margin: 4px 0;
+
+      &.impact-breaking {
+        border-color: #ff4d4f;
+        background: #fff2f0;
+      }
+
+      &.impact-major {
+        border-color: #fa8c16;
+        background: #fff7e6;
+      }
+
+      &.impact-minor {
+        border-color: #fadb14;
+        background: #feffe6;
+      }
+
+      &.impact-none {
+        border-color: #52c41a;
+        background: #f6ffed;
+      }
+    }
+  }
+
+  .config-history-timeline {
+    .ant-timeline-item-content {
+      .config-version-badge {
+        display: inline-block;
+        margin-right: 8px;
+      }
+
+      .config-change-summary {
+        font-size: 12px;
+        color: #8c8c8c;
+        margin-top: 4px;
+      }
+    }
+  }
+
+  .config-approval-card {
+    border-left: 4px solid #1890ff;
+
+    &.approval-pending {
+      border-left-color: #fa8c16;
+    }
+
+    &.approval-approved {
+      border-left-color: #52c41a;
+    }
+
+    &.approval-rejected {
+      border-left-color: #ff4d4f;
+    }
+
+    &.approval-expired {
+      border-left-color: #8c8c8c;
+    }
+  }
+
+  .config-conflict-resolution {
+    .conflict-option {
+      border: 1px solid #d9d9d9;
+      border-radius: 4px;
+      padding: 12px;
+      margin: 8px 0;
+      cursor: pointer;
+      transition: all 0.3s ease;
+
+      &:hover {
+        border-color: #1890ff;
+        background: #f0f5ff;
+      }
+
+      &.selected {
+        border-color: #1890ff;
+        background: #e6f7ff;
+      }
+
+      .conflict-option-title {
+        font-weight: 500;
+        margin-bottom: 4px;
+      }
+
+      .conflict-option-description {
+        font-size: 12px;
+        color: #8c8c8c;
+      }
+
+      .conflict-option-value {
+        font-family: 'Courier New', monospace;
+        background: #f5f5f5;
+        padding: 4px 8px;
+        border-radius: 2px;
+        margin-top: 8px;
+      }
+    }
+  }
+}
+
+.system-settings {
+  .ant-tabs-card .ant-tabs-tab {
+    border-radius: 6px 6px 0 0;
+  }
+
+  .stats-card {
+    text-align: center;
+
+    .ant-statistic-title {
+      font-size: 12px;
+      color: #8c8c8c;
+    }
+
+    .ant-statistic-content {
+      font-size: 20px;
+      font-weight: 600;
+    }
+  }
+
+  .quick-actions {
+    .ant-btn {
+      margin: 4px;
+    }
+  }
+
+  .recent-changes {
+    .ant-timeline-item:last-child .ant-timeline-item-tail {
+      display: none;
+    }
+  }
+
+  .template-grid {
+    .template-card {
+      height: 100%;
+
+      .ant-card-body {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+      }
+
+      .template-description {
+        flex-grow: 1;
+      }
+
+      .template-actions {
+        margin-top: 12px;
+      }
+    }
+  }
+
+  .security-settings {
+    .security-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 0;
+      border-bottom: 1px solid #f0f0f0;
+
+      &:last-child {
+        border-bottom: none;
+      }
+
+      .security-item-info {
+        .security-item-title {
+          font-weight: 500;
+          margin-bottom: 4px;
+        }
+
+        .security-item-description {
+          font-size: 12px;
+          color: #8c8c8c;
+        }
+      }
+    }
+  }
+}
+
+/* Dark theme support */
+[data-theme='dark'] {
+  .config-editor {
+    .monaco-editor {
+      border-color: #434343;
+    }
+
+    .config-section-card {
+      border-color: #434343;
+      background: #1f1f1f;
+    }
+
+    .config-field-group {
+      border-color: #434343;
+      background: #262626;
+    }
+
+    .config-impact-analysis {
+      .impact-service-card {
+        border-color: #434343;
+
+        &.impact-breaking {
+          border-color: #ff4d4f;
+          background: rgba(255, 77, 79, 0.1);
+        }
+
+        &.impact-major {
+          border-color: #fa8c16;
+          background: rgba(250, 140, 22, 0.1);
+        }
+
+        &.impact-minor {
+          border-color: #fadb14;
+          background: rgba(250, 219, 20, 0.1);
+        }
+
+        &.impact-none {
+          border-color: #52c41a;
+          background: rgba(82, 196, 26, 0.1);
+        }
+      }
+    }
+
+    .config-conflict-resolution {
+      .conflict-option {
+        border-color: #434343;
+        background: #1f1f1f;
+
+        &:hover {
+          border-color: #1890ff;
+          background: rgba(24, 144, 255, 0.1);
+        }
+
+        &.selected {
+          border-color: #1890ff;
+          background: rgba(24, 144, 255, 0.2);
+        }
+
+        .conflict-option-value {
+          background: #262626;
+        }
+      }
+    }
+  }
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .config-editor {
+    .config-actions {
+      .ant-btn {
+        margin: 2px;
+        font-size: 12px;
+      }
+    }
+
+    .monaco-editor {
+      height: 300px !important;
+    }
+  }
+
+  .system-settings {
+    .template-grid {
+      .ant-col {
+        margin-bottom: 16px;
+      }
+    }
+
+    .stats-grid {
+      .ant-col {
+        margin-bottom: 12px;
+      }
+    }
+  }
+}
+
+/* Animation */
+.config-form-fade-enter {
+  opacity: 0;
+  transform: translateY(10px);
+}
+
+.config-form-fade-enter-active {
+  opacity: 1;
+  transform: translateY(0);
+  transition: all 0.3s ease;
+}
+
+.config-form-fade-exit {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.config-form-fade-exit-active {
+  opacity: 0;
+  transform: translateY(-10px);
+  transition: all 0.3s ease;
+}
+
+/* Loading states */
+.config-loading {
+  .ant-spin-container {
+    filter: blur(1px);
+    pointer-events: none;
+  }
+}
+
+/* Validation feedback */
+.config-validation-success {
+  border-color: #52c41a;
+
+  &:focus,
+  &:hover {
+    border-color: #52c41a;
+    box-shadow: 0 0 0 2px rgba(82, 196, 26, 0.2);
+  }
+}
+
+.config-validation-warning {
+  border-color: #fa8c16;
+
+  &:focus,
+  &:hover {
+    border-color: #fa8c16;
+    box-shadow: 0 0 0 2px rgba(250, 140, 22, 0.2);
+  }
+}
