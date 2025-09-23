@@ -1,9 +1,7 @@
-using Elasticsearch.Net;
 using MapleBlog.Domain.Entities;
 using MapleBlog.Domain.Interfaces;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using Nest;
 using System.Diagnostics;
 using System.Linq;
 
