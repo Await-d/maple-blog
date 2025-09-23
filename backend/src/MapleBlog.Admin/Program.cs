@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
-using Swashbuckle.AspNetCore.SwaggerGen;
+// using Swashbuckle.AspNetCore.SwaggerGen; // Removed - using Scalar instead
 using Serilog;
 using MapleBlog.Infrastructure.Data;
 using MapleBlog.Admin.Extensions;

@@ -8,7 +8,7 @@ using MapleBlog.Infrastructure.Filters;
 using Microsoft.Extensions.Configuration;
 // Temporarily disabled due to .NET 10 compatibility issues
 // using Microsoft.OpenApi.Models;
-using Swashbuckle.AspNetCore.SwaggerGen;
+// using Swashbuckle.AspNetCore.SwaggerGen; // Removed - using Scalar instead
 using AutoMapper;
 
 namespace MapleBlog.Admin.Extensions

@@ -2,7 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using MapleBlog.Application.Interfaces;
-using Swashbuckle.AspNetCore.Annotations;
+// using Swashbuckle.AspNetCore.Annotations; // Removed - using Scalar instead
 using System.ComponentModel.DataAnnotations;
 
 namespace MapleBlog.Admin.Controllers
@@ -12,7 +12,7 @@ namespace MapleBlog.Admin.Controllers
     /// </summary>
     [ApiController]
     [Route("api/admin/[controller]")]
-    [SwaggerTag("🧪 API测试", "用于测试管理后台API功能的测试端点")]
+    // [SwaggerTag("🧪 API测试", "用于测试管理后台API功能的测试端点")] // Removed - Swashbuckle attribute
     public class TestController : BaseAdminController
     {
         public TestController(
@@ -30,13 +30,8 @@ namespace MapleBlog.Admin.Controllers
         /// <response code="200">系统正常运行</response>
         [HttpGet("health")]
         [AllowAnonymous]
-        [SwaggerOperation(
-            Summary = "系统健康检查",
-            Description = "检查管理后台API系统的运行状态",
-            OperationId = "TestHealth",
-            Tags = new[] { "🧪 API测试" }
-        )]
-        [SwaggerResponse(200, "系统健康", typeof(HealthResponse))]
+        // [SwaggerOperation] // Removed - Swashbuckle attribute
+        // [SwaggerResponse] // Removed - Swashbuckle attribute
         public IActionResult Health()
         {
             var response = new HealthResponse
@@ -61,14 +56,9 @@ namespace MapleBlog.Admin.Controllers
         /// <response code="200">Echo成功</response>
         /// <response code="400">请求参数错误</response>
         [HttpPost("echo")]
-        [SwaggerOperation(
-            Summary = "Echo测试",
-            Description = "测试API的请求和响应功能",
-            OperationId = "TestEcho",
-            Tags = new[] { "🧪 API测试" }
-        )]
-        [SwaggerResponse(200, "Echo成功", typeof(EchoResponse))]
-        [SwaggerResponse(400, "请求参数错误")]
+        // [SwaggerOperation] // Removed - Swashbuckle attribute
+        // [SwaggerResponse] // Removed - Swashbuckle attribute
+        // [SwaggerResponse] // Removed - Swashbuckle attribute
         public async Task<IActionResult> Echo([FromBody] EchoRequest request)
         {
             try
@@ -108,14 +98,9 @@ namespace MapleBlog.Admin.Controllers
         /// <response code="200">权限检查完成</response>
         /// <response code="403">权限不足</response>
         [HttpGet("permission/{permission}")]
-        [SwaggerOperation(
-            Summary = "权限测试",
-            Description = "测试当前用户是否具有指定权限",
-            OperationId = "TestPermission",
-            Tags = new[] { "🧪 API测试" }
-        )]
-        [SwaggerResponse(200, "权限检查完成", typeof(PermissionTestResponse))]
-        [SwaggerResponse(403, "权限不足")]
+        // [SwaggerOperation] // Removed - Swashbuckle attribute
+        // [SwaggerResponse] // Removed - Swashbuckle attribute
+        // [SwaggerResponse] // Removed - Swashbuckle attribute
         public async Task<IActionResult> TestPermission([Required] string permission)
         {
             try
@@ -156,15 +141,10 @@ namespace MapleBlog.Admin.Controllers
         /// <response code="400">参数错误</response>
         /// <response code="500">服务器错误</response>
         [HttpGet("error/{errorType}")]
-        [SwaggerOperation(
-            Summary = "异常处理测试",
-            Description = "测试不同类型的异常处理",
-            OperationId = "TestError",
-            Tags = new[] { "🧪 API测试" }
-        )]
-        [SwaggerResponse(200, "测试完成")]
-        [SwaggerResponse(400, "参数错误")]
-        [SwaggerResponse(500, "服务器错误")]
+        // [SwaggerOperation] // Removed - Swashbuckle attribute
+        // [SwaggerResponse] // Removed - Swashbuckle attribute
+        // [SwaggerResponse] // Removed - Swashbuckle attribute
+        // [SwaggerResponse] // Removed - Swashbuckle attribute
         public IActionResult TestError([Required] string errorType)
         {
             try
@@ -193,13 +173,8 @@ namespace MapleBlog.Admin.Controllers
         /// <param name="request">批量请求</param>
         /// <returns>批量处理结果</returns>
         [HttpPost("batch")]
-        [SwaggerOperation(
-            Summary = "批量操作测试",
-            Description = "测试批量操作的处理逻辑",
-            OperationId = "TestBatch",
-            Tags = new[] { "🧪 API测试" }
-        )]
-        [SwaggerResponse(200, "批量处理完成", typeof(BatchTestResponse))]
+        // [SwaggerOperation] // Removed - Swashbuckle attribute
+        // [SwaggerResponse] // Removed - Swashbuckle attribute
         public async Task<IActionResult> TestBatch([FromBody] BatchTestRequest request)
         {
             try
