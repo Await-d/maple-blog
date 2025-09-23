@@ -5,7 +5,7 @@
  */
 
 import React from 'react';
-import { Helmet } from 'react-helmet-async';
+import { Helmet } from '@/components/common/DocumentHead';
 
 export const BlogListPage: React.FC = () => {
   return (

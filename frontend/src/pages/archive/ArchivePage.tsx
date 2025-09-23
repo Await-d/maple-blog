@@ -5,7 +5,7 @@
  */
 
 import React from 'react';
-import { Helmet } from 'react-helmet-async';
+import { Helmet } from '@/components/common/DocumentHead';
 import { Archive, Calendar, Tag, Folder } from 'lucide-react';
 
 export const ArchivePage: React.FC = () => {

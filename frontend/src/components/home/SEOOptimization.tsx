@@ -5,7 +5,7 @@
  */
 
 import React, { useEffect as _useEffect } from 'react';
-import { Helmet } from 'react-helmet-async';
+import { Helmet } from '@/components/common/DocumentHead';
 import { generateStructuredData as _generateStructuredData, generateMetaTags, generateOpenGraphTags, generateTwitterCards } from '../../utils/seoHelpers';
 
 // SEO数据接口

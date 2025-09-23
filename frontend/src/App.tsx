@@ -6,7 +6,7 @@
 
 import React, { Suspense, useEffect } from 'react';
 import { Routes, Route, useLocation } from 'react-router-dom';
-import { Helmet } from 'react-helmet-async';
+import { Helmet } from '@/components/common/DocumentHead';
 
 // 应用程序布局和页面组件
 import { ResponsiveLayout } from './components/home/ResponsiveLayout';

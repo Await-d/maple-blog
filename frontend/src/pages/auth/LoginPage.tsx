@@ -6,7 +6,7 @@
 
 import React, { useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Helmet } from 'react-helmet-async';
+import { Helmet } from '@/components/common/DocumentHead';
 import { LoginForm } from '../../features/auth/components/LoginForm';
 import { useAuth } from '../../hooks/useAuth';
 import { cn } from '../../utils/cn';

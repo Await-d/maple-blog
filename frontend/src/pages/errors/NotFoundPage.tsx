@@ -6,7 +6,7 @@
 
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Helmet } from 'react-helmet-async';
+import { Helmet } from '@/components/common/DocumentHead';
 import { Home, ArrowLeft, Search, FileText } from 'lucide-react';
 
 export const NotFoundPage: React.FC = () => {

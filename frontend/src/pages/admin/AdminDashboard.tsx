@@ -5,7 +5,7 @@
  */
 
 import React from 'react';
-import { Helmet } from 'react-helmet-async';
+import { Helmet } from '@/components/common/DocumentHead';
 import { Shield, Users, FileText, BarChart3, Settings } from 'lucide-react';
 
 export const AdminDashboard: React.FC = () => {
