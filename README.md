@@ -1,5 +1,10 @@
 # 🍁 Maple Blog
 
+[![Auto Release](https://github.com/Await-d/maple-blog/actions/workflows/auto-release-pipeline.yml/badge.svg)](https://github.com/Await-d/maple-blog/actions/workflows/auto-release-pipeline.yml)
+[![PR Check](https://github.com/Await-d/maple-blog/actions/workflows/pr-lint-check.yml/badge.svg)](https://github.com/Await-d/maple-blog/actions/workflows/pr-lint-check.yml)
+[![Docker Pulls](https://img.shields.io/docker/pulls/await2719/maple-blog-backend)](https://hub.docker.com/r/await2719/maple-blog-backend)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 一个现代化的AI博客系统，基于React 19和.NET 10构建，支持多数据库扩展。
 
 ## 📋 项目概述
