@@ -9,6 +9,7 @@ using MapleBlog.Domain.Enums;
 using MapleBlog.Domain.Entities;
 using System.ComponentModel.DataAnnotations;
 using AutoMapper;
+using MapleBlog.Admin.DTOs;
 
 namespace MapleBlog.Admin.Controllers
 {
@@ -1144,14 +1145,7 @@ namespace MapleBlog.Admin.Controllers
         public string? Reason { get; set; }
     }
 
-    /// <summary>
-    /// 日期范围DTO
-    /// </summary>
-    public class DateRangeDto
-    {
-        public DateTime StartDate { get; set; }
-        public DateTime EndDate { get; set; }
-    }
+
 
     #endregion
 }

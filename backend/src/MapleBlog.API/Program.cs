@@ -4,12 +4,13 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.AspNetCore.OpenApi;
+using Scalar.AspNetCore;
 using Microsoft.Extensions.Caching.StackExchangeRedis;
-using Swashbuckle.AspNetCore.SwaggerUI;
 using MapleBlog.Application.Services;
 using MapleBlog.Application.Interfaces;
 using MapleBlog.Application.Mappings;
 using MapleBlog.Application.Validators;
+using FluentValidation;
 using MapleBlog.Infrastructure.Data;
 using BlogDbContext = MapleBlog.Infrastructure.Data.BlogDbContext;
 using MapleBlog.Infrastructure.Repositories;
@@ -22,7 +23,6 @@ using MapleBlog.API.Hubs;
 using MapleBlog.API.Extensions;
 using MapleBlog.Infrastructure.Extensions;
 using MapleBlog.Infrastructure.Data.Seeders.Extensions;
-using FluentValidation;
 using Serilog;
 using System.Text;
 using System.Reflection;
@@ -47,8 +47,8 @@ builder.Host.UseSerilog((context, configuration) =>
 // Add services to the container.
 builder.Services.AddControllers();
 
-// Configure OpenAPI and Swagger documentation - .NET 10 native support
-builder.Services.AddSwaggerDocumentation(builder.Configuration);
+// Configure OpenAPI for .NET 10
+builder.Services.AddOpenApi();
 
 // Database Configuration
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
@@ -106,6 +106,7 @@ if (useRedis)
         configuration.ConnectTimeout = 5000;
         configuration.SyncTimeout = 5000;
         configuration.AsyncTimeout = 5000;
+        configuration.AllowAdmin = true; // Enable admin mode for monitoring
 
         return ConnectionMultiplexer.Connect(configuration);
     });
@@ -238,10 +239,23 @@ builder.Services.AddSignalR(options =>
 });
 
 // AutoMapper
-builder.Services.AddAutoMapper(typeof(UserProfile));
+builder.Services.AddAutoMapper(cfg =>
+{
+    cfg.AddProfile<UserProfile>();
+}, typeof(UserProfile).Assembly);
 
 // Validation - Add validators from Application assembly
-builder.Services.AddValidatorsFromAssemblyContaining<MapleBlog.Application.DTOs.UserDto>();
+var validatorTypes = typeof(MapleBlog.Application.DTOs.UserDto).Assembly
+    .GetTypes()
+    .Where(t => t.IsClass && !t.IsAbstract && t.GetInterfaces()
+        .Any(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IValidator<>)));
+
+foreach (var validatorType in validatorTypes)
+{
+    var validatorInterface = validatorType.GetInterfaces()
+        .First(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IValidator<>));
+    builder.Services.AddScoped(validatorInterface, validatorType);
+}
 
 // Application Services
 builder.Services.AddScoped<MapleBlog.Application.Interfaces.IAuthService, MapleBlog.Application.Services.AuthService>();
@@ -357,49 +371,31 @@ var enableMetricsInPipeline = app.Configuration.GetValue<bool>("Metrics:Enabled"
 var enableSwaggerInProduction = app.Configuration.GetValue<bool>("Swagger:EnableInProduction", false);
 var swaggerBasicAuth = app.Configuration.GetValue<bool>("Swagger:RequireAuthentication", true);
 
-if (app.Environment.IsDevelopment() || enableSwaggerInProduction)
+// TODO: Swashbuckle is not compatible with .NET 10 yet
+// if (app.Environment.IsDevelopment() || enableSwaggerInProduction)
+// {
+//     // 在生产环境中启用基本身份验证保护Swagger
+//     // TODO: BasicAuthMiddleware needs to be updated for .NET 10
+//     // if (app.Environment.IsProduction() && swaggerBasicAuth)
+//     // {
+//     //     app.UseMiddleware<BasicAuthMiddleware>();
+//     // }
+//
+// Configure API documentation
+if (!app.Environment.IsProduction() || builder.Configuration.GetValue<bool>("EnableApiDocumentationInProduction", false))
 {
-    // 在生产环境中启用基本身份验证保护Swagger
-    if (app.Environment.IsProduction() && swaggerBasicAuth)
-    {
-        app.UseMiddleware<BasicAuthMiddleware>();
-    }
-
-    // 映射原生OpenAPI端点
+    // Map OpenAPI endpoint
     app.MapOpenApi();
-
-    // 配置Swagger UI指向新的OpenAPI端点
-    app.UseSwaggerUI(options =>
+    
+    // Use Scalar for beautiful API documentation
+    app.MapScalarApiReference(options =>
     {
-        options.SwaggerEndpoint("/openapi/v1.json", "Maple Blog API v1");
-        options.RoutePrefix = "swagger";
-        options.DocumentTitle = "Maple Blog API Documentation";
-
-        // 基本功能
-        options.DisplayRequestDuration();
-        options.EnableTryItOutByDefault();
-        options.EnableDeepLinking();
-        options.EnableFilter();
-
-        // 自定义CSS和JavaScript
-        options.InjectStylesheet("/swagger-ui/custom.css");
-        options.InjectJavascript("/swagger-ui/custom.js");
-
-        // 生产环境警告
-        if (app.Environment.IsProduction())
-        {
-            options.HeadContent = """
-                <style>
-                    .swagger-ui .topbar { background-color: #ff4444; }
-                    .swagger-ui .topbar::after {
-                        content: "生产环境 - 请谨慎操作";
-                        color: white;
-                        font-weight: bold;
-                        margin-left: 20px;
-                    }
-                </style>
-                """;
-        }
+        options
+            .WithTitle("Maple Blog API")
+            .WithTheme(Scalar.AspNetCore.ScalarTheme.Saturn)
+            .WithDarkMode(true)
+            .WithEndpointPrefix("/scalar/{documentName}")
+            .WithOpenApiRoutePattern("/openapi/{documentName}.json");
     });
 }
 

@@ -11,6 +11,8 @@ using System.ComponentModel.DataAnnotations;
 using AutoMapper;
 using System.Security.Cryptography;
 using System.Text.Json;
+using System.Linq.Expressions;
+using MapleBlog.Admin.DTOs;
 
 namespace MapleBlog.Admin.Controllers
 {
@@ -21,8 +23,8 @@ namespace MapleBlog.Admin.Controllers
     [Route("api/admin/[controller]")]
     public class MediaManagementController : BaseAdminController
     {
-        private readonly IFileService _fileService;
-        private readonly IImageProcessingService _imageProcessingService;
+        private readonly Application.Interfaces.IFileService _fileService;
+        private readonly Application.Interfaces.IImageProcessingService _imageProcessingService;
         private readonly IFileRepository _fileRepository;
         private readonly IUserRepository _userRepository;
         private readonly IStorageQuotaService _storageQuotaService;
@@ -35,8 +37,8 @@ namespace MapleBlog.Admin.Controllers
             ILogger<MediaManagementController> logger,
             IPermissionService permissionService,
             IAuditLogService auditLogService,
-            IFileService fileService,
-            IImageProcessingService imageProcessingService,
+            Application.Interfaces.IFileService fileService,
+            Application.Interfaces.IImageProcessingService imageProcessingService,
             IFileRepository fileRepository,
             IUserRepository userRepository,
             IStorageQuotaService storageQuotaService,
@@ -979,7 +981,7 @@ namespace MapleBlog.Admin.Controllers
             };
         }
 
-        private static Expression<Func<File, object>> GetSortExpression(string sortBy)
+        private static Expression<Func<MapleBlog.Domain.Entities.File, object>> GetSortExpression(string sortBy)
         {
             return sortBy.ToLower() switch
             {
@@ -1039,7 +1041,7 @@ namespace MapleBlog.Admin.Controllers
         public string? Directory { get; set; }
         public IEnumerable<string>? ContentTypes { get; set; }
         public IEnumerable<Guid>? UserIds { get; set; }
-        public DateRangeDto? UploadDateRange { get; set; }
+        public Application.DTOs.Admin.DateRangeDto? UploadDateRange { get; set; }
         public long? MinFileSize { get; set; }
         public long? MaxFileSize { get; set; }
         public int PageNumber { get; set; } = 1;

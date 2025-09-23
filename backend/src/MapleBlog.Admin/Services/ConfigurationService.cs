@@ -2,6 +2,7 @@ using MapleBlog.Admin.DTOs;
 using MapleBlog.Domain.Entities;
 using MapleBlog.Domain.Enums;
 using MapleBlog.Domain.Interfaces;
+using MapleBlog.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
@@ -59,7 +60,7 @@ public interface IConfigurationService
     
     // 统计和监控
     Task<ConfigurationStatisticsDto> GetStatisticsAsync();
-    Task<List<ConfigurationChangeActivity>> GetRecentActivityAsync(int days = 7);
+    Task<List<MapleBlog.Admin.DTOs.ConfigurationChangeActivity>> GetRecentActivityAsync(int days = 7);
     
     // 缓存管理
     Task RefreshCacheAsync();
@@ -75,7 +76,7 @@ public interface IConfigurationService
 /// <summary>
 /// 配置管理服务实现
 /// </summary>
-public class ConfigurationService : IConfigurationService
+public partial class ConfigurationService : IConfigurationService
 {
     private readonly IRepository<SystemConfiguration> _configRepository;
     private readonly IRepository<ConfigurationVersion> _versionRepository;
@@ -83,6 +84,7 @@ public class ConfigurationService : IConfigurationService
     private readonly IAuditLogRepository _auditLogRepository;
     private readonly IMemoryCache _cache;
     private readonly ILogger<ConfigurationService> _logger;
+    private readonly BlogDbContext _context;
     
     private const string CACHE_PREFIX = "config:";
     private const int CACHE_DURATION_MINUTES = 30;
@@ -93,12 +95,14 @@ public class ConfigurationService : IConfigurationService
         IRepository<User> userRepository,
         IAuditLogRepository auditLogRepository,
         IMemoryCache cache,
-        ILogger<ConfigurationService> logger)
+        ILogger<ConfigurationService> logger,
+        BlogDbContext context)
     {
         _configRepository = configRepository;
         _versionRepository = versionRepository;
         _userRepository = userRepository;
         _auditLogRepository = auditLogRepository;
+        _context = context;
         _cache = cache;
         _logger = logger;
     }
@@ -529,7 +533,7 @@ public class ConfigurationService : IConfigurationService
 
     private ConfigurationDto MapToDto(SystemConfiguration config)
     {
-        return new ConfigurationDto
+        return new MapleBlog.Admin.DTOs.ConfigurationDto
         {
             Id = config.Id,
             Section = config.Section,
@@ -564,7 +568,7 @@ public class ConfigurationService : IConfigurationService
 
     private ConfigurationVersionDto MapVersionToDto(ConfigurationVersion version)
     {
-        return new ConfigurationVersionDto
+        return new MapleBlog.Admin.DTOs.ConfigurationVersionDto
         {
             Id = version.Id,
             ConfigurationId = version.ConfigurationId,
@@ -720,7 +724,7 @@ public class ConfigurationService : IConfigurationService
 
     public async Task<ConfigurationValidationResultDto> ValidateConfigurationAsync(CreateConfigurationDto configDto)
     {
-        var result = new ConfigurationValidationResultDto
+        var result = new MapleBlog.Admin.DTOs.ConfigurationValidationResultDto
         {
             IsValid = true,
             Errors = new List<string>()
@@ -767,7 +771,7 @@ public class ConfigurationService : IConfigurationService
 
     public async Task<ConfigurationValidationResultDto> ValidateValueAsync(Guid configurationId, string? value)
     {
-        var result = new ConfigurationValidationResultDto
+        var result = new MapleBlog.Admin.DTOs.ConfigurationValidationResultDto
         {
             IsValid = true,
             Errors = new List<string>()
@@ -907,7 +911,7 @@ public class ConfigurationService : IConfigurationService
 
         var configs = await query.ToListAsync();
         
-        var backup = new ConfigurationBackup
+        var backup = new MapleBlog.Admin.DTOs.ConfigurationBackup
         {
             Id = Guid.NewGuid(),
             Name = name,
@@ -995,7 +999,7 @@ public class ConfigurationService : IConfigurationService
 
     public async Task<ConfigurationValidationResultDto> ImportConfigurationsAsync(ConfigurationImportDto importDto, Guid userId)
     {
-        var result = new ConfigurationValidationResultDto
+        var result = new MapleBlog.Admin.DTOs.ConfigurationValidationResultDto
         {
             IsValid = true,
             Errors = new List<string>()
@@ -1042,7 +1046,7 @@ public class ConfigurationService : IConfigurationService
 
     public async Task<ConfigurationStatisticsDto> GetStatisticsAsync()
     {
-        var stats = new ConfigurationStatisticsDto
+        var stats = new MapleBlog.Admin.DTOs.ConfigurationStatisticsDto
         {
             TotalConfigurations = await _context.Configurations.CountAsync(),
             TotalSections = await _context.Configurations.Select(c => c.Section).Distinct().CountAsync(),
@@ -1062,14 +1066,14 @@ public class ConfigurationService : IConfigurationService
         return stats;
     }
 
-    public async Task<List<ConfigurationChangeActivity>> GetRecentActivityAsync(int days = 7)
+    public async Task<List<MapleBlog.Admin.DTOs.ConfigurationChangeActivity>> GetRecentActivityAsync(int days = 7)
     {
         var startDate = DateTime.UtcNow.AddDays(-days);
         
         var activities = await _context.ConfigurationVersions
             .Where(v => v.CreatedAt >= startDate)
             .OrderByDescending(v => v.CreatedAt)
-            .Select(v => new ConfigurationChangeActivity
+            .Select(v => new MapleBlog.Admin.DTOs.ConfigurationChangeActivity
             {
                 Id = v.Id,
                 Action = v.Status.ToString(),
@@ -1163,7 +1167,7 @@ public class ConfigurationService : IConfigurationService
 
     #region Helper Methods
 
-    private string ConvertToYaml(List<Configuration> configs)
+    private string ConvertToYaml(List<MapleBlog.Admin.DTOs.Configuration> configs)
     {
         var sb = new System.Text.StringBuilder();
         var groupedBySection = configs.GroupBy(c => c.Section);
@@ -1180,7 +1184,7 @@ public class ConfigurationService : IConfigurationService
         return sb.ToString();
     }
 
-    private string ConvertToXml(List<Configuration> configs)
+    private string ConvertToXml(List<MapleBlog.Admin.DTOs.Configuration> configs)
     {
         var sb = new System.Text.StringBuilder();
         sb.AppendLine("<?xml version=\"1.0\" encoding=\"utf-8\"?>");

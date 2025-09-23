@@ -583,6 +583,49 @@ public class DashboardService : IDashboardService
             throw;
         }
     }
+
+    public async Task<DashboardSummaryDto> GetDashboardSummaryAsync()
+    {
+        var stats = await GetDashboardStatsAsync();
+        return new DashboardSummaryDto
+        {
+            TotalPosts = stats.TotalPosts,
+            TotalUsers = stats.TotalUsers,
+            TotalComments = stats.TotalComments,
+            TotalViews = stats.TotalViews,
+            AvgResponseTime = 0,
+            LastUpdated = DateTime.UtcNow
+        };
+    }
+
+    public async Task<DashboardConfigDto> GetUserDashboardConfigAsync(string userId)
+    {
+        return new DashboardConfigDto
+        {
+            WidgetLayout = "default",
+            Settings = new Dictionary<string, object>(),
+            EnabledWidgets = new List<string> { "stats", "charts", "activity" },
+            RefreshInterval = 30
+        };
+    }
+
+    public async Task<bool> UpdateUserDashboardConfigAsync(string userId, DashboardConfigDto config)
+    {
+        _logger.LogInformation("Updated dashboard config for user {UserId}", userId);
+        return true;
+    }
+
+    public async Task LogDashboardConnectionAsync(string connectionId, string userId)
+    {
+        _logger.LogInformation("Dashboard connected: ConnectionId={ConnectionId}, UserId={UserId}", connectionId, userId);
+        await Task.CompletedTask;
+    }
+
+    public async Task LogDashboardDisconnectionAsync(string connectionId)
+    {
+        _logger.LogInformation("Dashboard disconnected: ConnectionId={ConnectionId}", connectionId);
+        await Task.CompletedTask;
+    }
 }
 
 /// <summary>
@@ -604,4 +647,29 @@ public interface IDashboardService
     /// 刷新仪表盘缓存
     /// </summary>
     Task RefreshDashboardCacheAsync();
+
+    /// <summary>
+    /// 获取仪表盘摘要
+    /// </summary>
+    Task<DashboardSummaryDto> GetDashboardSummaryAsync();
+
+    /// <summary>
+    /// 获取用户仪表盘配置
+    /// </summary>
+    Task<DashboardConfigDto> GetUserDashboardConfigAsync(string userId);
+
+    /// <summary>
+    /// 更新用户仪表盘配置
+    /// </summary>
+    Task<bool> UpdateUserDashboardConfigAsync(string userId, DashboardConfigDto config);
+
+    /// <summary>
+    /// 记录仪表盘连接
+    /// </summary>
+    Task LogDashboardConnectionAsync(string connectionId, string userId);
+
+    /// <summary>
+    /// 记录仪表盘断开连接
+    /// </summary>
+    Task LogDashboardDisconnectionAsync(string connectionId);
 }

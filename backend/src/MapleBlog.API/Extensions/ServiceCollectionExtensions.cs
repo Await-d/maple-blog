@@ -3,7 +3,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
-using Microsoft.OpenApi.Models;
+// Temporarily disabled due to .NET 10 compatibility issues
+// using Microsoft.OpenApi.Models;
 using System.Reflection;
 using System.Text;
 using MapleBlog.Application.Interfaces;
@@ -253,6 +254,7 @@ namespace MapleBlog.API.Extensions
                 options.OpenApiVersion = Microsoft.OpenApi.OpenApiSpecVersion.OpenApi3_0;
                 options.AddDocumentTransformer((document, context, cancellationToken) =>
                 {
+                    /* Temporarily disabled for .NET 10 compatibility
                     document.Info = new OpenApiInfo
                     {
                         Version = "v1",
@@ -380,6 +382,7 @@ namespace MapleBlog.API.Extensions
                         }
                     }
 
+                    */
                     return Task.CompletedTask;
                 });
             });

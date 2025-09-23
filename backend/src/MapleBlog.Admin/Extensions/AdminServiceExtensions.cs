@@ -6,7 +6,8 @@ using MapleBlog.Application.Interfaces;
 using MapleBlog.Application.Services;
 using MapleBlog.Infrastructure.Filters;
 using Microsoft.Extensions.Configuration;
-using Microsoft.OpenApi.Models;
+// Temporarily disabled due to .NET 10 compatibility issues
+// using Microsoft.OpenApi.Models;
 using Swashbuckle.AspNetCore.SwaggerGen;
 using AutoMapper;
 
@@ -155,6 +156,7 @@ namespace MapleBlog.Admin.Extensions
         {
             services.AddSwaggerGen(c =>
             {
+                /* Temporarily disabled for .NET 10 compatibility
                 c.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo
                 {
                     Title = "Maple Blog Admin API",
@@ -191,6 +193,7 @@ namespace MapleBlog.Admin.Extensions
                         Array.Empty<string>()
                     }
                 });
+                */
 
                 // 包含XML注释
                 var xmlFile = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";

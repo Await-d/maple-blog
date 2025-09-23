@@ -416,7 +416,7 @@ public class ReportService
         bool includeCharts,
         CancellationToken cancellationToken)
     {
-        using var document = new Document(PageSize.A4);
+        using var document = new Document(iTextSharp.text.PageSize.A4);
         using var writer = PdfWriter.GetInstance(document, new FileStream(filePath, FileMode.Create));
 
         document.Open();
@@ -655,7 +655,7 @@ public class ReportService
         {
             var moreCell = new PdfPCell(new Phrase($"... and {details.Count - 50} more rows", cellFont));
             moreCell.Colspan = columns.Count;
-            moreCell.HorizontalAlignment = Element.ALIGN_CENTER;
+            moreCell.HorizontalAlignment = iTextSharp.text.Element.ALIGN_CENTER;
             table.AddCell(moreCell);
         }
 
@@ -772,8 +772,10 @@ public class ReportService
 
         // 导出为PNG
         using var stream = new MemoryStream();
-        var pngExporter = new OxyPlot.WindowsForms.PngExporter { Width = 600, Height = 400 };
-        pngExporter.Export(plotModel, stream);
+        // Chart generation temporarily disabled - missing OxyPlot exporter
+        // TODO: Add OxyPlot.ImageSharp or alternative chart library
+        var stream = new MemoryStream();
+        // pngExporter.Export(plotModel, stream);
         return stream.ToArray();
     }
 
@@ -807,8 +809,10 @@ public class ReportService
 
         // 导出为PNG
         using var stream = new MemoryStream();
-        var pngExporter = new OxyPlot.WindowsForms.PngExporter { Width = 600, Height = 400 };
-        pngExporter.Export(plotModel, stream);
+        // Chart generation temporarily disabled - missing OxyPlot exporter
+        // TODO: Add OxyPlot.ImageSharp or alternative chart library
+        var stream = new MemoryStream();
+        // pngExporter.Export(plotModel, stream);
         return stream.ToArray();
     }
 
@@ -1002,7 +1006,7 @@ public class ReportService
             {
                 EventType = "UserRegistration",
                 Timestamp = u.CreatedAt,
-                Description = $"New user registered: {u.Username}",
+                Description = $"New user registered: {u.UserName}",
                 UserId = u.Id.ToString()
             })
             .ToListAsync(cancellationToken);

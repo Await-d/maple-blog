@@ -1,7 +1,8 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 using MapleBlog.Admin.Services;
-using MapleBlog.Domain.DTOs;
+using MapleBlog.Application.Interfaces;
+using MapleBlog.Admin.DTOs;
 using System;
 using System.Threading.Tasks;
 
@@ -14,12 +15,12 @@ namespace MapleBlog.Admin.Hubs
     public class AdminDashboardHub : Hub
     {
         private readonly ISystemMonitorService _systemMonitorService;
-        private readonly IDashboardService _dashboardService;
+        private readonly Admin.Services.IDashboardService _dashboardService;
         private readonly IAnalyticsService _analyticsService;
 
         public AdminDashboardHub(
             ISystemMonitorService systemMonitorService,
-            IDashboardService dashboardService,
+            Admin.Services.IDashboardService dashboardService,
             IAnalyticsService analyticsService)
         {
             _systemMonitorService = systemMonitorService;
@@ -68,7 +69,7 @@ namespace MapleBlog.Admin.Hubs
 
             try
             {
-                var summary = await _dashboardService.GetDashboardSummaryAsync(startDate.Value, endDate.Value);
+                var summary = await _dashboardService.GetDashboardSummaryAsync();
                 await Clients.Caller.SendAsync("ReceiveDashboardSummary", summary);
             }
             catch (Exception ex)
@@ -125,7 +126,7 @@ namespace MapleBlog.Admin.Hubs
         public override async Task OnConnectedAsync()
         {
             var userId = Context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
-            await _dashboardService.LogDashboardConnectionAsync(userId);
+            await _dashboardService.LogDashboardConnectionAsync(Context.ConnectionId, userId);
             await base.OnConnectedAsync();
         }
 

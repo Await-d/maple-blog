@@ -160,6 +160,11 @@ public class User : BaseEntity
     /// 最后登录时间
     /// </summary>
     public DateTime? LastLoginAt { get; set; }
+        // 最后活动时间
+        public DateTime? LastActivityAt { get; set; }
+        
+        // 最后登录日期 (为兼容性保留)
+        public DateTime? LastLoginDate { get; set; }
 
     /// <summary>
     /// 密码重置令牌

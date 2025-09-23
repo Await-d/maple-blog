@@ -912,22 +912,31 @@ public class AnalyticsService
         DateTime endDate,
         CancellationToken cancellationToken)
     {
-        var topPosts = await _context.Posts
+        var postsData = await _context.Posts
             .Where(p => p.PublishedAt >= startDate && p.PublishedAt <= endDate)
             .OrderByDescending(p => p.ViewCount)
             .Take(10)
-            .Select(p => new ContentMetricDto
+            .Select(p => new 
             {
-                ContentId = p.Id,
-                Title = p.Title,
-                Url = $"/blog/{p.Slug}",
-                Metrics = new Dictionary<string, object>
-                {
-                    ["Views"] = p.ViewCount,
-                    ["Comments"] = p.Comments.Count
-                }
+                p.Id,
+                p.Title,
+                p.Slug,
+                p.ViewCount,
+                CommentCount = p.Comments.Count
             })
             .ToListAsync(cancellationToken);
+
+        var topPosts = postsData.Select(p => new ContentMetricDto
+        {
+            ContentId = p.Id,
+            Title = p.Title,
+            Url = $"/blog/{p.Slug}",
+            Metrics = new Dictionary<string, object>
+            {
+                ["Views"] = p.ViewCount,
+                ["Comments"] = p.CommentCount
+            }
+        }).ToList();
 
         return new ContentViewAnalysisDto
         {

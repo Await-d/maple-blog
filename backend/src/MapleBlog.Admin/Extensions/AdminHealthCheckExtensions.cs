@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -359,7 +360,7 @@ public static class AdminHealthCheckExtensions
     {
         try
         {
-            var healthCheckService = context.RequestServices.GetService<HealthCheckService>();
+            var healthCheckService = context.RequestServices.GetService<Microsoft.Extensions.Diagnostics.HealthChecks.HealthCheckService>();
             var monitoringService = context.RequestServices.GetService<AdminDatabaseMonitoringService>();
 
             if (healthCheckService == null || monitoringService == null)

@@ -57,6 +57,11 @@ public interface ISystemMonitorService
     Task CheckAlertConditionsAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// 获取当前系统指标
+    /// </summary>
+    Task<SystemMetricsDto> GetCurrentSystemMetricsAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// 启动监控
     /// </summary>
     Task StartMonitoringAsync(CancellationToken cancellationToken = default);
@@ -211,15 +216,15 @@ public class SystemMonitorService : ISystemMonitorService, IHostedService
             var stopwatch = Stopwatch.StartNew();
 
             // 并行收集各种指标
-            var tasks = new[]
+            var tasks = new Task<object>[]
             {
-                Task.Run(async () => await _healthCheckService.GetSystemHealthAsync(cancellationToken), cancellationToken),
-                Task.Run(async () => await GetPerformanceMetricsAsync(cancellationToken), cancellationToken),
-                Task.Run(async () => await GetDatabaseMetricsAsync(cancellationToken), cancellationToken),
-                Task.Run(async () => await GetCacheMetricsAsync(cancellationToken), cancellationToken),
-                Task.Run(async () => await _healthCheckService.CheckExternalServicesAsync(cancellationToken), cancellationToken),
-                Task.Run(async () => await GetApplicationMetricsAsync(cancellationToken), cancellationToken),
-                Task.Run(async () => await GetSystemAlertsAsync(cancellationToken), cancellationToken)
+                Task.Run<object>(async () => await _healthCheckService.GetSystemHealthAsync(cancellationToken), cancellationToken),
+                Task.Run<object>(async () => await GetPerformanceMetricsAsync(cancellationToken), cancellationToken),
+                Task.Run<object>(async () => await GetDatabaseMetricsAsync(cancellationToken), cancellationToken),
+                Task.Run<object>(async () => await GetCacheMetricsAsync(cancellationToken), cancellationToken),
+                Task.Run<object>(async () => await _healthCheckService.CheckExternalServicesAsync(cancellationToken), cancellationToken),
+                Task.Run<object>(async () => await GetApplicationMetricsAsync(cancellationToken), cancellationToken),
+                Task.Run<object>(async () => await GetSystemAlertsAsync(cancellationToken), cancellationToken)
             };
 
             var results = await Task.WhenAll(tasks);
@@ -506,6 +511,14 @@ public class SystemMonitorService : ISystemMonitorService, IHostedService
         {
             _logger.LogError(ex, "Error checking alert conditions");
         }
+    }
+
+    /// <summary>
+    /// 获取当前系统指标
+    /// </summary>
+    public async Task<SystemMetricsDto> GetCurrentSystemMetricsAsync(CancellationToken cancellationToken = default)
+    {
+        return await GetSystemMetricsAsync(cancellationToken);
     }
 
     /// <summary>
@@ -848,7 +861,7 @@ public class SystemMonitorService : ISystemMonitorService, IHostedService
             stopwatch.Stop();
 
             var info = await server.InfoAsync();
-            var infoDict = info.ToDictionary(x => x.Key, x => x.Value);
+            var infoDict = info.ToDictionary(x => x.Key, x => x.Select(kv => kv.Value).FirstOrDefault() ?? string.Empty);
 
             return new RedisCacheDto
             {
@@ -1096,7 +1109,7 @@ public class SystemMonitorService : ISystemMonitorService, IHostedService
         {
             AlertId = alertId,
             Level = level,
-            Type = type,
+            Type = (MapleBlog.Admin.DTOs.AlertType)type,
             Title = title,
             Description = description,
             Source = "SystemMonitor",

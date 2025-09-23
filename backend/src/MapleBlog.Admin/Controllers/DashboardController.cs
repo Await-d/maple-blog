@@ -1,8 +1,9 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MapleBlog.Application.Services;
+using MapleBlog.Application.Interfaces;
 using MapleBlog.Admin.Services;
-using MapleBlog.Domain.DTOs;
+using MapleBlog.Admin.DTOs;
 using System;
 using System.Threading.Tasks;
 
@@ -16,12 +17,12 @@ namespace MapleBlog.Admin.Controllers
     [Authorize(Roles = "Admin,SuperAdmin")]
     public class DashboardController : ControllerBase
     {
-        private readonly IDashboardService _dashboardService;
+        private readonly Admin.Services.IDashboardService _dashboardService;
         private readonly ISystemMonitorService _systemMonitorService;
         private readonly IAnalyticsService _analyticsService;
 
         public DashboardController(
-            IDashboardService dashboardService,
+            Admin.Services.IDashboardService dashboardService,
             ISystemMonitorService systemMonitorService,
             IAnalyticsService analyticsService)
         {
@@ -45,7 +46,7 @@ namespace MapleBlog.Admin.Controllers
             startDate ??= DateTime.UtcNow.AddMonths(-1);
             endDate ??= DateTime.UtcNow;
 
-            var summary = await _dashboardService.GetDashboardSummaryAsync(startDate.Value, endDate.Value);
+            var summary = await _dashboardService.GetDashboardSummaryAsync();
             return Ok(summary);
         }
 

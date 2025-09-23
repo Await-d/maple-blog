@@ -17,7 +17,7 @@ namespace MapleBlog.Admin.Services;
 /// </summary>
 public interface IPerformanceMonitorService
 {
-    Task<PerformanceMetrics> GetCurrentMetricsAsync();
+    Task<DetailedPerformanceMetrics> GetCurrentMetricsAsync();
     Task<PerformanceReport> GenerateReportAsync();
     Task<IEnumerable<PerformanceAlert>> GetActiveAlertsAsync();
     Task<IEnumerable<PerformanceInsight>> AnalyzePerformanceAsync();
@@ -41,114 +41,194 @@ public class PerformanceMonitorService : BackgroundService, IPerformanceMonitorS
     private readonly ConcurrentQueue<PerformanceAlert> _alerts = new();
     private readonly ConcurrentQueue<CustomMetric> _customMetrics = new();
 
-    private PerformanceMetrics _currentMetrics = new();
-    private PerformanceBaseline? _baseline;
-    private readonly PerformanceCounter _cpuCounter;
-    private readonly PerformanceCounter _memoryCounter;
-    private bool _isMonitoring;
-    private readonly Timer _metricsTimer;
-    private readonly Timer _alertTimer;
+    private DetailedPerformanceMetrics _currentMetrics = new();
+    private readonly IMemoryCache _memoryCache;
+    private CancellationTokenSource _monitoringCts = new();
+    private readonly double _cpuThreshold;
+    private readonly double _memoryThreshold;
+    private readonly double _responseTimeThreshold;
+    private readonly double _errorRateThreshold;
+    private readonly double _ioWaitThreshold;
+    private readonly MemoryCacheEntryOptions _cacheOptions;
 
     public PerformanceMonitorService(
+        IMemoryCache memoryCache,
         ILogger<PerformanceMonitorService> logger,
-        BlogDbContext context,
-        IMemoryCache cache,
-        IOptions<PerformanceMonitorOptions> options)
+        IConfiguration configuration)
     {
+        _memoryCache = memoryCache;
         _logger = logger;
-        _context = context;
-        _cache = cache;
-        _options = options.Value;
 
-        // Initialize performance counters
-        _cpuCounter = new PerformanceCounter("Processor", "% Processor Time", "_Total");
-        _memoryCounter = new PerformanceCounter("Memory", "Available MBytes");
+        // Configure thresholds from app settings
+        _cpuThreshold = configuration.GetValue<double>("Performance:CpuThreshold", 80);
+        _memoryThreshold = configuration.GetValue<double>("Performance:MemoryThreshold", 85);
+        _responseTimeThreshold = configuration.GetValue<double>("Performance:ResponseTimeThreshold", 1000);
+        _errorRateThreshold = configuration.GetValue<double>("Performance:ErrorRateThreshold", 5);
+        _ioWaitThreshold = configuration.GetValue<double>("Performance:IoWaitThreshold", 30);
 
-        // Setup timers
-        _metricsTimer = new Timer(CollectMetrics, null, Timeout.Infinite, Timeout.Infinite);
-        _alertTimer = new Timer(CheckAlerts, null, Timeout.Infinite, Timeout.Infinite);
+        // Configure cache settings
+        _cacheOptions = new MemoryCacheEntryOptions
+        {
+            SlidingExpiration = TimeSpan.FromMinutes(5),
+            Priority = CacheItemPriority.High
+        };
+
+        // Start background monitoring
+        _ = Task.Run(async () => await StartMonitoringAsync());
     }
 
+    /// <summary>
+    /// Start continuous performance monitoring
+    /// </summary>
+    public async Task<bool> StartMonitoringAsync()
+    {
+        try
+        {
+            _monitoringCts = new CancellationTokenSource();
+            _ = Task.Run(async () => await MonitoringLoop(_monitoringCts.Token));
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to start monitoring");
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Stop performance monitoring
+    /// </summary>
+    public async Task<bool> StopMonitoringAsync()
+    {
+        try
+        {
+            _monitoringCts?.Cancel();
+            await Task.Delay(100); // Give time for cancellation
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to stop monitoring");
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Background service execution
+    /// </summary>
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        await StartMonitoringAsync();
+        await MonitoringLoop(stoppingToken);
+    }
 
-        while (!stoppingToken.IsCancellationRequested)
+    /// <summary>
+    /// Main monitoring loop
+    /// </summary>
+    private async Task MonitoringLoop(CancellationToken cancellationToken)
+    {
+        while (!cancellationToken.IsCancellationRequested)
         {
             try
             {
-                await CollectAllMetricsAsync();
-                await Task.Delay(_options.CollectionInterval, stoppingToken);
+                await CollectMetricsAsync();
+                await Task.Delay(TimeSpan.FromSeconds(30), cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                break;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error during performance monitoring execution");
-                await Task.Delay(TimeSpan.FromSeconds(30), stoppingToken);
+                _logger.LogError(ex, "Error in performance monitoring loop");
+                await Task.Delay(TimeSpan.FromMinutes(1), cancellationToken);
             }
         }
     }
 
-    public async Task<bool> StartMonitoringAsync()
+    /// <summary>
+    /// Collect current performance metrics
+    /// </summary>
+    private async Task CollectMetricsAsync()
     {
-        if (_isMonitoring) return true;
-
         try
         {
-            _isMonitoring = true;
+            var process = Process.GetCurrentProcess();
+            var startTime = DateTime.UtcNow;
+            var startCpuTime = process.TotalProcessorTime;
 
-            // Start timers
-            _metricsTimer.Change(TimeSpan.Zero, _options.CollectionInterval);
-            _alertTimer.Change(TimeSpan.Zero, _options.AlertCheckInterval);
+            await Task.Delay(100); // Sample period
 
-            // Record baseline after startup period
-            _ = Task.Delay(_options.BaselineDelay).ContinueWith(async _ =>
+            var endTime = DateTime.UtcNow;
+            var endCpuTime = process.TotalProcessorTime;
+            var cpuUsedMs = (endCpuTime - startCpuTime).TotalMilliseconds;
+            var totalMsPassed = (endTime - startTime).TotalMilliseconds;
+            var cpuUsageTotal = cpuUsedMs / (Environment.ProcessorCount * totalMsPassed);
+
+            _currentMetrics = new DetailedPerformanceMetrics
             {
-                await RecordBaselineAsync();
-            });
+                Timestamp = DateTime.UtcNow,
+                System = new SystemMetrics
+                {
+                    CpuUsage = Math.Round(cpuUsageTotal * 100, 2),
+                    MemoryUsage = process.WorkingSet64,
+                    ThreadCount = process.Threads.Count,
+                    HandleCount = process.HandleCount,
+                    IoReadBytes = 0, // Placeholder - would need platform-specific code
+                    IoWriteBytes = 0,
+                    NetworkBytesReceived = 0,
+                    NetworkBytesSent = 0
+                },
+                Memory = new MemoryMetrics
+                {
+                    WorkingSet = process.WorkingSet64,
+                    PrivateMemory = process.PrivateMemorySize64,
+                    VirtualMemory = process.VirtualMemorySize64,
+                    PagedMemory = process.PagedMemorySize64,
+                    Gen0Collections = GC.CollectionCount(0),
+                    Gen1Collections = GC.CollectionCount(1),
+                    Gen2Collections = GC.CollectionCount(2),
+                    TotalMemory = GC.GetTotalMemory(false),
+                    HeapSize = GC.GetTotalMemory(false)
+                },
+                Api = await GetApiMetricsAsync(),
+                Database = await GetDatabaseMetricsAsync(),
+                Cache = await GetCacheMetricsAsync()
+            };
 
-            _logger.LogInformation("Performance monitoring started");
-            return true;
+            // Store in cache
+            _memoryCache.Set("current_metrics", _currentMetrics, _cacheOptions);
+
+            // Check for issues and alert if necessary
+            await CheckPerformanceIssuesAsync(_currentMetrics);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to start performance monitoring");
-            return false;
+            _logger.LogError(ex, "Error collecting performance metrics");
         }
     }
 
-    public async Task<bool> StopMonitoringAsync()
+    /// <summary>
+    /// Get current performance metrics
+    /// </summary>
+    public async Task<DetailedPerformanceMetrics> GetCurrentMetricsAsync()
     {
-        if (!_isMonitoring) return true;
-
-        try
+        if (_memoryCache.TryGetValue<DetailedPerformanceMetrics>("current_metrics", out var cached))
         {
-            _isMonitoring = false;
-
-            // Stop timers
-            _metricsTimer.Change(Timeout.Infinite, Timeout.Infinite);
-            _alertTimer.Change(Timeout.Infinite, Timeout.Infinite);
-
-            _logger.LogInformation("Performance monitoring stopped");
-            return true;
+            return cached;
         }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to stop performance monitoring");
-            return false;
-        }
-    }
 
-    public async Task<PerformanceMetrics> GetCurrentMetricsAsync()
-    {
-        await CollectAllMetricsAsync();
+        await CollectMetricsAsync();
         return _currentMetrics;
     }
 
-    private async Task CollectAllMetricsAsync()
+    /// <summary>
+    /// Get real-time performance snapshot
+    /// </summary>
+    public async Task<object> GetRealtimeMetricsAsync()
     {
         try
         {
-            var metrics = new PerformanceMetrics
+            var metrics = new DetailedPerformanceMetrics
             {
                 Timestamp = DateTime.UtcNow,
                 System = await CollectSystemMetricsAsync(),
@@ -763,7 +843,7 @@ public class PerformanceMonitorOptions
 }
 
 // Data Models
-public class PerformanceMetrics
+public class DetailedPerformanceMetrics
 {
     public DateTime Timestamp { get; set; }
     public SystemMetrics System { get; set; } = new();
@@ -874,8 +954,49 @@ public class PerformanceAlert
 
 public enum AlertType
 {
+    /// <summary>
+    /// 性能警告
+    /// </summary>
+    Performance,
+
+    /// <summary>
+    /// 资源警告
+    /// </summary>
+    Resource,
+
+    /// <summary>
+    /// 连接警告
+    /// </summary>
+    Connection,
+
+    /// <summary>
+    /// 安全警告
+    /// </summary>
+    Security,
+
+    /// <summary>
+    /// 应用程序警告
+    /// </summary>
+    Application,
+
+    /// <summary>
+    /// 系统警告
+    /// </summary>
+    System,
+
+    /// <summary>
+    /// 信息
+    /// </summary>
     Info,
+
+    /// <summary>
+    /// 警告
+    /// </summary>
     Warning,
+
+    /// <summary>
+    /// 严重
+    /// </summary>
     Critical
 }
 
@@ -908,7 +1029,7 @@ public class PerformanceBaseline
 public class PerformanceReport
 {
     public DateTime Timestamp { get; set; }
-    public PerformanceMetrics Metrics { get; set; } = new();
+    public DetailedPerformanceMetrics Metrics { get; set; } = new();
     public List<PerformanceAlert> Alerts { get; set; } = new();
     public List<PerformanceInsight> Insights { get; set; } = new();
     public PerformanceTrend Trend { get; set; } = new();

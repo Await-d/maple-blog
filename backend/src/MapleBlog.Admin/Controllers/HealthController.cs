@@ -15,7 +15,7 @@ namespace MapleBlog.Admin.Controllers;
 [Authorize(Policy = "AdminOnly")]
 public class HealthController : ControllerBase
 {
-    private readonly HealthCheckService _healthCheckService;
+    private readonly Admin.Services.HealthCheckService _healthCheckService;
     private readonly AdminDatabaseMonitoringService _monitoringService;
     private readonly AdminDatabasePrometheusService _prometheusService;
     private readonly AdminConnectionPoolMonitoringService _connectionPoolService;
@@ -24,7 +24,7 @@ public class HealthController : ControllerBase
     private readonly ILogger<HealthController> _logger;
 
     public HealthController(
-        HealthCheckService healthCheckService,
+        Admin.Services.HealthCheckService healthCheckService,
         AdminDatabaseMonitoringService monitoringService,
         AdminDatabasePrometheusService prometheusService,
         AdminConnectionPoolMonitoringService connectionPoolService,

@@ -58,6 +58,9 @@ public class BlogDbContext : DbContext
 
     // 存储配额系统
     public DbSet<StorageQuotaConfiguration> StorageQuotaConfigurations { get; set; }
+    // Configuration entities
+    public DbSet<Domain.Entities.Configuration> Configurations { get; set; }
+    public DbSet<ConfigurationVersion> ConfigurationVersions { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

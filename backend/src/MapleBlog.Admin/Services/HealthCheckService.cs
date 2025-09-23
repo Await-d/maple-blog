@@ -622,34 +622,34 @@ public class HealthCheckService : IHealthCheckService
     /// <summary>
     /// 计算整体健康状态
     /// </summary>
-    private HealthStatus CalculateOverallHealth(IEnumerable<ComponentHealthDto> components)
+    private Admin.DTOs.HealthStatus CalculateOverallHealth(IEnumerable<ComponentHealthDto> components)
     {
         if (!components.Any())
-            return HealthStatus.Unknown;
+            return Admin.DTOs.HealthStatus.Unknown;
 
-        if (components.Any(c => c.Status == HealthStatus.Unhealthy))
-            return HealthStatus.Unhealthy;
+        if (components.Any(c => c.Status == Admin.DTOs.HealthStatus.Unhealthy))
+            return Admin.DTOs.HealthStatus.Unhealthy;
 
-        if (components.Any(c => c.Status == HealthStatus.Degraded))
-            return HealthStatus.Degraded;
+        if (components.Any(c => c.Status == Admin.DTOs.HealthStatus.Degraded))
+            return Admin.DTOs.HealthStatus.Degraded;
 
-        if (components.All(c => c.Status == HealthStatus.Healthy))
-            return HealthStatus.Healthy;
+        if (components.All(c => c.Status == Admin.DTOs.HealthStatus.Healthy))
+            return Admin.DTOs.HealthStatus.Healthy;
 
-        return HealthStatus.Unknown;
+        return Admin.DTOs.HealthStatus.Unknown;
     }
 
     /// <summary>
     /// 转换.NET健康检查状态到自定义状态
     /// </summary>
-    private HealthStatus ConvertHealthStatus(Microsoft.Extensions.Diagnostics.HealthChecks.HealthStatus status)
+    private Admin.DTOs.HealthStatus ConvertHealthStatus(Microsoft.Extensions.Diagnostics.HealthChecks.HealthStatus status)
     {
         return status switch
         {
-            Microsoft.Extensions.Diagnostics.HealthChecks.HealthStatus.Healthy => HealthStatus.Healthy,
-            Microsoft.Extensions.Diagnostics.HealthChecks.HealthStatus.Degraded => HealthStatus.Degraded,
-            Microsoft.Extensions.Diagnostics.HealthChecks.HealthStatus.Unhealthy => HealthStatus.Unhealthy,
-            _ => HealthStatus.Unknown
+            Microsoft.Extensions.Diagnostics.HealthChecks.HealthStatus.Healthy => Admin.DTOs.HealthStatus.Healthy,
+            Microsoft.Extensions.Diagnostics.HealthChecks.HealthStatus.Degraded => Admin.DTOs.HealthStatus.Degraded,
+            Microsoft.Extensions.Diagnostics.HealthChecks.HealthStatus.Unhealthy => Admin.DTOs.HealthStatus.Unhealthy,
+            _ => Admin.DTOs.HealthStatus.Unknown
         };
     }
 }

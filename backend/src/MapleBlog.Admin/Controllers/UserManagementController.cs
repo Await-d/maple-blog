@@ -6,6 +6,7 @@ using MapleBlog.Application.DTOs.Admin;
 using MapleBlog.Application.Interfaces;
 using MapleBlog.Domain.Entities;
 using MapleBlog.Domain.Enums;
+using MapleBlog.Admin.DTOs;
 
 namespace MapleBlog.Admin.Controllers
 {
@@ -925,7 +926,7 @@ namespace MapleBlog.Admin.Controllers
                 var analysis = new UserBehaviorAnalysisDto
                 {
                     UserId = userId,
-                    AnalysisPeriod = new DateRangeDto
+                    AnalysisPeriod = new MapleBlog.Application.DTOs.Admin.DateRangeDto
                     {
                         StartDate = DateTime.UtcNow.AddDays(-days),
                         EndDate = DateTime.UtcNow
@@ -1187,21 +1188,7 @@ namespace MapleBlog.Admin.Controllers
         public string? Reason { get; set; }
     }
 
-    /// <summary>
-    /// 日期范围DTO
-    /// </summary>
-    public class DateRangeDto
-    {
-        /// <summary>
-        /// 开始日期
-        /// </summary>
-        public DateTime StartDate { get; set; }
 
-        /// <summary>
-        /// 结束日期
-        /// </summary>
-        public DateTime EndDate { get; set; }
-    }
 
     #endregion
 }
