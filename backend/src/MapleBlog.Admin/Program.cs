@@ -129,6 +129,7 @@ builder.Services.AddControllers(options =>
 
 // 添加API Explorer
 builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddOpenApi();
 
 // 配置Swagger
 builder.Services.ConfigureAdminSwagger(builder.Configuration);
@@ -157,13 +158,9 @@ var app = builder.Build();
 if (app.Environment.IsDevelopment())
 {
     app.UseDeveloperExceptionPage();
-    app.UseSwagger();
-    app.UseSwaggerUI(c =>
-    {
-        c.SwaggerEndpoint("/swagger/v1/swagger.json", "Maple Blog Admin API v1");
-        c.RoutePrefix = "swagger";
-        c.DocumentTitle = "Maple Blog Admin API";
-    });
+    // Swagger removed - using Scalar in main API project
+    // app.UseSwagger();
+    // app.UseSwaggerUI();
 }
 else
 {
