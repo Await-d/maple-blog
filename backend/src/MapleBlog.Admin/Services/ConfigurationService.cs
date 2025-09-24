@@ -9,6 +9,9 @@ using Microsoft.Extensions.Logging;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using AdminConfigurationDto = MapleBlog.Admin.DTOs.ConfigurationDto;
+using DomainConfiguration = MapleBlog.Domain.Entities.Configuration;
+using AutoMapper;
 
 namespace MapleBlog.Admin.Services;
 
@@ -85,6 +88,7 @@ public partial class ConfigurationService : IConfigurationService
     private readonly IMemoryCache _cache;
     private readonly ILogger<ConfigurationService> _logger;
     private readonly BlogDbContext _context;
+    private readonly IMapper _mapper;
     
     private const string CACHE_PREFIX = "config:";
     private const int CACHE_DURATION_MINUTES = 30;
@@ -96,7 +100,8 @@ public partial class ConfigurationService : IConfigurationService
         IAuditLogRepository auditLogRepository,
         IMemoryCache cache,
         ILogger<ConfigurationService> logger,
-        BlogDbContext context)
+        BlogDbContext context,
+        IMapper mapper)
     {
         _configRepository = configRepository;
         _versionRepository = versionRepository;
@@ -105,6 +110,7 @@ public partial class ConfigurationService : IConfigurationService
         _context = context;
         _cache = cache;
         _logger = logger;
+        _mapper = mapper;
     }
 
     #region 基础CRUD操作
@@ -425,7 +431,7 @@ public partial class ConfigurationService : IConfigurationService
                 config.CreateVersion(ConfigurationChangeType.Delete, reason);
             }
 
-            await _configRepository.DeleteAsync(config);
+            await _configRepository.DeleteAsync(config.Id);
 
             // 记录审计日志
             await LogConfigurationChangeAsync(config.Id, "Delete", reason, userId);
@@ -560,9 +566,9 @@ public partial class ConfigurationService : IConfigurationService
             EffectiveDate = config.EffectiveDate,
             ExpirationDate = config.ExpirationDate,
             CreatedAt = config.CreatedAt,
-            UpdatedAt = config.UpdatedAt,
-            CreatedBy = config.CreatedBy,
-            UpdatedBy = config.UpdatedBy
+            UpdatedAt = config.UpdatedAt ?? config.CreatedAt,
+            CreatedBy = config.CreatedById?.ToString(),
+            UpdatedBy = config.UpdatedById?.ToString()
         };
     }
 
@@ -593,7 +599,7 @@ public partial class ConfigurationService : IConfigurationService
             CanRollback = version.CanRollback,
             Checksum = version.Checksum,
             CreatedAt = version.CreatedAt,
-            CreatedBy = version.CreatedBy
+            CreatedBy = version.CreatedById?.ToString()
         };
     }
 
@@ -682,7 +688,7 @@ public partial class ConfigurationService : IConfigurationService
     public async Task<List<ConfigurationVersionDto>> GetPendingApprovalsAsync()
     {
         var pendingVersions = await _context.ConfigurationVersions
-            .Where(v => v.Status == ConfigurationStatus.Pending)
+            .Where(v => v.ApprovalStatus == ConfigurationApprovalStatus.Pending)
             .OrderByDescending(v => v.CreatedAt)
             .ToListAsync();
         
@@ -692,11 +698,11 @@ public partial class ConfigurationService : IConfigurationService
     public async Task<bool> ApproveConfigurationAsync(ConfigurationApprovalDto approvalDto, Guid userId)
     {
         var version = await _context.ConfigurationVersions.FindAsync(approvalDto.VersionId);
-        if (version == null || version.Status != ConfigurationStatus.Pending)
+        if (version == null || version.ApprovalStatus != ConfigurationApprovalStatus.Pending)
             return false;
 
-        version.Status = ConfigurationStatus.Active;
-        version.ApprovedById = userId;
+        version.ApprovalStatus = ConfigurationApprovalStatus.Approved;
+        version.ApprovedByUserId = userId;
         version.ApprovedAt = DateTime.UtcNow;
         version.UpdatedAt = DateTime.UtcNow;
         
@@ -709,10 +715,10 @@ public partial class ConfigurationService : IConfigurationService
     public async Task<bool> RejectConfigurationAsync(ConfigurationApprovalDto approvalDto, Guid userId)
     {
         var version = await _context.ConfigurationVersions.FindAsync(approvalDto.VersionId);
-        if (version == null || version.Status != ConfigurationStatus.Pending)
+        if (version == null || version.ApprovalStatus != ConfigurationApprovalStatus.Pending)
             return false;
 
-        version.Status = ConfigurationStatus.Rejected;
+        version.ApprovalStatus = ConfigurationApprovalStatus.Rejected;
         version.RejectedById = userId;
         version.RejectedAt = DateTime.UtcNow;
         version.RejectionReason = approvalDto.Reason;
@@ -731,7 +737,7 @@ public partial class ConfigurationService : IConfigurationService
         };
 
         // Check for duplicate key
-        var existing = await _context.Configurations
+        var existing = await _context.SystemConfigurations
             .AnyAsync(c => c.Section == configDto.Section && 
                           c.Key == configDto.Key && 
                           c.Environment == configDto.Environment);
@@ -777,7 +783,7 @@ public partial class ConfigurationService : IConfigurationService
             Errors = new List<string>()
         };
 
-        var config = await _context.Configurations.FindAsync(configurationId);
+        var config = await _context.SystemConfigurations.FindAsync(configurationId);
         if (config == null)
         {
             result.IsValid = false;
@@ -803,7 +809,7 @@ public partial class ConfigurationService : IConfigurationService
     {
         var issues = new List<string>();
         
-        var configs = await _context.Configurations.ToListAsync();
+        var configs = await _context.SystemConfigurations.ToListAsync();
         var groupedConfigs = configs.GroupBy(c => new { c.Section, c.Key, c.Environment });
         
         foreach (var group in groupedConfigs)
@@ -819,7 +825,7 @@ public partial class ConfigurationService : IConfigurationService
 
     public async Task<bool> BatchUpdateConfigurationsAsync(ConfigurationBatchOperationDto batchDto, Guid userId)
     {
-        var configs = await _context.Configurations
+        var configs = await _context.SystemConfigurations
             .Where(c => batchDto.ConfigurationIds.Contains(c.Id))
             .ToListAsync();
 
@@ -843,18 +849,18 @@ public partial class ConfigurationService : IConfigurationService
 
     public async Task<List<ConfigurationDto>> BatchCreateConfigurationsAsync(List<CreateConfigurationDto> createDtos, Guid userId)
     {
-        var configs = new List<Configuration>();
+        var configs = new List<SystemConfiguration>();
         
         foreach (var dto in createDtos)
         {
-            var config = _mapper.Map<Configuration>(dto);
+            var config = _mapper.Map<SystemConfiguration>(dto);
             config.Id = Guid.NewGuid();
             config.CreatedById = userId;
             config.CreatedAt = DateTime.UtcNow;
             configs.Add(config);
         }
 
-        _context.Configurations.AddRange(configs);
+        _context.SystemConfigurations.AddRange(configs);
         await _context.SaveChangesAsync();
         
         return _mapper.Map<List<ConfigurationDto>>(configs);
@@ -873,7 +879,7 @@ public partial class ConfigurationService : IConfigurationService
     {
         var template = _mapper.Map<ConfigurationTemplate>(templateDto);
         template.Id = Guid.NewGuid();
-        template.CreatedById = userId;
+        template.CreatedByUserId = userId;
         template.CreatedAt = DateTime.UtcNow;
         
         _context.ConfigurationTemplates.Add(template);
@@ -902,7 +908,7 @@ public partial class ConfigurationService : IConfigurationService
 
     public async Task<ConfigurationBackupDto> CreateBackupAsync(string name, string? description, List<string>? sections, Guid userId)
     {
-        var query = _context.Configurations.AsQueryable();
+        var query = _context.SystemConfigurations.AsQueryable();
         
         if (sections != null && sections.Any())
         {
@@ -911,14 +917,14 @@ public partial class ConfigurationService : IConfigurationService
 
         var configs = await query.ToListAsync();
         
-        var backup = new MapleBlog.Admin.DTOs.ConfigurationBackup
+        var backup = new ConfigurationBackup
         {
             Id = Guid.NewGuid(),
             Name = name,
             Description = description,
-            ConfigurationJson = System.Text.Json.JsonSerializer.Serialize(configs),
+            BackupData = System.Text.Json.JsonSerializer.Serialize(configs),
             ConfigurationCount = configs.Count,
-            CreatedById = userId,
+            CreatedByUserId = userId,
             CreatedAt = DateTime.UtcNow
         };
 
@@ -943,14 +949,14 @@ public partial class ConfigurationService : IConfigurationService
         if (backup == null)
             return false;
 
-        var configs = System.Text.Json.JsonSerializer.Deserialize<List<Configuration>>(backup.ConfigurationJson);
+        var configs = System.Text.Json.JsonSerializer.Deserialize<List<SystemConfiguration>>(backup.ConfigurationJson);
         if (configs == null)
             return false;
 
         if (restoreDto.ClearExisting)
         {
-            var existingConfigs = await _context.Configurations.ToListAsync();
-            _context.Configurations.RemoveRange(existingConfigs);
+            var existingConfigs = await _context.SystemConfigurations.ToListAsync();
+            _context.SystemConfigurations.RemoveRange(existingConfigs);
         }
 
         foreach (var config in configs)
@@ -958,7 +964,7 @@ public partial class ConfigurationService : IConfigurationService
             config.Id = Guid.NewGuid();
             config.CreatedById = userId;
             config.CreatedAt = DateTime.UtcNow;
-            _context.Configurations.Add(config);
+            _context.SystemConfigurations.Add(config);
         }
 
         backup.LastRestoredAt = DateTime.UtcNow;
@@ -972,7 +978,7 @@ public partial class ConfigurationService : IConfigurationService
 
     public async Task<string> ExportConfigurationsAsync(ConfigurationExportDto exportDto)
     {
-        var query = _context.Configurations.AsQueryable();
+        var query = _context.SystemConfigurations.AsQueryable();
         
         if (exportDto.Sections != null && exportDto.Sections.Any())
         {
@@ -986,10 +992,12 @@ public partial class ConfigurationService : IConfigurationService
 
         var configs = await query.ToListAsync();
         
+        var configDtos = configs.Select(c => MapToDto(c)).ToList();
+        
         return exportDto.Format?.ToLower() switch
         {
-            "yaml" => ConvertToYaml(configs),
-            "xml" => ConvertToXml(configs),
+            "yaml" => ConvertToYaml(configDtos),
+            "xml" => ConvertToXml(configDtos),
             _ => System.Text.Json.JsonSerializer.Serialize(configs, new System.Text.Json.JsonSerializerOptions 
             { 
                 WriteIndented = true 
@@ -1007,7 +1015,7 @@ public partial class ConfigurationService : IConfigurationService
 
         try
         {
-            var configs = System.Text.Json.JsonSerializer.Deserialize<List<Configuration>>(importDto.ConfigurationData);
+            var configs = System.Text.Json.JsonSerializer.Deserialize<List<SystemConfiguration>>(importDto.ConfigurationData);
             if (configs == null || !configs.Any())
             {
                 result.IsValid = false;
@@ -1018,10 +1026,10 @@ public partial class ConfigurationService : IConfigurationService
             if (importDto.ReplaceExisting)
             {
                 var existingKeys = configs.Select(c => new { c.Section, c.Key, c.Environment });
-                var toRemove = await _context.Configurations
+                var toRemove = await _context.SystemConfigurations
                     .Where(c => existingKeys.Contains(new { c.Section, c.Key, c.Environment }))
                     .ToListAsync();
-                _context.Configurations.RemoveRange(toRemove);
+                _context.SystemConfigurations.RemoveRange(toRemove);
             }
 
             foreach (var config in configs)
@@ -1029,7 +1037,7 @@ public partial class ConfigurationService : IConfigurationService
                 config.Id = Guid.NewGuid();
                 config.CreatedById = userId;
                 config.CreatedAt = DateTime.UtcNow;
-                _context.Configurations.Add(config);
+                _context.SystemConfigurations.Add(config);
             }
 
             await _context.SaveChangesAsync();
@@ -1048,19 +1056,35 @@ public partial class ConfigurationService : IConfigurationService
     {
         var stats = new MapleBlog.Admin.DTOs.ConfigurationStatisticsDto
         {
-            TotalConfigurations = await _context.Configurations.CountAsync(),
-            TotalSections = await _context.Configurations.Select(c => c.Section).Distinct().CountAsync(),
-            ConfigurationsByEnvironment = await _context.Configurations
+            TotalConfigurations = await _context.SystemConfigurations.CountAsync(),
+            TotalSections = await _context.SystemConfigurations.Select(c => c.Section).Distinct().CountAsync(),
+            ConfigurationsByEnvironment = await _context.SystemConfigurations
                 .GroupBy(c => c.Environment)
-                .Select(g => new EnvironmentStatistics 
-                { 
-                    Environment = g.Key, 
-                    Count = g.Count() 
-                })
-                .ToListAsync(),
+                .ToDictionaryAsync(g => g.Key, g => g.Count()),
             RecentChanges = await _context.ConfigurationVersions
                 .Where(v => v.CreatedAt >= DateTime.UtcNow.AddDays(-7))
-                .CountAsync()
+                .OrderByDescending(v => v.CreatedAt)
+                .Take(10)
+                .Select(v => new MapleBlog.Admin.DTOs.ConfigurationChangeActivity
+                {
+                    Id = v.Id,
+                    ConfigurationId = v.ConfigurationId,
+                    Section = v.Section,
+                    Key = v.Key,
+                    Action = v.ChangeType.ToString(),
+                    ChangeType = v.ChangeType,
+                    ChangeReason = v.ChangeReason,
+                    Timestamp = v.CreatedAt,
+                    UserName = v.CreatedByUser != null ? v.CreatedByUser.UserName : null,
+                    Version = v.Version,
+                    ChangedById = v.CreatedById,
+                    ChangedAt = v.CreatedAt,
+                    Reason = v.ChangeReason,
+                    Environment = v.Environment,
+                    OldValue = v.OldValue,
+                    NewValue = v.Value
+                })
+                .ToListAsync()
         };
 
         return stats;
@@ -1094,7 +1118,7 @@ public partial class ConfigurationService : IConfigurationService
     public async Task RefreshCacheAsync()
     {
         // Clear all configuration cache entries
-        var cacheKeys = _context.Configurations
+        var cacheKeys = _context.SystemConfigurations
             .Select(c => $"{CACHE_PREFIX}{c.Section}:{c.Key}:{c.Environment}")
             .Distinct();
 
@@ -1167,7 +1191,7 @@ public partial class ConfigurationService : IConfigurationService
 
     #region Helper Methods
 
-    private string ConvertToYaml(List<MapleBlog.Admin.DTOs.Configuration> configs)
+    private string ConvertToYaml(List<ConfigurationDto> configs)
     {
         var sb = new System.Text.StringBuilder();
         var groupedBySection = configs.GroupBy(c => c.Section);
@@ -1184,7 +1208,7 @@ public partial class ConfigurationService : IConfigurationService
         return sb.ToString();
     }
 
-    private string ConvertToXml(List<MapleBlog.Admin.DTOs.Configuration> configs)
+    private string ConvertToXml(List<ConfigurationDto> configs)
     {
         var sb = new System.Text.StringBuilder();
         sb.AppendLine("<?xml version=\"1.0\" encoding=\"utf-8\"?>");

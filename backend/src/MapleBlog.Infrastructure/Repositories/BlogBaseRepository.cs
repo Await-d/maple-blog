@@ -106,6 +106,16 @@ namespace MapleBlog.Infrastructure.Repositories
             return entity;
         }
 
+        public virtual async Task<T> UpdateAsync(T entity, CancellationToken cancellationToken = default)
+        {
+            if (entity == null)
+                throw new ArgumentNullException(nameof(entity));
+
+            _dbSet.Update(entity);
+            await SaveChangesAsync(cancellationToken);
+            return entity;
+        }
+
         public virtual void UpdateRange(IEnumerable<T> entities)
         {
             if (entities == null)
@@ -128,6 +138,16 @@ namespace MapleBlog.Infrastructure.Repositories
             if (entity != null)
             {
                 Remove(entity);
+            }
+        }
+
+        public virtual async Task DeleteAsync(Guid id, CancellationToken cancellationToken = default)
+        {
+            var entity = await GetByIdAsync(id, cancellationToken);
+            if (entity != null)
+            {
+                Remove(entity);
+                await SaveChangesAsync(cancellationToken);
             }
         }
 

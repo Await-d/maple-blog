@@ -421,6 +421,12 @@ namespace MapleBlog.Infrastructure.Repositories
             await SaveChangesAsync(cancellationToken);
         }
 
+        async Task<User> IRepository<User>.UpdateAsync(User user, CancellationToken cancellationToken)
+        {
+            await UpdateAsync(user, cancellationToken);
+            return user;
+        }
+
         /// <summary>
         /// Counts users with Author role or higher
         /// </summary>
@@ -455,6 +461,7 @@ namespace MapleBlog.Infrastructure.Repositories
                 return false;
 
             await RemoveAsync(id, cancellationToken);
+            await SaveChangesAsync(cancellationToken);
             return true;
         }
 

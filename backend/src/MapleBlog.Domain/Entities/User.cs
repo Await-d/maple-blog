@@ -18,6 +18,11 @@ public class User : BaseEntity
     public string UserName { get; set; } = string.Empty;
 
     /// <summary>
+    /// 用户名别名（用于兼容性）
+    /// </summary>
+    public string Username => UserName;
+
+    /// <summary>
     /// 邮箱地址
     /// </summary>
     [Required]

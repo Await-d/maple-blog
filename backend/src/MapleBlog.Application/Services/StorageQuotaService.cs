@@ -98,6 +98,34 @@ namespace MapleBlog.Application.Services
             }
         }
 
+        /// <inheritdoc />
+        /// <inheritdoc />
+        /// <inheritdoc />
+        public async Task<bool> CheckUploadPermissionAsync(Guid userId, CancellationToken cancellationToken = default)
+        {
+            // 获取用户信息
+            var user = await _userRepository.GetByIdAsync(userId, cancellationToken);
+            if (user == null)
+                return false;
+
+            // 管理员总是有上传权限
+            if (user.Role == UserRoleEnum.Admin)
+                return true;
+
+            // 检查用户状态是否正常
+            if (!user.IsActive)
+                return false;
+
+            // 获取用户的角色配额配置
+            var quotaConfig = await GetRoleQuotaConfigurationAsync(user.Role, cancellationToken);
+            
+            // 如果配额配置为0，表示该角色没有上传权限
+            if (quotaConfig.MaxQuotaBytes == 0)
+                return false;
+
+            return true;
+        }
+
         public async Task<bool> CheckStorageAvailabilityAsync(Guid userId, long fileSize, CancellationToken cancellationToken = default)
         {
             try

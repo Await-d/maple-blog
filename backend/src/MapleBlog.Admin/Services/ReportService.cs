@@ -774,7 +774,6 @@ public class ReportService
         using var stream = new MemoryStream();
         // Chart generation temporarily disabled - missing OxyPlot exporter
         // TODO: Add OxyPlot.ImageSharp or alternative chart library
-        var stream = new MemoryStream();
         // pngExporter.Export(plotModel, stream);
         return stream.ToArray();
     }
@@ -811,7 +810,6 @@ public class ReportService
         using var stream = new MemoryStream();
         // Chart generation temporarily disabled - missing OxyPlot exporter
         // TODO: Add OxyPlot.ImageSharp or alternative chart library
-        var stream = new MemoryStream();
         // pngExporter.Export(plotModel, stream);
         return stream.ToArray();
     }

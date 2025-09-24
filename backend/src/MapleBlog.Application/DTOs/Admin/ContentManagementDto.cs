@@ -1139,12 +1139,24 @@ namespace MapleBlog.Application.DTOs.Admin
     {
         public Guid Id { get; set; }
         public string FileName { get; set; } = string.Empty;
+        public string OriginalFileName { get; set; } = string.Empty;
         public string ContentType { get; set; } = string.Empty;
         public long FileSize { get; set; }
         public string Url { get; set; } = string.Empty;
         public string? AltText { get; set; }
         public string? Caption { get; set; }
+        public string Directory { get; set; } = string.Empty;
+        public string? Description { get; set; }
+        public string[] Tags { get; set; } = Array.Empty<string>();
+        public string AccessLevel { get; set; } = string.Empty;
+        public int? ImageWidth { get; set; }
+        public int? ImageHeight { get; set; }
         public DateTime UploadedAt { get; set; }
+        public bool IsInUse { get; set; }
+        public int ReferenceCount { get; set; }
+        public long AccessCount { get; set; }
+        public DateTime? LastAccessedAt { get; set; }
+        public string UploaderName { get; set; } = string.Empty;
     }
 
     /// <summary>

@@ -282,7 +282,7 @@ public class AdminDatabaseHealthCheckService : IHealthCheck
             // 检查用户表索引
             var userIndexStopwatch = Stopwatch.StartNew();
             var userByEmail = await _context.Users
-                .Where(u => u.Email.Contains("@"))
+                .Where(u => u.Email.Value.Contains("@"))
                 .CountAsync(cancellationToken);
             userIndexStopwatch.Stop();
 
@@ -312,13 +312,13 @@ public class AdminDatabaseHealthCheckService : IHealthCheck
             var tableStats = new List<object>();
 
             // 获取主要表的统计信息
-            var tables = new[]
+            var tables = new (string Name, Func<Task<int>> Query)[]
             {
-                new { Name = "Users", Query = () => _context.Users.CountAsync(cancellationToken) },
-                new { Name = "Posts", Query = () => _context.Posts.CountAsync(cancellationToken) },
-                new { Name = "Categories", Query = () => _context.Categories.CountAsync(cancellationToken) },
-                new { Name = "Tags", Query = () => _context.Tags.CountAsync(cancellationToken) },
-                new { Name = "Comments", Query = () => _context.Comments.CountAsync(cancellationToken) }
+                ("Users", () => _context.Users.CountAsync(cancellationToken)),
+                ("Posts", () => _context.Posts.CountAsync(cancellationToken)),
+                ("Categories", () => _context.Categories.CountAsync(cancellationToken)),
+                ("Tags", () => _context.Tags.CountAsync(cancellationToken)),
+                ("Comments", () => _context.Comments.CountAsync(cancellationToken))
             };
 
             foreach (var table in tables)

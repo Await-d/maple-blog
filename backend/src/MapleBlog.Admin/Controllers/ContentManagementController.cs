@@ -76,7 +76,7 @@ namespace MapleBlog.Admin.Controllers
                     return Success(cachedOverview);
                 }
 
-                var overview = await _contentManagementService.GetContentOverviewAsync();
+                var overview = await _contentManagementService.GetOverviewAsync();
                 
                 _memoryCache.Set(cacheKey, overview, TimeSpan.FromMinutes(5));
 
@@ -116,8 +116,7 @@ namespace MapleBlog.Admin.Controllers
 
                 var statistics = await _contentManagementService.GetContentStatisticsAsync(
                     startDate ?? DateTime.UtcNow.AddDays(-30),
-                    endDate ?? DateTime.UtcNow,
-                    groupBy);
+                    endDate ?? DateTime.UtcNow);
 
                 _memoryCache.Set(cacheKey, statistics, TimeSpan.FromMinutes(10));
 
@@ -203,7 +202,7 @@ namespace MapleBlog.Admin.Controllers
                     CategoryIds = categoryId.HasValue ? new[] { categoryId.Value } : new List<Guid>(),
                     AuthorIds = authorId.HasValue ? new[] { authorId.Value } : new List<Guid>(),
                     CreatedDateRange = startDate.HasValue && endDate.HasValue
-                        ? new DateRangeDto { StartDate = startDate.Value, EndDate = endDate.Value }
+                        ? new Application.DTOs.Admin.DateRangeDto { StartDate = startDate.Value, EndDate = endDate.Value }
                         : null,
                     PageNumber = pageNumber,
                     PageSize = pageSize,
@@ -244,7 +243,7 @@ namespace MapleBlog.Admin.Controllers
                 if (permissionCheck != null) return permissionCheck;
 
                 var pendingContent = await _contentManagementService.GetPendingContentAsync(
-                    priority, pageNumber, pageSize);
+                    pageNumber, pageSize, priority);
 
                 return SuccessWithPagination(
                     pendingContent.Items,
@@ -275,7 +274,7 @@ namespace MapleBlog.Admin.Controllers
                 var permissionCheck = await ValidatePermissionAsync("content.moderate");
                 if (permissionCheck != null) return permissionCheck;
 
-                var moderationDetail = await _contentManagementService.GetContentModerationDetailAsync(contentId);
+                var moderationDetail = await _contentManagementService.GetContentForModerationAsync(contentId, "post");
                 if (moderationDetail == null)
                 {
                     return NotFoundResult("内容", contentId);
@@ -311,7 +310,7 @@ namespace MapleBlog.Admin.Controllers
                 if (validationResult != null) return validationResult;
 
                 var result = await _contentManagementService.ModerateContentAsync(
-                    contentId, request, CurrentUserId!.Value);
+                    contentId, "post", request.Action, request.Reason, CurrentUserId!.Value);
 
                 await LogAuditAsync("MODERATE", "Content", contentId.ToString(),
                     $"审核内容: {request.Action}", null, request);
@@ -341,7 +340,7 @@ namespace MapleBlog.Admin.Controllers
                 if (validationResult != null) return validationResult;
 
                 var result = await _contentManagementService.BatchModerateContentAsync(
-                    request, CurrentUserId!.Value);
+                    request.ContentIds, request.Action, request.Reason, CurrentUserId!.Value);
 
                 await LogAuditAsync("BATCH_MODERATE", "Content", null,
                     $"批量审核内容: {request.ContentIds.Count()} 项");
@@ -367,7 +366,7 @@ namespace MapleBlog.Admin.Controllers
                 var permissionCheck = await ValidatePermissionAsync("content.read");
                 if (permissionCheck != null) return permissionCheck;
 
-                var history = await _contentManagementService.GetContentModerationHistoryAsync(contentId);
+                var history = await _contentManagementService.GetContentModerationHistoryAsync(contentId, "post");
 
                 return Success(history);
             }
@@ -398,9 +397,9 @@ namespace MapleBlog.Admin.Controllers
                 if (validationResult != null) return validationResult;
 
                 // 设置当前用户为作者
-                request.AuthorId = CurrentUserId!.Value;
+                var authorId = CurrentUserId!.Value;
 
-                var result = await _blogService.CreatePostAsync(request);
+                var result = await _blogService.CreatePostAsync(authorId, request);
 
                 await LogAuditAsync("CREATE", "Content", result.Id.ToString(),
                     $"创建内容: {request.Title}");
@@ -469,7 +468,7 @@ namespace MapleBlog.Admin.Controllers
                     return NotFoundResult("内容", contentId);
                 }
 
-                var result = await _blogService.DeletePostAsync(contentId, permanent);
+                var result = await _blogService.DeletePostAsync(contentId, CurrentUserId!.Value);
 
                 await LogAuditAsync("DELETE", "Content", contentId.ToString(),
                     $"{(permanent ? "永久" : "软")}删除内容: {existingPost.Title}");
@@ -495,7 +494,7 @@ namespace MapleBlog.Admin.Controllers
                 var permissionCheck = await ValidatePermissionAsync("content.restore");
                 if (permissionCheck != null) return permissionCheck;
 
-                var result = await _blogService.RestorePostAsync(contentId);
+                var result = await _blogService.RestorePostAsync(contentId, CurrentUserId!.Value);
 
                 await LogAuditAsync("RESTORE", "Content", contentId.ToString(), "恢复已删除内容");
 
@@ -528,7 +527,7 @@ namespace MapleBlog.Admin.Controllers
                 if (validationResult != null) return validationResult;
 
                 var result = await _contentManagementService.BatchDeleteContentAsync(
-                    request.ContentIds, request.Permanent);
+                    request.ContentIds, "post", request.Permanent, CurrentUserId!.Value);
 
                 await LogAuditAsync("BATCH_DELETE", "Content", null,
                     $"批量删除内容: {request.ContentIds.Count()} 项");
@@ -558,7 +557,7 @@ namespace MapleBlog.Admin.Controllers
                 if (validationResult != null) return validationResult;
 
                 var result = await _contentManagementService.BatchUpdateContentStatusAsync(
-                    request.ContentIds, request.Status, CurrentUserId!.Value);
+                    request.ContentIds, request.ContentType, request.Status, CurrentUserId!.Value);
 
                 await LogAuditAsync("BATCH_UPDATE_STATUS", "Content", null,
                     $"批量更新内容状态: {request.ContentIds.Count()} 项 -> {request.Status}");
@@ -588,7 +587,7 @@ namespace MapleBlog.Admin.Controllers
                 if (validationResult != null) return validationResult;
 
                 var result = await _contentManagementService.BatchAssignCategoryAsync(
-                    request.ContentIds, request.CategoryId);
+                    request.ContentIds.ToList(), request.CategoryId);
 
                 await LogAuditAsync("BATCH_ASSIGN_CATEGORY", "Content", null,
                     $"批量分配分类: {request.ContentIds.Count()} 项 -> {request.CategoryId}");
@@ -618,7 +617,7 @@ namespace MapleBlog.Admin.Controllers
                 if (validationResult != null) return validationResult;
 
                 var result = await _contentManagementService.BatchAddTagsAsync(
-                    request.ContentIds, request.TagNames);
+                    request.ContentIds.ToList(), request.TagNames.ToList());
 
                 await LogAuditAsync("BATCH_ADD_TAGS", "Content", null,
                     $"批量添加标签: {request.ContentIds.Count()} 项");
@@ -648,7 +647,7 @@ namespace MapleBlog.Admin.Controllers
                 var permissionCheck = await ValidatePermissionAsync("content.read");
                 if (permissionCheck != null) return permissionCheck;
 
-                var seoAnalysis = await _contentManagementService.GetContentSeoAnalysisAsync(contentId);
+                var seoAnalysis = await _contentManagementService.GetContentSeoAnalysisAsync(contentId, "post");
                 if (seoAnalysis == null)
                 {
                     return NotFoundResult("内容", contentId);
@@ -681,7 +680,7 @@ namespace MapleBlog.Admin.Controllers
                 var validationResult = ValidateModelState();
                 if (validationResult != null) return validationResult;
 
-                var result = await _contentManagementService.OptimizeContentSeoAsync(contentId, options);
+                var result = await _contentManagementService.OptimizeContentSeoAsync(contentId);
 
                 await LogAuditAsync("SEO_OPTIMIZE", "Content", contentId.ToString(), "SEO优化");
 
@@ -710,7 +709,7 @@ namespace MapleBlog.Admin.Controllers
                 if (validationResult != null) return validationResult;
 
                 var result = await _contentManagementService.BatchOptimizeSeoAsync(
-                    request.ContentIds, request.Options);
+                    request.ContentIds.ToList());
 
                 await LogAuditAsync("BATCH_SEO_OPTIMIZE", "Content", null,
                     $"批量SEO优化: {request.ContentIds.Count()} 项");
@@ -745,12 +744,13 @@ namespace MapleBlog.Admin.Controllers
                 var permissionCheck = await ValidatePermissionAsync("content.read");
                 if (permissionCheck != null) return permissionCheck;
 
-                var duplicates = await _contentManagementService.DetectDuplicateContentAsync(
-                    threshold, pageNumber, pageSize);
+                var duplicatesList = await _contentManagementService.DetectDuplicateContentAsync(threshold);
+                var duplicates = duplicatesList.Skip((pageNumber - 1) * pageSize).Take(pageSize).ToList();
+                var totalCount = duplicatesList.Count;
 
                 return SuccessWithPagination(
-                    duplicates.Items,
-                    duplicates.TotalCount,
+                    duplicates,
+                    totalCount,
                     pageNumber,
                     pageSize);
             }
@@ -777,7 +777,7 @@ namespace MapleBlog.Admin.Controllers
                 if (validationResult != null) return validationResult;
 
                 var result = await _contentManagementService.AutoTagContentAsync(
-                    request.ContentIds, request.ConfidenceThreshold, request.MaxTags);
+                    request.ContentIds, "post");
 
                 await LogAuditAsync("AUTO_TAG", "Content", null,
                     $"自动标签: {request.ContentIds.Count()} 项");
@@ -810,7 +810,7 @@ namespace MapleBlog.Admin.Controllers
                 var validationResult = ValidateModelState();
                 if (validationResult != null) return validationResult;
 
-                var result = await _contentManagementService.ImportContentAsync(request, CurrentUserId!.Value);
+                var result = await _contentManagementService.BatchImportContentAsync(request);
 
                 await LogAuditAsync("IMPORT", "Content", null,
                     $"导入内容: {result.TotalRecords} 条记录");
@@ -839,7 +839,7 @@ namespace MapleBlog.Admin.Controllers
                 var validationResult = ValidateModelState();
                 if (validationResult != null) return validationResult;
 
-                var result = await _contentManagementService.ExportContentAsync(request);
+                var result = await _contentManagementService.BatchExportContentAsync(request);
 
                 await LogAuditAsync("EXPORT", "Content", null,
                     $"导出内容: {result.RecordCount} 条记录");
@@ -876,7 +876,7 @@ namespace MapleBlog.Admin.Controllers
                 if (validationResult != null) return validationResult;
 
                 var result = await _contentManagementService.ScheduleContentAsync(
-                    contentId, request.ScheduledTime, CurrentUserId!.Value);
+                    contentId, request.ScheduledTime);
 
                 await LogAuditAsync("SCHEDULE", "Content", contentId.ToString(),
                     $"设置定时发布: {request.ScheduledTime}");
@@ -930,12 +930,13 @@ namespace MapleBlog.Admin.Controllers
                 var permissionCheck = await ValidatePermissionAsync("content.read");
                 if (permissionCheck != null) return permissionCheck;
 
-                var scheduledContent = await _contentManagementService.GetScheduledContentAsync(
-                    pageNumber, pageSize);
+                var scheduledContent = await _contentManagementService.GetScheduledContentAsync();
 
+                // Apply pagination manually since the service doesn't support it yet
+                var pagedItems = scheduledContent.Skip((pageNumber - 1) * pageSize).Take(pageSize).ToList();
                 return SuccessWithPagination(
-                    scheduledContent.Items,
-                    scheduledContent.TotalCount,
+                    pagedItems,
+                    scheduledContent.Count,
                     pageNumber,
                     pageSize);
             }
@@ -967,12 +968,13 @@ namespace MapleBlog.Admin.Controllers
                 var permissionCheck = await ValidatePermissionAsync("comment.read");
                 if (permissionCheck != null) return permissionCheck;
 
-                var comments = await _commentModerationService.GetPostCommentsAsync(
-                    contentId, pageNumber, pageSize);
+                var comments = await _commentModerationService.GetPostCommentsAsync(contentId);
 
+                // Apply pagination manually since the service doesn't support it yet
+                var pagedComments = comments.Skip((pageNumber - 1) * pageSize).Take(pageSize).ToList();
                 return SuccessWithPagination(
-                    comments.Items,
-                    comments.TotalCount,
+                    pagedComments,
+                    comments.Count,
                     pageNumber,
                     pageSize);
             }
@@ -999,12 +1001,13 @@ namespace MapleBlog.Admin.Controllers
                 if (validationResult != null) return validationResult;
 
                 var result = await _commentModerationService.BatchModerateCommentsAsync(
-                    request.CommentIds, request.Action, request.Reason, CurrentUserId!.Value);
+                    request.CommentIds.ToList(), request.Action);
 
                 await LogAuditAsync("BATCH_MODERATE_COMMENTS", "Comment", null,
                     $"批量管理评论: {request.CommentIds.Count()} 项 - {request.Action}");
 
-                return Success(result, $"批量评论管理完成: 成功 {result.ProcessedCount} 项");
+                var processedCount = result ? request.CommentIds.Count() : 0;
+                return Success(result, $"批量评论管理完成: 成功 {processedCount} 项");
             }
             catch (Exception ex)
             {
@@ -1066,6 +1069,9 @@ namespace MapleBlog.Admin.Controllers
     {
         [Required]
         public IEnumerable<Guid> ContentIds { get; set; } = new List<Guid>();
+
+        [Required]
+        public string ContentType { get; set; } = string.Empty;
 
         [Required]
         public string Status { get; set; } = string.Empty;

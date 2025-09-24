@@ -8,6 +8,8 @@ using MapleBlog.Admin.DTOs;
 using System.Diagnostics;
 using System.Net.NetworkInformation;
 using StackExchange.Redis;
+using MSHealthStatus = Microsoft.Extensions.Diagnostics.HealthChecks.HealthStatus;
+using DTOHealthStatus = MapleBlog.Admin.DTOs.HealthStatus;
 
 namespace MapleBlog.Admin.Services;
 
@@ -126,20 +128,25 @@ public class HealthCheckService : IHealthCheckService
             _logger.LogError(ex, "Error during system health check");
             return new SystemHealthDto
             {
-                OverallStatus = HealthStatus.Unhealthy,
+                OverallStatus = DTOHealthStatus.Unhealthy,
                 Environment = "Unknown",
                 Version = "Unknown",
                 Components = new Dictionary<string, ComponentHealthDto>
                 {
                     ["SystemCheck"] = new ComponentHealthDto
                     {
-                        Status = HealthStatus.Unhealthy,
+                        Status = DTOHealthStatus.Unhealthy,
                         Description = "Health check system failure",
                         ErrorMessage = ex.Message
                     }
                 }
             };
         }
+    }
+
+    public async Task<SystemHealthDto> CheckHealthAsync()
+    {
+        return await GetSystemHealthAsync();
     }
 
     /// <summary>
@@ -165,7 +172,7 @@ public class HealthCheckService : IHealthCheckService
             {
                 return new ComponentHealthDto
                 {
-                    Status = HealthStatus.Healthy,
+                    Status = DTOHealthStatus.Healthy,
                     Description = "Database connection is healthy",
                     ResponseTimeMs = stopwatch.ElapsedMilliseconds,
                     Data = new Dictionary<string, object>
@@ -180,7 +187,7 @@ public class HealthCheckService : IHealthCheckService
             {
                 return new ComponentHealthDto
                 {
-                    Status = HealthStatus.Degraded,
+                    Status = DTOHealthStatus.Degraded,
                     Description = "Database query returned null",
                     ResponseTimeMs = stopwatch.ElapsedMilliseconds,
                     ErrorMessage = "Query result was null"
@@ -194,7 +201,7 @@ public class HealthCheckService : IHealthCheckService
 
             return new ComponentHealthDto
             {
-                Status = HealthStatus.Unhealthy,
+                Status = DTOHealthStatus.Unhealthy,
                 Description = "Database connection failed",
                 ResponseTimeMs = stopwatch.ElapsedMilliseconds,
                 ErrorMessage = ex.Message,
@@ -219,7 +226,7 @@ public class HealthCheckService : IHealthCheckService
             {
                 return new ComponentHealthDto
                 {
-                    Status = HealthStatus.Degraded,
+                    Status = DTOHealthStatus.Degraded,
                     Description = "Redis not configured",
                     ResponseTimeMs = 0,
                     Data = new Dictionary<string, object>
@@ -249,7 +256,7 @@ public class HealthCheckService : IHealthCheckService
 
                 return new ComponentHealthDto
                 {
-                    Status = HealthStatus.Healthy,
+                    Status = DTOHealthStatus.Healthy,
                     Description = "Redis connection is healthy",
                     ResponseTimeMs = stopwatch.ElapsedMilliseconds,
                     Data = new Dictionary<string, object>
@@ -257,8 +264,8 @@ public class HealthCheckService : IHealthCheckService
                         ["Configured"] = true,
                         ["Available"] = true,
                         ["TestSuccessful"] = true,
-                        ["ConnectedClients"] = info.FirstOrDefault(x => x.Key == "connected_clients")?.Value ?? "Unknown",
-                        ["UsedMemory"] = info.FirstOrDefault(x => x.Key == "used_memory")?.Value ?? "Unknown"
+                        ["ConnectedClients"] = info.SelectMany(g => g).FirstOrDefault(x => x.Key == "connected_clients").Value ?? "Unknown",
+                        ["UsedMemory"] = info.SelectMany(g => g).FirstOrDefault(x => x.Key == "used_memory").Value ?? "Unknown"
                     }
                 };
             }
@@ -266,7 +273,7 @@ public class HealthCheckService : IHealthCheckService
             {
                 return new ComponentHealthDto
                 {
-                    Status = HealthStatus.Degraded,
+                    Status = DTOHealthStatus.Degraded,
                     Description = "Redis test operation failed",
                     ResponseTimeMs = stopwatch.ElapsedMilliseconds,
                     ErrorMessage = $"Expected '{testValue}', got '{retrievedValue}'"
@@ -280,7 +287,7 @@ public class HealthCheckService : IHealthCheckService
 
             return new ComponentHealthDto
             {
-                Status = HealthStatus.Unhealthy,
+                Status = DTOHealthStatus.Unhealthy,
                 Description = "Redis connection failed",
                 ResponseTimeMs = stopwatch.ElapsedMilliseconds,
                 ErrorMessage = ex.Message,
@@ -318,7 +325,7 @@ public class HealthCheckService : IHealthCheckService
             {
                 return new ComponentHealthDto
                 {
-                    Status = HealthStatus.Healthy,
+                    Status = DTOHealthStatus.Healthy,
                     Description = "Memory cache is healthy",
                     ResponseTimeMs = stopwatch.ElapsedMilliseconds,
                     Data = new Dictionary<string, object>
@@ -333,7 +340,7 @@ public class HealthCheckService : IHealthCheckService
             {
                 return new ComponentHealthDto
                 {
-                    Status = HealthStatus.Degraded,
+                    Status = DTOHealthStatus.Degraded,
                     Description = "Memory cache test failed",
                     ResponseTimeMs = stopwatch.ElapsedMilliseconds,
                     ErrorMessage = $"Expected '{testValue}', got '{retrievedValue}'"
@@ -347,7 +354,7 @@ public class HealthCheckService : IHealthCheckService
 
             return new ComponentHealthDto
             {
-                Status = HealthStatus.Unhealthy,
+                Status = DTOHealthStatus.Unhealthy,
                 Description = "Memory cache failed",
                 ResponseTimeMs = stopwatch.ElapsedMilliseconds,
                 ErrorMessage = ex.Message,
@@ -383,7 +390,7 @@ public class HealthCheckService : IHealthCheckService
                     {
                         ServiceName = serviceName,
                         ServiceUrl = serviceUrl,
-                        Status = HealthStatus.Unknown,
+                        Status = DTOHealthStatus.Unknown,
                         ErrorMessage = "Service URL not configured",
                         LastChecked = DateTime.UtcNow
                     };
@@ -402,7 +409,7 @@ public class HealthCheckService : IHealthCheckService
                 {
                     ServiceName = "Configuration",
                     ServiceUrl = "N/A",
-                    Status = HealthStatus.Healthy,
+                    Status = DTOHealthStatus.Healthy,
                     ResponseTimeMs = 0,
                     LastChecked = DateTime.UtcNow,
                     ErrorMessage = null
@@ -416,7 +423,7 @@ public class HealthCheckService : IHealthCheckService
             {
                 ServiceName = "External Services Check",
                 ServiceUrl = "N/A",
-                Status = HealthStatus.Unhealthy,
+                Status = DTOHealthStatus.Unhealthy,
                 ResponseTimeMs = 0,
                 LastChecked = DateTime.UtcNow,
                 ErrorMessage = ex.Message
@@ -453,7 +460,7 @@ public class HealthCheckService : IHealthCheckService
 
             return new ComponentHealthDto
             {
-                Status = HealthStatus.Unhealthy,
+                Status = DTOHealthStatus.Unhealthy,
                 Description = $"{checkName} health check failed",
                 ResponseTimeMs = stopwatch.ElapsedMilliseconds,
                 ErrorMessage = ex.Message,
@@ -485,7 +492,7 @@ public class HealthCheckService : IHealthCheckService
 
             return new ComponentHealthDto
             {
-                Status = HealthStatus.Healthy,
+                Status = DTOHealthStatus.Healthy,
                 Description = "Application is running normally",
                 ResponseTimeMs = stopwatch.ElapsedMilliseconds,
                 Data = new Dictionary<string, object>
@@ -505,7 +512,7 @@ public class HealthCheckService : IHealthCheckService
             stopwatch.Stop();
             return new ComponentHealthDto
             {
-                Status = HealthStatus.Unhealthy,
+                Status = DTOHealthStatus.Unhealthy,
                 Description = "Application health check failed",
                 ResponseTimeMs = stopwatch.ElapsedMilliseconds,
                 ErrorMessage = ex.Message
@@ -525,12 +532,12 @@ public class HealthCheckService : IHealthCheckService
 
             var totalMemory = GC.GetTotalMemory(false);
             var workingSet = _currentProcess.WorkingSet64;
-            var status = HealthStatus.Healthy;
+            var status = DTOHealthStatus.Healthy;
 
             // 简单的资源使用检查
             if (workingSet > 1024 * 1024 * 1024) // 超过1GB
             {
-                status = HealthStatus.Degraded;
+                status = DTOHealthStatus.Degraded;
             }
 
             stopwatch.Stop();
@@ -555,7 +562,7 @@ public class HealthCheckService : IHealthCheckService
             stopwatch.Stop();
             return new ComponentHealthDto
             {
-                Status = HealthStatus.Unhealthy,
+                Status = DTOHealthStatus.Unhealthy,
                 Description = "System resources check failed",
                 ResponseTimeMs = stopwatch.ElapsedMilliseconds,
                 ErrorMessage = ex.Message
@@ -581,7 +588,7 @@ public class HealthCheckService : IHealthCheckService
             {
                 ServiceName = serviceName,
                 ServiceUrl = serviceUrl,
-                Status = response.IsSuccessStatusCode ? HealthStatus.Healthy : HealthStatus.Degraded,
+                Status = response.IsSuccessStatusCode ? DTOHealthStatus.Healthy : DTOHealthStatus.Degraded,
                 ResponseTimeMs = stopwatch.ElapsedMilliseconds,
                 LastChecked = DateTime.UtcNow,
                 Version = response.Headers.GetValues("X-Version").FirstOrDefault()
@@ -594,7 +601,7 @@ public class HealthCheckService : IHealthCheckService
             {
                 ServiceName = serviceName,
                 ServiceUrl = serviceUrl,
-                Status = HealthStatus.Unhealthy,
+                Status = DTOHealthStatus.Unhealthy,
                 ResponseTimeMs = stopwatch.ElapsedMilliseconds,
                 LastChecked = DateTime.UtcNow,
                 ErrorMessage = ex.Message
@@ -622,34 +629,34 @@ public class HealthCheckService : IHealthCheckService
     /// <summary>
     /// 计算整体健康状态
     /// </summary>
-    private Admin.DTOs.HealthStatus CalculateOverallHealth(IEnumerable<ComponentHealthDto> components)
+    private DTOHealthStatus CalculateOverallHealth(IEnumerable<ComponentHealthDto> components)
     {
         if (!components.Any())
-            return Admin.DTOs.HealthStatus.Unknown;
+            return DTOHealthStatus.Unknown;
 
-        if (components.Any(c => c.Status == Admin.DTOs.HealthStatus.Unhealthy))
-            return Admin.DTOs.HealthStatus.Unhealthy;
+        if (components.Any(c => c.Status == DTOHealthStatus.Unhealthy))
+            return DTOHealthStatus.Unhealthy;
 
-        if (components.Any(c => c.Status == Admin.DTOs.HealthStatus.Degraded))
-            return Admin.DTOs.HealthStatus.Degraded;
+        if (components.Any(c => c.Status == DTOHealthStatus.Degraded))
+            return DTOHealthStatus.Degraded;
 
-        if (components.All(c => c.Status == Admin.DTOs.HealthStatus.Healthy))
-            return Admin.DTOs.HealthStatus.Healthy;
+        if (components.All(c => c.Status == DTOHealthStatus.Healthy))
+            return DTOHealthStatus.Healthy;
 
-        return Admin.DTOs.HealthStatus.Unknown;
+        return DTOHealthStatus.Unknown;
     }
 
     /// <summary>
     /// 转换.NET健康检查状态到自定义状态
     /// </summary>
-    private Admin.DTOs.HealthStatus ConvertHealthStatus(Microsoft.Extensions.Diagnostics.HealthChecks.HealthStatus status)
+    private DTOHealthStatus ConvertHealthStatus(MSHealthStatus status)
     {
         return status switch
         {
-            Microsoft.Extensions.Diagnostics.HealthChecks.HealthStatus.Healthy => Admin.DTOs.HealthStatus.Healthy,
-            Microsoft.Extensions.Diagnostics.HealthChecks.HealthStatus.Degraded => Admin.DTOs.HealthStatus.Degraded,
-            Microsoft.Extensions.Diagnostics.HealthChecks.HealthStatus.Unhealthy => Admin.DTOs.HealthStatus.Unhealthy,
-            _ => Admin.DTOs.HealthStatus.Unknown
+            MSHealthStatus.Healthy => DTOHealthStatus.Healthy,
+            MSHealthStatus.Degraded => DTOHealthStatus.Degraded,
+            MSHealthStatus.Unhealthy => DTOHealthStatus.Unhealthy,
+            _ => DTOHealthStatus.Unknown
         };
     }
 }

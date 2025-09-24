@@ -26,6 +26,14 @@ namespace MapleBlog.Application.Interfaces
         Task<StorageQuotaConfiguration> GetRoleQuotaConfigurationAsync(UserRoleEnum role, CancellationToken cancellationToken = default);
 
         /// <summary>
+        /// 检查用户上传权限
+        /// </summary>
+        /// <param name="userId">用户ID</param>
+        /// <param name="cancellationToken">取消令牌</param>
+        /// <returns>是否有上传权限</returns>
+        Task<bool> CheckUploadPermissionAsync(Guid userId, CancellationToken cancellationToken = default);
+
+        /// <summary>
         /// 检查用户是否有足够的存储空间上传文件
         /// </summary>
         /// <param name="userId">用户ID</param>

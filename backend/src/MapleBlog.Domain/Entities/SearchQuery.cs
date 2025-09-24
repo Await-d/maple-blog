@@ -37,6 +37,11 @@ public class SearchQuery
     public int ResultCount { get; set; } = 0;
 
     /// <summary>
+    /// 返回的结果数量 (别名)
+    /// </summary>
+    public int ResultsReturned => ResultCount;
+
+    /// <summary>
     /// 执行时间（毫秒）
     /// </summary>
     public int? ExecutionTime { get; set; }
@@ -77,6 +82,11 @@ public class SearchQuery
     /// 创建时间
     /// </summary>
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    /// <summary>
+    /// 搜索时间（CreatedAt的别名）
+    /// </summary>
+    public DateTime SearchedAt => CreatedAt;
 
     // 导航属性
 

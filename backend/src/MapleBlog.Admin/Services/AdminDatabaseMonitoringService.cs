@@ -152,12 +152,12 @@ public class AdminDatabaseMonitoringService : BackgroundService
         var queryTests = new List<QueryTestResult>();
 
         // 测试基本查询性能
-        var testQueries = new[]
+        var testQueries = new (string Name, Func<Task<int>> Query)[]
         {
-            new { Name = "UserCount", Query = () => context.Users.CountAsync() },
-            new { Name = "PostCount", Query = () => context.Posts.CountAsync() },
-            new { Name = "RecentPosts", Query = () => context.Posts.Where(p => p.CreatedAt > DateTime.UtcNow.AddDays(-7)).CountAsync() },
-            new { Name = "ActiveUsers", Query = () => context.Users.Where(u => u.LastLoginAt > DateTime.UtcNow.AddDays(-30)).CountAsync() }
+            ("UserCount", () => context.Users.CountAsync()),
+            ("PostCount", () => context.Posts.CountAsync()),
+            ("RecentPosts", () => context.Posts.Where(p => p.CreatedAt > DateTime.UtcNow.AddDays(-7)).CountAsync()),
+            ("ActiveUsers", () => context.Users.Where(u => u.LastLoginAt > DateTime.UtcNow.AddDays(-30)).CountAsync())
         };
 
         foreach (var test in testQueries)
@@ -297,13 +297,13 @@ public class AdminDatabaseMonitoringService : BackgroundService
 
         try
         {
-            var tables = new[]
+            var tables = new (string Name, Func<Task<long>> Query)[]
             {
-                new { Name = "Users", Query = () => context.Users.LongCountAsync() },
-                new { Name = "Posts", Query = () => context.Posts.LongCountAsync() },
-                new { Name = "Categories", Query = () => context.Categories.LongCountAsync() },
-                new { Name = "Tags", Query = () => context.Tags.LongCountAsync() },
-                new { Name = "Comments", Query = () => context.Comments.LongCountAsync() }
+                ("Users", () => context.Users.LongCountAsync()),
+                ("Posts", () => context.Posts.LongCountAsync()),
+                ("Categories", () => context.Categories.LongCountAsync()),
+                ("Tags", () => context.Tags.LongCountAsync()),
+                ("Comments", () => context.Comments.LongCountAsync())
             };
 
             foreach (var table in tables)

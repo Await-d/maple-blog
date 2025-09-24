@@ -385,7 +385,7 @@ public class AnalyticsService
         data.Summary = new Dictionary<string, object>
         {
             ["TotalPosts"] = posts.Count,
-            ["PublishedPosts"] = posts.Count(p => p.Status == PostStatus.Published),
+            ["PublishedPosts"] = posts.Count(p => p.Status == MapleBlog.Domain.Enums.PostStatus.Published),
             ["TotalViews"] = posts.Sum(p => p.ViewCount),
             ["AverageViews"] = posts.Any() ? posts.Average(p => p.ViewCount) : 0,
             ["TotalComments"] = posts.Sum(p => p.Comments.Count),
@@ -1289,10 +1289,3 @@ public class AnalyticsService
     }
 }
 
-// 支持的实体枚举
-public enum PostStatus
-{
-    Draft,
-    Published,
-    Archived
-}

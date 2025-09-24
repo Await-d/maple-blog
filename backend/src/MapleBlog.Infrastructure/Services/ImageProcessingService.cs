@@ -486,6 +486,45 @@ public class ImageProcessingService : IImageProcessingService
         };
     }
 
+    public async Task<ImageProcessingResultDto> ConvertImageFormatAsync(Stream imageStream, string targetFormat, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            using var image = await Image.LoadAsync(imageStream, cancellationToken);
+            using var outputStream = new MemoryStream();
+            
+            IImageEncoder encoder = targetFormat.ToLowerInvariant() switch
+            {
+                "jpg" or "jpeg" => new JpegEncoder(),
+                "png" => new PngEncoder(),
+                "webp" => new WebpEncoder(),
+                "bmp" => new BmpEncoder(),
+                _ => new JpegEncoder()
+            };
+            
+            await image.SaveAsync(outputStream, encoder, cancellationToken);
+            
+            return new ImageProcessingResultDto
+            {
+                Success = true,
+                ProcessedImageStream = new MemoryStream(outputStream.ToArray()),
+                ContentType = $"image/{targetFormat}",
+                Width = image.Width,
+                Height = image.Height,
+                Size = outputStream.Length
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error converting image format to {TargetFormat}", targetFormat);
+            return new ImageProcessingResultDto
+            {
+                Success = false,
+                Error = ex.Message
+            };
+        }
+    }
+
     #endregion
 }
 

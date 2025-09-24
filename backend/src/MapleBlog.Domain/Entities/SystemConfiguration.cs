@@ -144,6 +144,16 @@ public class SystemConfiguration : BaseEntity
     public DateTime? ExpirationDate { get; set; }
 
     /// <summary>
+    /// 创建者ID
+    /// </summary>
+    public Guid? CreatedById { get; set; }
+
+    /// <summary>
+    /// 更新者ID
+    /// </summary>
+    public Guid? UpdatedById { get; set; }
+
+    /// <summary>
     /// 配置版本历史
     /// </summary>
     public virtual ICollection<ConfigurationVersion> Versions { get; set; } = new List<ConfigurationVersion>();

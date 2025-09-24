@@ -89,6 +89,11 @@ public class ConfigurationVersion : BaseEntity
     public ConfigurationApprovalStatus ApprovalStatus { get; set; } = ConfigurationApprovalStatus.Pending;
 
     /// <summary>
+    /// 版本状态
+    /// </summary>
+    public string Status { get; set; } = "Active";
+
+    /// <summary>
     /// 审批人ID
     /// </summary>
     public Guid? ApprovedByUserId { get; set; }
@@ -97,6 +102,36 @@ public class ConfigurationVersion : BaseEntity
     /// 审批人导航属性
     /// </summary>
     public virtual User? ApprovedByUser { get; set; }
+
+    /// <summary>
+    /// 审批人ID (别名)
+    /// </summary>
+    public Guid? ApprovedById => ApprovedByUserId;
+
+    /// <summary>
+    /// 拒绝人ID
+    /// </summary>
+    public Guid? RejectedById { get; set; }
+
+    /// <summary>
+    /// 拒绝时间
+    /// </summary>
+    public DateTime? RejectedAt { get; set; }
+
+    /// <summary>
+    /// 拒绝原因
+    /// </summary>
+    public string? RejectionReason { get; set; }
+
+    /// <summary>
+    /// 创建人ID
+    /// </summary>
+    public Guid? CreatedById { get; set; }
+    
+    /// <summary>
+    /// 创建人导航属性
+    /// </summary>
+    public virtual User? CreatedByUser { get; set; }
 
     /// <summary>
     /// 审批时间
@@ -123,6 +158,21 @@ public class ConfigurationVersion : BaseEntity
     /// </summary>
     [StringLength(64)]
     public string? Checksum { get; set; }
+    
+    /// <summary>
+    /// 环境名称
+    /// </summary>
+    public string? Environment { get; set; }
+    
+    /// <summary>
+    /// 旧值（变更前的值）
+    /// </summary>
+    public string? OldValue { get; set; }
+    
+    /// <summary>
+    /// 新值（Value的别名）
+    /// </summary>
+    public string? NewValue => Value;
 
     // 业务方法
 

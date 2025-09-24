@@ -69,6 +69,26 @@ namespace MapleBlog.Domain.Interfaces
         Task<int> UpdateReferenceCountAsync(Guid fileId, int increment, CancellationToken cancellationToken = default);
 
         /// <summary>
+        /// Updates a file entity
+        /// </summary>
+        Task<DomainFile> UpdateAsync(DomainFile file, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Gets total file size in bytes
+        /// </summary>
+        Task<long> GetTotalFileSizeAsync(CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Counts today's uploads
+        /// </summary>
+        Task<int> CountTodayUploadsAsync(CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Counts files by content type
+        /// </summary>
+        Task<int> CountByContentTypeAsync(string contentType, CancellationToken cancellationToken = default);
+
+        /// <summary>
         /// Updates file usage status
         /// </summary>
         /// <param name="fileId">File ID</param>
@@ -143,5 +163,12 @@ namespace MapleBlog.Domain.Interfaces
         /// <param name="cancellationToken">Cancellation token</param>
         /// <returns>Files created within date range</returns>
         Task<IReadOnlyList<DomainFile>> GetFilesByDateRangeAsync(DateTime startDate, DateTime endDate, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Gets used storage space in bytes
+        /// </summary>
+        /// <param name="cancellationToken">Cancellation token</param>
+        /// <returns>Used storage space in bytes</returns>
+        Task<long> GetUsedSpaceAsync(CancellationToken cancellationToken = default);
     }
 }

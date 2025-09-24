@@ -33,6 +33,11 @@ public class Configuration : BaseEntity
     public bool IsActive { get; set; } = true;
 
     /// <summary>
+    /// 环境名称
+    /// </summary>
+    public string? Environment { get; set; }
+
+    /// <summary>
     /// 创建时间
     /// </summary>
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
@@ -41,6 +46,21 @@ public class Configuration : BaseEntity
     /// 更新时间
     /// </summary>
     public DateTime? UpdatedAt { get; set; }
+
+    /// <summary>
+    /// 创建者ID
+    /// </summary>
+    public Guid? CreatedById { get; set; }
+
+    /// <summary>
+    /// 更新者ID
+    /// </summary>
+    public Guid? UpdatedById { get; set; }
+
+    /// <summary>
+    /// 数据类型
+    /// </summary>
+    public string DataType { get; set; } = "string";
 }
 
 /// <summary>

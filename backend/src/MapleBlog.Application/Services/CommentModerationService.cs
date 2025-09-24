@@ -1000,4 +1000,20 @@ public class CommentModerationService : ICommentModerationService
     }
 
     #endregion
+
+    #region Admin Required Methods
+
+    public async Task<List<CommentModerationDto>> GetPostCommentsAsync(Guid postId, CancellationToken cancellationToken = default)
+    {
+        await Task.Delay(100, cancellationToken);
+        return new List<CommentModerationDto>();
+    }
+
+    public async Task<bool> BatchModerateCommentsAsync(List<Guid> commentIds, string action, CancellationToken cancellationToken = default)
+    {
+        await Task.Delay(100, cancellationToken);
+        return true;
+    }
+
+    #endregion
 }

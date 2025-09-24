@@ -70,6 +70,11 @@ public interface ISystemMonitorService
     /// 停止监控
     /// </summary>
     Task StopMonitoringAsync();
+
+    /// <summary>
+    /// 获取最近的系统事件
+    /// </summary>
+    Task<List<SystemEventDto>> GetRecentSystemEventsAsync(int limit = 10);
 }
 
 /// <summary>
@@ -155,9 +160,10 @@ public class SystemMonitorService : ISystemMonitorService, IHostedService
     private Timer? _monitoringTimer;
     private readonly ConcurrentDictionary<string, SystemAlertDto> _activeAlerts = new();
     private readonly ConcurrentQueue<RequestStatsDto> _requestStats = new();
-    private readonly PerformanceCounter? _cpuCounter;
-    private readonly PerformanceCounter? _memoryCounter;
+    // PerformanceCounter fields removed for .NET 10 RC1 compatibility
     private readonly Process _currentProcess;
+    private DateTime _lastCpuTime = DateTime.UtcNow;
+    private TimeSpan _lastTotalProcessorTime = TimeSpan.Zero;
 
     private const string CACHE_KEY_PREFIX = "SystemMonitor:";
     private const string CACHE_KEY_METRICS = CACHE_KEY_PREFIX + "Metrics";
@@ -181,20 +187,27 @@ public class SystemMonitorService : ISystemMonitorService, IHostedService
         _redis = redis;
         _currentProcess = Process.GetCurrentProcess();
 
-        // 初始化性能计数器（仅在Windows上可用）
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        // .NET 10 RC1 compatibility: PerformanceCounter API has issues
+        // Using cross-platform fallback monitoring instead
+        _logger.LogInformation("Using cross-platform performance monitoring (PerformanceCounter disabled for .NET 10 compatibility)");
+        
+        // Initialize baseline measurements for CPU calculation
+        try
         {
-            try
-            {
-                _cpuCounter = new PerformanceCounter("Processor", "% Processor Time", "_Total");
-                _memoryCounter = new PerformanceCounter("Memory", "Available MBytes");
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Failed to initialize performance counters");
-            }
+            _lastTotalProcessorTime = _currentProcess.TotalProcessorTime;
+            _lastCpuTime = DateTime.UtcNow;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to initialize CPU baseline measurements");
         }
     }
+
+    /// <summary>
+    /// 创建性能计数器的辅助方法，处理.NET 10兼容性问题
+    /// </summary>
+    // Method removed - PerformanceCounter not compatible with .NET 10 RC1
+    // Using cross-platform alternatives instead
 
     /// <summary>
     /// 获取完整的系统指标
@@ -273,24 +286,8 @@ public class SystemMonitorService : ISystemMonitorService, IHostedService
 
             var performance = new SystemPerformanceDto();
 
-            // CPU使用率
-            if (_cpuCounter != null)
-            {
-                try
-                {
-                    performance.CpuUsagePercent = _cpuCounter.NextValue();
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Failed to get CPU usage from performance counter");
-                    // 使用进程级别的估算
-                    performance.CpuUsagePercent = GetProcessCpuUsage();
-                }
-            }
-            else
-            {
-                performance.CpuUsagePercent = GetProcessCpuUsage();
-            }
+            // CPU使用率 - 使用跨平台方法
+            performance.CpuUsagePercent = GetProcessCpuUsage();
 
             // 内存使用情况
             var totalMemory = GC.GetTotalMemory(false);
@@ -463,6 +460,32 @@ public class SystemMonitorService : ISystemMonitorService, IHostedService
     /// <summary>
     /// 获取系统警告
     /// </summary>
+    public async Task<List<SystemEventDto>> GetRecentSystemEventsAsync(int limit = 10)
+    {
+        var events = new List<SystemEventDto>();
+        
+        // Get recent alerts as events
+        var alerts = await GetSystemAlertsAsync();
+        foreach (var alert in alerts)
+        {
+            events.Add(new SystemEventDto
+            {
+                Timestamp = alert.Timestamp,
+                Category = "Alert",
+                Level = alert.Severity.ToString(),
+                Message = alert.Message,
+                Source = alert.Source,
+                Details = new Dictionary<string, object>
+                {
+                    ["AlertId"] = alert.Id,
+                    ["Resolved"] = alert.IsResolved
+                }
+            });
+        }
+        
+        return events.OrderByDescending(e => e.Timestamp).Take(limit).ToList();
+    }
+
     public async Task<List<SystemAlertDto>> GetSystemAlertsAsync(CancellationToken cancellationToken = default)
     {
         try
@@ -580,21 +603,33 @@ public class SystemMonitorService : ISystemMonitorService, IHostedService
     {
         try
         {
-            var startTime = DateTime.UtcNow;
-            var startCpuUsage = _currentProcess.TotalProcessorTime;
-            Thread.Sleep(100);
+            var currentTime = DateTime.UtcNow;
+            var currentTotalProcessorTime = _currentProcess.TotalProcessorTime;
 
-            var endTime = DateTime.UtcNow;
-            var endCpuUsage = _currentProcess.TotalProcessorTime;
+            // Calculate time differences
+            var timeDiff = (currentTime - _lastCpuTime).TotalMilliseconds;
+            var processorTimeDiff = (currentTotalProcessorTime - _lastTotalProcessorTime).TotalMilliseconds;
 
-            var cpuUsedMs = (endCpuUsage - startCpuUsage).TotalMilliseconds;
-            var totalMsPassed = (endTime - startTime).TotalMilliseconds;
-            var cpuUsageTotal = cpuUsedMs / (Environment.ProcessorCount * totalMsPassed);
+            // Avoid division by zero and ensure we have a reasonable time sample
+            if (timeDiff <= 0 || timeDiff < 100)
+            {
+                return 0;
+            }
 
-            return cpuUsageTotal * 100;
+            // Calculate CPU usage percentage
+            var cpuUsageTotal = processorTimeDiff / (Environment.ProcessorCount * timeDiff);
+            var cpuUsagePercent = cpuUsageTotal * 100;
+
+            // Update last measurements for next calculation
+            _lastCpuTime = currentTime;
+            _lastTotalProcessorTime = currentTotalProcessorTime;
+
+            // Clamp the result to reasonable bounds
+            return Math.Max(0, Math.Min(100, cpuUsagePercent));
         }
-        catch
+        catch (Exception ex)
         {
+            _logger.LogWarning(ex, "Failed to calculate process CPU usage");
             return 0;
         }
     }
@@ -1152,8 +1187,7 @@ public class SystemMonitorService : ISystemMonitorService, IHostedService
     public void Dispose()
     {
         _monitoringTimer?.Dispose();
-        _cpuCounter?.Dispose();
-        _memoryCounter?.Dispose();
+        // PerformanceCounter disposal removed for .NET 10 RC1 compatibility
         _currentProcess?.Dispose();
     }
 

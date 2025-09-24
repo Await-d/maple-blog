@@ -114,7 +114,7 @@ public class AdminQueryPerformanceAnalyzer : BackgroundService
                 Name = "UserCount",
                 Category = "Basic",
                 Description = "Count total users",
-                Query = () => context.Users.CountAsync(),
+                Query = async () => (object?)await context.Users.CountAsync(),
                 ExpectedMaxTime = _options.BasicQueryThresholdMs
             },
 
@@ -123,7 +123,7 @@ public class AdminQueryPerformanceAnalyzer : BackgroundService
                 Name = "PostCount",
                 Category = "Basic",
                 Description = "Count total posts",
-                Query = () => context.Posts.CountAsync(),
+                Query = async () => (object?)await context.Posts.CountAsync(),
                 ExpectedMaxTime = _options.BasicQueryThresholdMs
             },
 
@@ -132,7 +132,7 @@ public class AdminQueryPerformanceAnalyzer : BackgroundService
                 Name = "CategoryCount",
                 Category = "Basic",
                 Description = "Count total categories",
-                Query = () => context.Categories.CountAsync(),
+                Query = async () => (object?)await context.Categories.CountAsync(),
                 ExpectedMaxTime = _options.BasicQueryThresholdMs
             },
 
@@ -142,7 +142,7 @@ public class AdminQueryPerformanceAnalyzer : BackgroundService
                 Name = "UserByEmail",
                 Category = "Indexed",
                 Description = "Find user by email (should use index)",
-                Query = () => context.Users.Where(u => u.Email == "test@example.com").FirstOrDefaultAsync(),
+                Query = async () => (object?)await context.Users.Where(u => u.Email == "test@example.com").FirstOrDefaultAsync(),
                 ExpectedMaxTime = _options.IndexedQueryThresholdMs
             },
 
@@ -151,7 +151,7 @@ public class AdminQueryPerformanceAnalyzer : BackgroundService
                 Name = "PostsByStatus",
                 Category = "Indexed",
                 Description = "Find posts by status",
-                Query = () => context.Posts.Where(p => p.Status == Domain.Enums.PostStatus.Published).CountAsync(),
+                Query = async () => (object?)await context.Posts.Where(p => p.Status == Domain.Enums.PostStatus.Published).CountAsync(),
                 ExpectedMaxTime = _options.IndexedQueryThresholdMs
             },
 
@@ -161,7 +161,7 @@ public class AdminQueryPerformanceAnalyzer : BackgroundService
                 Name = "PostsWithCategories",
                 Category = "Complex",
                 Description = "Posts with category information",
-                Query = () => context.Posts
+                Query = async () => (object?)await context.Posts
                     .Include(p => p.Category)
                     .Where(p => p.Status == Domain.Enums.PostStatus.Published)
                     .Take(10)
@@ -174,7 +174,7 @@ public class AdminQueryPerformanceAnalyzer : BackgroundService
                 Name = "PostsWithTags",
                 Category = "Complex",
                 Description = "Posts with tag information",
-                Query = () => context.Posts
+                Query = async () => (object?)await context.Posts
                     .Include(p => p.Tags)
                     .Where(p => p.CreatedAt > DateTime.UtcNow.AddDays(-30))
                     .Take(10)
@@ -187,7 +187,7 @@ public class AdminQueryPerformanceAnalyzer : BackgroundService
                 Name = "CommentsWithPosts",
                 Category = "Complex",
                 Description = "Comments with post information",
-                Query = () => context.Comments
+                Query = async () => (object?)await context.Comments
                     .Include(c => c.Post)
                     .Where(c => c.CreatedAt > DateTime.UtcNow.AddDays(-7))
                     .Take(10)
@@ -201,7 +201,7 @@ public class AdminQueryPerformanceAnalyzer : BackgroundService
                 Name = "PostStatsByMonth",
                 Category = "Aggregation",
                 Description = "Post statistics by month",
-                Query = () => context.Posts
+                Query = async () => (object?)await context.Posts
                     .Where(p => p.CreatedAt > DateTime.UtcNow.AddMonths(-6))
                     .GroupBy(p => new { p.CreatedAt.Year, p.CreatedAt.Month })
                     .Select(g => new { g.Key.Year, g.Key.Month, Count = g.Count() })
@@ -214,7 +214,7 @@ public class AdminQueryPerformanceAnalyzer : BackgroundService
                 Name = "TagUsageStats",
                 Category = "Aggregation",
                 Description = "Tag usage statistics",
-                Query = () => context.Tags
+                Query = async () => (object?)await context.Tags
                     .Select(t => new { t.Name, PostCount = t.Posts.Count() })
                     .OrderByDescending(t => t.PostCount)
                     .Take(10)
@@ -228,7 +228,7 @@ public class AdminQueryPerformanceAnalyzer : BackgroundService
                 Name = "PaginatedPosts",
                 Category = "Pagination",
                 Description = "Paginated posts query",
-                Query = () => context.Posts
+                Query = async () => (object?)await context.Posts
                     .OrderByDescending(p => p.CreatedAt)
                     .Skip(20)
                     .Take(10)
@@ -242,7 +242,7 @@ public class AdminQueryPerformanceAnalyzer : BackgroundService
                 Name = "PostSearch",
                 Category = "Search",
                 Description = "Full-text search in posts",
-                Query = () => context.Posts
+                Query = async () => (object?)await context.Posts
                     .Where(p => p.Title.Contains("test") || p.Content.Contains("test"))
                     .Take(10)
                     .ToListAsync(),

@@ -34,6 +34,27 @@ public class DashboardStatsDto
     /// 最后更新时间
     /// </summary>
     public DateTime LastUpdated { get; set; } = DateTime.UtcNow;
+
+    // 便捷属性（用于兼容）
+    /// <summary>
+    /// 总用户数
+    /// </summary>
+    public int TotalUsers => UserStats?.TotalUsers ?? 0;
+
+    /// <summary>
+    /// 总评论数
+    /// </summary>
+    public int TotalComments => ContentStats?.TotalComments ?? 0;
+
+    /// <summary>
+    /// 总浏览量
+    /// </summary>
+    public long TotalViews => TrafficStats?.TotalPageViews ?? 0;
+
+    /// <summary>
+    /// 总文章数
+    /// </summary>
+    public int TotalPosts => ContentStats?.TotalPosts ?? 0;
 }
 
 /// <summary>
@@ -263,6 +284,11 @@ public class TrafficStatsDto
     /// 总访问量
     /// </summary>
     public long TotalVisits { get; set; }
+
+    /// <summary>
+    /// 总页面浏览量
+    /// </summary>
+    public long TotalPageViews { get; set; }
 
     /// <summary>
     /// 今日独立访客数

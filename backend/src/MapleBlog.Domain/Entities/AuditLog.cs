@@ -160,6 +160,24 @@ namespace MapleBlog.Domain.Entities
         }
 
         /// <summary>
+        /// 实体类型（别名，指向ResourceType字段）
+        /// </summary>
+        public string EntityType
+        {
+            get => ResourceType;
+            set => ResourceType = value;
+        }
+
+        /// <summary>
+        /// 实体ID（别名，指向ResourceId字段）
+        /// </summary>
+        public string? EntityId
+        {
+            get => ResourceId;
+            set => ResourceId = value;
+        }
+
+        /// <summary>
         /// 风险级别（Low, Medium, High, Critical）
         /// </summary>
         [StringLength(20)]

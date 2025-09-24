@@ -981,12 +981,11 @@ namespace MapleBlog.Admin.Controllers
                     SuccessCount = request.UserIds.Count(),
                     FailCount = 0,
                     Success = true,
-                    ItemResults = request.UserIds.Select(id => new BatchItemResultDto
+                    ItemResults = request.UserIds.Select(id => new ItemResultDto
                     {
                         ItemId = id,
-                        ItemTitle = $"User {id}",
                         Success = true,
-                        ResultData = $"状态已更新为: {request.NewStatus}"
+                        Message = $"状态已更新为: {request.NewStatus}"
                     }).ToList()
                 };
 

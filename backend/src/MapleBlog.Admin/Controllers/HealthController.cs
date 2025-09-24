@@ -57,12 +57,12 @@ public class HealthController : ControllerBase
                 timestamp = DateTimeOffset.UtcNow,
                 duration = healthReport.TotalDuration.TotalMilliseconds,
                 checks = healthReport.Entries.ToDictionary(
-                    kvp => kvp.Key,
-                    kvp => new
+                    entry => entry.Name,
+                    entry => new
                     {
-                        status = kvp.Value.Status.ToString(),
-                        duration = kvp.Value.Duration.TotalMilliseconds,
-                        description = kvp.Value.Description
+                        status = entry.Status.ToString(),
+                        duration = entry.Duration.TotalMilliseconds,
+                        description = entry.Description
                     })
             };
 
@@ -92,13 +92,13 @@ public class HealthController : ControllerBase
                 timestamp = DateTimeOffset.UtcNow,
                 duration = healthReport.TotalDuration.TotalMilliseconds,
                 checks = healthReport.Entries.ToDictionary(
-                    kvp => kvp.Key,
-                    kvp => new
+                    entry => entry.Name,
+                    entry => new
                     {
-                        status = kvp.Value.Status.ToString(),
-                        duration = kvp.Value.Duration.TotalMilliseconds,
-                        description = kvp.Value.Description,
-                        data = kvp.Value.Data
+                        status = entry.Status.ToString(),
+                        duration = entry.Duration.TotalMilliseconds,
+                        description = entry.Description,
+                        data = entry.Tags
                     }),
                 metrics = currentMetrics,
                 summary = _prometheusService.GetMetricsSummary()

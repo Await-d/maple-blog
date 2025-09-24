@@ -61,6 +61,8 @@ public class BlogDbContext : DbContext
     // Configuration entities
     public DbSet<Domain.Entities.Configuration> Configurations { get; set; }
     public DbSet<ConfigurationVersion> ConfigurationVersions { get; set; }
+    public DbSet<ConfigurationBackup> ConfigurationBackups { get; set; } = null!;
+    public DbSet<ConfigurationTemplate> ConfigurationTemplates { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

@@ -144,4 +144,9 @@ public class CreatePostDto
     /// </summary>
     [Range(1, 300, ErrorMessage = "Reading time must be between 1 and 300 minutes")]
     public int? ReadingTimeMinutes { get; set; }
+
+    /// <summary>
+    /// Author ID (will be set from current user if not provided)
+    /// </summary>
+    public Guid? AuthorId { get; set; }
 }

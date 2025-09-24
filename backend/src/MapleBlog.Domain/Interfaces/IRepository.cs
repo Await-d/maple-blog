@@ -95,6 +95,14 @@ namespace MapleBlog.Domain.Interfaces
         T Update(T entity);
 
         /// <summary>
+        /// Updates an existing entity asynchronously
+        /// </summary>
+        /// <param name="entity">Entity to update</param>
+        /// <param name="cancellationToken">Cancellation token</param>
+        /// <returns>Updated entity</returns>
+        Task<T> UpdateAsync(T entity, CancellationToken cancellationToken = default);
+
+        /// <summary>
         /// Updates multiple entities
         /// </summary>
         /// <param name="entities">Entities to update</param>
@@ -112,6 +120,13 @@ namespace MapleBlog.Domain.Interfaces
         /// <param name="id">ID of the entity to remove</param>
         /// <param name="cancellationToken">Cancellation token</param>
         Task RemoveAsync(Guid id, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Deletes an entity by ID asynchronously
+        /// </summary>
+        /// <param name="id">ID of the entity to delete</param>
+        /// <param name="cancellationToken">Cancellation token</param>
+        Task DeleteAsync(Guid id, CancellationToken cancellationToken = default);
 
         /// <summary>
         /// Removes multiple entities

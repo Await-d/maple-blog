@@ -1,4 +1,5 @@
 using MapleBlog.Application.DTOs.Admin;
+using MapleBlog.Application.DTOs.Content;
 
 namespace MapleBlog.Application.Interfaces
 {
@@ -138,7 +139,7 @@ namespace MapleBlog.Application.Interfaces
         /// </summary>
         /// <param name="threshold">相似度阈值</param>
         /// <returns>重复内容列表</returns>
-        Task<IEnumerable<DuplicateContentDto>> GetDuplicateContentAsync(double threshold = 0.8);
+        Task<IEnumerable<DTOs.Admin.DuplicateContentDto>> GetDuplicateContentAsync(double threshold = 0.8);
 
         /// <summary>
         /// 自动标签内容
@@ -147,5 +148,55 @@ namespace MapleBlog.Application.Interfaces
         /// <param name="contentType">内容类型</param>
         /// <returns>自动标签结果</returns>
         Task<AutoTaggingResultDto> AutoTagContentAsync(IEnumerable<Guid> contentIds, string contentType);
+
+        /// <summary>
+        /// 批量分配分类
+        /// </summary>
+        Task<DTOs.Admin.BatchOperationResultDto> BatchAssignCategoryAsync(List<Guid> postIds, Guid categoryId, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// 批量添加标签
+        /// </summary>
+        Task<DTOs.Admin.BatchOperationResultDto> BatchAddTagsAsync(List<Guid> postIds, List<string> tags, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// 优化内容SEO
+        /// </summary>
+        Task<DTOs.Content.SeoOptimizationResultDto> OptimizeContentSeoAsync(Guid contentId, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// 批量优化SEO
+        /// </summary>
+        Task<DTOs.Content.BatchSeoResultDto> BatchOptimizeSeoAsync(List<Guid> contentIds, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// 检测重复内容
+        /// </summary>
+        Task<List<DTOs.Admin.DuplicateContentDto>> DetectDuplicateContentAsync(double threshold = 0.8, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// 导入内容
+        /// </summary>
+        Task<DTOs.Content.ImportResultDto> ImportContentAsync(Stream fileStream, string format, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// 导出内容
+        /// </summary>
+        Task<DTOs.Admin.ExportResultDto> ExportContentAsync(List<Guid> contentIds, string format, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// 计划内容发布
+        /// </summary>
+        Task<bool> ScheduleContentAsync(Guid contentId, DateTime publishAt, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// 取消计划发布
+        /// </summary>
+        Task<bool> CancelScheduledContentAsync(Guid contentId, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// 获取计划内容
+        /// </summary>
+        Task<List<DTOs.Content.ScheduledContentDto>> GetScheduledContentAsync(CancellationToken cancellationToken = default);
     }
 }

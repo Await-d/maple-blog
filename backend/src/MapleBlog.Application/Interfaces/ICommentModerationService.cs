@@ -267,6 +267,16 @@ public interface ICommentModerationService
     /// <returns>测试结果</returns>
     Task<RuleTestResult> TestAutoModerationRuleAsync(Guid ruleId, string testContent, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// 获取文章的评论列表
+    /// </summary>
+    Task<List<CommentModerationDto>> GetPostCommentsAsync(Guid postId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 批量审核评论
+    /// </summary>
+    Task<bool> BatchModerateCommentsAsync(List<Guid> commentIds, string action, CancellationToken cancellationToken = default);
+
     #endregion
 }
 

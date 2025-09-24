@@ -253,6 +253,42 @@ namespace MapleBlog.Infrastructure.Repositories
                 .ToListAsync(cancellationToken);
         }
 
+        public async Task<DomainFile> UpdateAsync(DomainFile file, CancellationToken cancellationToken = default)
+        {
+            Context.Files.Update(file);
+            await Context.SaveChangesAsync(cancellationToken);
+            return file;
+        }
+
+        public async Task<long> GetTotalFileSizeAsync(CancellationToken cancellationToken = default)
+        {
+            return await _dbSet
+                .Where(f => !f.IsDeleted)
+                .SumAsync(f => f.FileSize, cancellationToken);
+        }
+
+        public async Task<int> CountTodayUploadsAsync(CancellationToken cancellationToken = default)
+        {
+            var today = DateTime.Today;
+            var tomorrow = today.AddDays(1);
+            
+            return await _dbSet
+                .Where(f => !f.IsDeleted && f.CreatedAt >= today && f.CreatedAt < tomorrow)
+                .CountAsync(cancellationToken);
+        }
+
+        public async Task<int> CountByContentTypeAsync(string contentType, CancellationToken cancellationToken = default)
+        {
+            return await _dbSet
+                .Where(f => !f.IsDeleted && f.ContentType == contentType)
+                .CountAsync(cancellationToken);
+        }
+
+        public async Task<long> GetUsedSpaceAsync(CancellationToken cancellationToken = default)
+        {
+            return await GetTotalFileSizeAsync(cancellationToken);
+        }
+
         protected BlogDbContext Context => (BlogDbContext)_context;
     }
 }

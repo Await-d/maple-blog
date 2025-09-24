@@ -424,7 +424,7 @@ public class AdminConnectionPoolMonitoringService : BackgroundService
         try
         {
             var tasks = Enumerable.Range(0, _options.BurstConnectionCount)
-                .Select(async i =>
+                .Select<int, Task<BurstTestResult>>(async i =>
                 {
                     var taskStopwatch = Stopwatch.StartNew();
                     try
@@ -433,12 +433,23 @@ public class AdminConnectionPoolMonitoringService : BackgroundService
                         var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
                         var result = await context.Database.CanConnectAsync();
                         taskStopwatch.Stop();
-                        return new { Success = result, Duration = taskStopwatch.ElapsedMilliseconds, Index = i };
+                        return new BurstTestResult
+                        {
+                            Success = result,
+                            Duration = taskStopwatch.ElapsedMilliseconds,
+                            Index = i
+                        };
                     }
                     catch (Exception ex)
                     {
                         taskStopwatch.Stop();
-                        return new { Success = false, Duration = taskStopwatch.ElapsedMilliseconds, Index = i, Error = ex.Message };
+                        return new BurstTestResult
+                        {
+                            Success = false,
+                            Duration = taskStopwatch.ElapsedMilliseconds,
+                            Index = i,
+                            Error = ex.Message
+                        };
                     }
                 });
 
@@ -693,6 +704,14 @@ public class ConnectionPerformanceMetrics
     public long SimpleQueryTime { get; set; }
     public int QueryResult { get; set; }
     public string? ErrorMessage { get; set; }
+}
+
+public class BurstTestResult
+{
+    public bool Success { get; set; }
+    public long Duration { get; set; }
+    public int Index { get; set; }
+    public string? Error { get; set; }
 }
 
 /// <summary>

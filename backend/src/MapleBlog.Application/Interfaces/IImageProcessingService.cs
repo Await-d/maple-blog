@@ -13,4 +13,6 @@ public interface IImageProcessingService
     Task<IEnumerable<string>> GetSupportedFormatsAsync();
     Task<string> OptimizeImageAsync(Stream imageStream, string outputFormat = "webp");
     Task<WatermarkResultDto> AddWatermarkAsync(Stream imageStream, WatermarkOptionsDto options);
+
+    Task<ImageProcessingResultDto> ConvertImageFormatAsync(Stream imageStream, string targetFormat, CancellationToken cancellationToken = default);
 }

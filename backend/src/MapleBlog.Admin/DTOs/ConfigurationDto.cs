@@ -78,49 +78,54 @@ public class CreateConfigurationDto
     [Required]
     [StringLength(100)]
     public string Section { get; set; } = string.Empty;
-    
+
     [Required]
     [StringLength(100)]
     public string Key { get; set; } = string.Empty;
-    
+
     public string? Value { get; set; }
-    
+
     [StringLength(50)]
     public string DataType { get; set; } = "string";
-    
+
     public string? Description { get; set; }
-    
+
     public bool IsSystem { get; set; } = false;
-    
+
     public bool IsEncrypted { get; set; } = false;
-    
+
     public int DisplayOrder { get; set; } = 0;
-    
+
     public ConfigurationCriticality Criticality { get; set; } = ConfigurationCriticality.Low;
-    
+
     public bool RequiresApproval { get; set; } = false;
-    
+
     public bool EnableVersioning { get; set; } = true;
-    
+
     public int MaxVersions { get; set; } = 10;
-    
+
     public string? Schema { get; set; }
-    
+
     public string? DefaultValue { get; set; }
-    
+
     public string? ValidationRules { get; set; }
-    
+
     public string? Tags { get; set; }
-    
+
     public string Environment { get; set; } = "Production";
-    
+
     public string? ImpactAssessment { get; set; }
-    
+
     public DateTime? EffectiveDate { get; set; }
-    
+
     public DateTime? ExpirationDate { get; set; }
-    
+
     public string? ChangeReason { get; set; }
+
+    /// <summary>
+    /// 验证架构
+    /// </summary>
+    public string? ValidationSchema { get; set; }
 }
 
 /// <summary>
@@ -268,14 +273,24 @@ public class ConfigurationBatchOperationDto
 {
     [Required]
     public List<Guid> ConfigurationIds { get; set; } = new();
-    
+
     [Required]
     public string Operation { get; set; } = string.Empty; // update, delete, export, backup
-    
+
     public Dictionary<string, object>? Parameters { get; set; }
-    
+
     [Required]
     public string Reason { get; set; } = string.Empty;
+
+    /// <summary>
+    /// 新节
+    /// </summary>
+    public string? NewSection { get; set; }
+
+    /// <summary>
+    /// 新环境
+    /// </summary>
+    public string? NewEnvironment { get; set; }
 }
 
 /// <summary>
@@ -316,11 +331,16 @@ public class ConfigurationApprovalDto
 {
     [Required]
     public Guid VersionId { get; set; }
-    
+
     [Required]
     public ConfigurationApprovalStatus Status { get; set; }
-    
+
     public string? Notes { get; set; }
+
+    /// <summary>
+    /// 原因
+    /// </summary>
+    public string? Reason { get; set; }
 }
 
 /// <summary>
@@ -388,6 +408,8 @@ public class ConfigurationRestoreDto
     
     public bool CreateBackupBeforeRestore { get; set; } = true;
     
+    public bool ClearExisting { get; set; } = false;
+    
     [Required]
     public string Reason { get; set; } = string.Empty;
 }
@@ -417,17 +439,27 @@ public class ConfigurationImportDto
 {
     [Required]
     public string Data { get; set; } = string.Empty;
-    
+
     public string Format { get; set; } = "json";
-    
+
     public string TargetEnvironment { get; set; } = "Production";
-    
+
     public bool OverwriteExisting { get; set; } = false;
-    
+
     public bool ValidateOnly { get; set; } = false;
-    
+
     [Required]
     public string Reason { get; set; } = string.Empty;
+
+    /// <summary>
+    /// 配置数据
+    /// </summary>
+    public string ConfigurationData => Data;
+
+    /// <summary>
+    /// 替换现有
+    /// </summary>
+    public bool ReplaceExisting => OverwriteExisting;
 }
 
 /// <summary>
@@ -436,28 +468,32 @@ public class ConfigurationImportDto
 public class ConfigurationStatisticsDto
 {
     public int TotalConfigurations { get; set; }
-    
+
+    public int TotalSections { get; set; }
+
     public int SystemConfigurations { get; set; }
-    
+
     public int EncryptedConfigurations { get; set; }
-    
+
     public int ConfigurationsRequiringApproval { get; set; }
-    
+
     public int PendingApprovals { get; set; }
-    
+
     public Dictionary<string, int> ConfigurationsBySection { get; set; } = new();
-    
+
     public Dictionary<string, int> ConfigurationsByEnvironment { get; set; } = new();
-    
+
     public Dictionary<ConfigurationCriticality, int> ConfigurationsByCriticality { get; set; } = new();
-    
+
     public Dictionary<string, int> ConfigurationsByDataType { get; set; } = new();
-    
+
     public int TotalVersions { get; set; }
-    
+
     public DateTime? LastModified { get; set; }
-    
+
     public List<ConfigurationChangeActivity> RecentActivity { get; set; } = new();
+
+    public List<ConfigurationChangeActivity> RecentChanges { get; set; } = new();
 }
 
 /// <summary>
@@ -465,19 +501,45 @@ public class ConfigurationStatisticsDto
 /// </summary>
 public class ConfigurationChangeActivity
 {
+    public Guid Id { get; set; }
+
     public Guid ConfigurationId { get; set; }
-    
+
     public string Section { get; set; } = string.Empty;
-    
+
     public string Key { get; set; } = string.Empty;
-    
+
+    public string Action { get; set; } = string.Empty;
+
     public ConfigurationChangeType ChangeType { get; set; }
-    
+
     public string? ChangeReason { get; set; }
-    
+
     public DateTime Timestamp { get; set; }
-    
+
     public string? UserName { get; set; }
-    
+
     public int Version { get; set; }
+
+    public Guid? ChangedById { get; set; }
+
+    public DateTime ChangedAt { get; set; }
+
+    public string? Reason { get; set; }
+
+    public string? Environment { get; set; }
+
+    public string? OldValue { get; set; }
+
+    public string? NewValue { get; set; }
+}
+
+/// <summary>
+/// 环境统计DTO
+/// </summary>
+public class EnvironmentStatistics
+{
+    public string Environment { get; set; } = string.Empty;
+
+    public int Count { get; set; }
 }

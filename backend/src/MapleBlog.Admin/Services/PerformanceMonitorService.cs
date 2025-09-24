@@ -11,6 +11,13 @@ using MapleBlog.Infrastructure.Data;
 
 namespace MapleBlog.Admin.Services;
 
+// Simple performance counter stub (would need platform-specific implementation)
+internal class PerformanceCounter : IDisposable
+{
+    public float NextValue() => 0;
+    public void Dispose() { }
+}
+
 /// <summary>
 /// Backend Performance Monitor Service for Admin Dashboard
 /// Provides comprehensive server-side performance monitoring, analysis, and optimization insights
@@ -34,7 +41,7 @@ public class PerformanceMonitorService : BackgroundService, IPerformanceMonitorS
     private readonly ILogger<PerformanceMonitorService> _logger;
     private readonly BlogDbContext _context;
     private readonly IMemoryCache _cache;
-    private readonly PerformanceMonitorOptions _options;
+    private readonly PerformanceMonitorOptions _options = new();
 
     private readonly ConcurrentDictionary<string, DatabaseQueryMetrics> _queryMetrics = new();
     private readonly ConcurrentDictionary<string, ApiEndpointMetrics> _endpointMetrics = new();
@@ -44,6 +51,12 @@ public class PerformanceMonitorService : BackgroundService, IPerformanceMonitorS
     private DetailedPerformanceMetrics _currentMetrics = new();
     private readonly IMemoryCache _memoryCache;
     private CancellationTokenSource _monitoringCts = new();
+    private PerformanceCounter? _cpuCounter;
+    private PerformanceCounter? _memoryCounter;
+    private Timer? _metricsTimer;
+    private Timer? _alertTimer;
+    private PerformanceBaseline? _baseline;
+    private bool _isMonitoring = false;
     private readonly double _cpuThreshold;
     private readonly double _memoryThreshold;
     private readonly double _responseTimeThreshold;
@@ -54,10 +67,13 @@ public class PerformanceMonitorService : BackgroundService, IPerformanceMonitorS
     public PerformanceMonitorService(
         IMemoryCache memoryCache,
         ILogger<PerformanceMonitorService> logger,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        BlogDbContext context)
     {
         _memoryCache = memoryCache;
+        _cache = memoryCache;
         _logger = logger;
+        _context = context;
 
         // Configure thresholds from app settings
         _cpuThreshold = configuration.GetValue<double>("Performance:CpuThreshold", 80);
@@ -190,16 +206,16 @@ public class PerformanceMonitorService : BackgroundService, IPerformanceMonitorS
                     TotalMemory = GC.GetTotalMemory(false),
                     HeapSize = GC.GetTotalMemory(false)
                 },
-                Api = await GetApiMetricsAsync(),
-                Database = await GetDatabaseMetricsAsync(),
-                Cache = await GetCacheMetricsAsync()
+                Api = await CollectApiMetricsAsync(),
+                Database = await CollectDatabaseMetricsAsync(CancellationToken.None),
+                Cache = await CollectCacheMetricsAsync(CancellationToken.None)
             };
 
             // Store in cache
             _memoryCache.Set("current_metrics", _currentMetrics, _cacheOptions);
 
             // Check for issues and alert if necessary
-            await CheckPerformanceIssuesAsync(_currentMetrics);
+            await CheckPerformanceAlertsAsync();
         }
         catch (Exception ex)
         {
@@ -232,18 +248,20 @@ public class PerformanceMonitorService : BackgroundService, IPerformanceMonitorS
             {
                 Timestamp = DateTime.UtcNow,
                 System = await CollectSystemMetricsAsync(),
-                Database = await CollectDatabaseMetricsAsync(),
-                Api = CollectApiMetrics(),
-                Memory = await CollectMemoryMetricsAsync(),
-                Cache = await CollectCacheMetricsAsync(),
+                Database = await CollectDatabaseMetricsAsync(CancellationToken.None),
+                Api = await CollectApiMetricsAsync(),
+                Memory = await CollectMemoryMetricsAsync(CancellationToken.None),
+                Cache = await CollectCacheMetricsAsync(CancellationToken.None),
                 Custom = CollectCustomMetrics()
             };
 
             _currentMetrics = metrics;
+            return metrics;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error collecting performance metrics");
+            return new DetailedPerformanceMetrics();
         }
     }
 
@@ -275,7 +293,7 @@ public class PerformanceMonitorService : BackgroundService, IPerformanceMonitorS
         }
     }
 
-    private async Task<DatabaseMetrics> CollectDatabaseMetricsAsync()
+    private async Task<DatabaseMetrics> CollectDatabaseMetricsAsync(CancellationToken cancellationToken = default)
     {
         try
         {
@@ -315,7 +333,7 @@ public class PerformanceMonitorService : BackgroundService, IPerformanceMonitorS
         }
     }
 
-    private ApiMetrics CollectApiMetrics()
+    private async Task<ApiMetrics> CollectApiMetricsAsync()
     {
         try
         {
@@ -344,7 +362,7 @@ public class PerformanceMonitorService : BackgroundService, IPerformanceMonitorS
         }
     }
 
-    private async Task<MemoryMetrics> CollectMemoryMetricsAsync()
+    private async Task<MemoryMetrics> CollectMemoryMetricsAsync(CancellationToken cancellationToken = default)
     {
         try
         {
@@ -356,10 +374,10 @@ public class PerformanceMonitorService : BackgroundService, IPerformanceMonitorS
                 WorkingSet = process.WorkingSet64,
                 PrivateMemory = process.PrivateMemorySize64,
                 ManagedMemory = GC.GetTotalMemory(false),
-                Gen0HeapSize = gcInfo.GenerationInfo[0].SizeBytes,
-                Gen1HeapSize = gcInfo.GenerationInfo[1].SizeBytes,
-                Gen2HeapSize = gcInfo.GenerationInfo[2].SizeBytes,
-                LargeObjectHeapSize = gcInfo.GenerationInfo[3].SizeBytes,
+                Gen0HeapSize = gcInfo.GenerationInfo[0].SizeAfterBytes,
+                Gen1HeapSize = gcInfo.GenerationInfo[1].SizeAfterBytes,
+                Gen2HeapSize = gcInfo.GenerationInfo[2].SizeAfterBytes,
+                LargeObjectHeapSize = gcInfo.GenerationInfo.Length > 3 ? gcInfo.GenerationInfo[3].SizeAfterBytes : 0,
                 MemoryPressure = GetMemoryPressure()
             };
         }
@@ -370,7 +388,7 @@ public class PerformanceMonitorService : BackgroundService, IPerformanceMonitorS
         }
     }
 
-    private async Task<CacheMetrics> CollectCacheMetricsAsync()
+    private async Task<CacheMetrics> CollectCacheMetricsAsync(CancellationToken cancellationToken = default)
     {
         try
         {
@@ -544,7 +562,7 @@ public class PerformanceMonitorService : BackgroundService, IPerformanceMonitorS
 
         try
         {
-            _ = Task.Run(CollectAllMetricsAsync);
+            _ = Task.Run(CollectMetricsAsync);
         }
         catch (Exception ex)
         {
@@ -862,6 +880,10 @@ public class SystemMetrics
     public int HandleCount { get; set; }
     public TimeSpan Uptime { get; set; }
     public GcMetrics GcCollections { get; set; } = new();
+    public long IoReadBytes { get; set; }
+    public long IoWriteBytes { get; set; }
+    public long NetworkBytesReceived { get; set; }
+    public long NetworkBytesSent { get; set; }
 }
 
 public class GcMetrics
@@ -880,6 +902,8 @@ public class DatabaseMetrics
     public double AverageQueryTime { get; set; }
     public List<DatabaseQueryMetrics> QueryMetrics { get; set; } = new();
     public List<DatabaseQueryMetrics> SlowQueries { get; set; } = new();
+    public double ConnectionPoolUsage { get; set; }
+    public double TransactionsPerSecond { get; set; }
 }
 
 public class DatabaseQueryMetrics
@@ -899,6 +923,8 @@ public class ApiMetrics
     public double ErrorRate { get; set; }
     public List<ApiEndpointMetrics> EndpointMetrics { get; set; } = new();
     public List<ApiEndpointMetrics> SlowestEndpoints { get; set; } = new();
+    public int ActiveConnections { get; set; }
+    public double RequestsPerSecond { get; set; }
 }
 
 public class ApiEndpointMetrics
@@ -922,6 +948,13 @@ public class MemoryMetrics
     public long Gen2HeapSize { get; set; }
     public long LargeObjectHeapSize { get; set; }
     public double MemoryPressure { get; set; }
+    public long VirtualMemory { get; set; }
+    public long PagedMemory { get; set; }
+    public int Gen0Collections { get; set; }
+    public int Gen1Collections { get; set; }
+    public int Gen2Collections { get; set; }
+    public long TotalMemory { get; set; }
+    public long HeapSize { get; set; }
 }
 
 public class CacheMetrics

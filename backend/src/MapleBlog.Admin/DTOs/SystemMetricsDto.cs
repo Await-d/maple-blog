@@ -60,9 +60,19 @@ public class SystemHealthDto
     public HealthStatus OverallStatus { get; set; }
 
     /// <summary>
+    /// 状态字符串表示（用于兼容性）
+    /// </summary>
+    public string Status => OverallStatus.ToString();
+
+    /// <summary>
     /// 系统正常运行时间（秒）
     /// </summary>
     public long UptimeSeconds { get; set; }
+
+    /// <summary>
+    /// 总检查持续时间
+    /// </summary>
+    public TimeSpan TotalDuration { get; set; }
 
     /// <summary>
     /// 最后重启时间
@@ -83,6 +93,49 @@ public class SystemHealthDto
     /// 各组件健康状态
     /// </summary>
     public Dictionary<string, ComponentHealthDto> Components { get; set; } = new();
+
+    /// <summary>
+    /// 健康检查条目（用于兼容性）
+    /// </summary>
+    public IEnumerable<HealthCheckEntry> Entries => Components.Select(c => new HealthCheckEntry
+    {
+        Name = c.Key,
+        Status = c.Value.Status,
+        Description = c.Value.Message,
+        Duration = c.Value.ResponseTime,
+        Tags = c.Value.Details?.Select(d => d.Key).ToArray() ?? Array.Empty<string>()
+    });
+}
+
+/// <summary>
+/// 健康检查条目
+/// </summary>
+public class HealthCheckEntry
+{
+    /// <summary>
+    /// 检查名称
+    /// </summary>
+    public string Name { get; set; } = string.Empty;
+
+    /// <summary>
+    /// 健康状态
+    /// </summary>
+    public HealthStatus Status { get; set; }
+
+    /// <summary>
+    /// 描述信息
+    /// </summary>
+    public string? Description { get; set; }
+
+    /// <summary>
+    /// 检查持续时间
+    /// </summary>
+    public TimeSpan Duration { get; set; }
+
+    /// <summary>
+    /// 标签
+    /// </summary>
+    public string[]? Tags { get; set; }
 }
 
 /// <summary>
@@ -101,9 +154,19 @@ public class ComponentHealthDto
     public string Description { get; set; } = string.Empty;
 
     /// <summary>
+    /// 消息（描述的别名）
+    /// </summary>
+    public string Message => Description;
+
+    /// <summary>
     /// 检查耗时（毫秒）
     /// </summary>
     public long ResponseTimeMs { get; set; }
+
+    /// <summary>
+    /// 响应时间（TimeSpan格式）
+    /// </summary>
+    public TimeSpan ResponseTime => TimeSpan.FromMilliseconds(ResponseTimeMs);
 
     /// <summary>
     /// 错误信息
@@ -114,6 +177,11 @@ public class ComponentHealthDto
     /// 额外数据
     /// </summary>
     public Dictionary<string, object> Data { get; set; } = new();
+
+    /// <summary>
+    /// 详细信息（Data的别名）
+    /// </summary>
+    public Dictionary<string, object> Details => Data;
 }
 
 /// <summary>
@@ -575,6 +643,11 @@ public class SystemAlertDto
     public string AlertId { get; set; } = string.Empty;
 
     /// <summary>
+    /// 警告ID (Guid版本，用于兼容)
+    /// </summary>
+    public Guid Id => Guid.TryParse(AlertId, out var guid) ? guid : Guid.Empty;
+
+    /// <summary>
     /// 警告级别
     /// </summary>
     public AlertLevel Level { get; set; }
@@ -595,6 +668,11 @@ public class SystemAlertDto
     public string Description { get; set; } = string.Empty;
 
     /// <summary>
+    /// 警告消息
+    /// </summary>
+    public string Message => Description;
+
+    /// <summary>
     /// 警告来源
     /// </summary>
     public string Source { get; set; } = string.Empty;
@@ -605,9 +683,24 @@ public class SystemAlertDto
     public DateTime TriggeredAt { get; set; }
 
     /// <summary>
+    /// 时间戳（用于兼容）
+    /// </summary>
+    public DateTime Timestamp => TriggeredAt;
+
+    /// <summary>
+    /// 严重性（用于兼容）
+    /// </summary>
+    public AlertLevel Severity => Level;
+
+    /// <summary>
     /// 是否已确认
     /// </summary>
     public bool IsAcknowledged { get; set; }
+
+    /// <summary>
+    /// 是否已解决（用于兼容）
+    /// </summary>
+    public bool IsResolved => IsAcknowledged;
 
     /// <summary>
     /// 确认者

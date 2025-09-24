@@ -362,11 +362,11 @@ public class AdminDatabaseResourceMonitor : BackgroundService
             // 主要表的统计信息
             var tables = new[]
             {
-                new { Name = "Users", EntitySet = context.Users },
-                new { Name = "Posts", EntitySet = context.Posts },
-                new { Name = "Categories", EntitySet = context.Categories },
-                new { Name = "Tags", EntitySet = context.Tags },
-                new { Name = "Comments", EntitySet = context.Comments }
+                new { Name = "Users", EntitySet = (IQueryable<object>)context.Users },
+                new { Name = "Posts", EntitySet = (IQueryable<object>)context.Posts },
+                new { Name = "Categories", EntitySet = (IQueryable<object>)context.Categories },
+                new { Name = "Tags", EntitySet = (IQueryable<object>)context.Tags },
+                new { Name = "Comments", EntitySet = (IQueryable<object>)context.Comments }
             };
 
             foreach (var table in tables)

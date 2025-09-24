@@ -19,16 +19,25 @@ namespace MapleBlog.Admin.DTOs
         public DateTime Timestamp { get; set; }
         public string Severity { get; set; }
         public Dictionary<string, object> Metadata { get; set; }
+        public string Category { get; set; } = string.Empty;
+        public string Level { get; set; } = string.Empty;
+        public string Message { get; set; } = string.Empty;
+        public string Source { get; set; } = string.Empty;
+        public Dictionary<string, object> Details { get; set; } = new();
     }
 
     public class UserStorageUsageDto
     {
         public Guid UserId { get; set; }
         public string Username { get; set; }
+        public string UserName { get; set; }
         public long UsedStorage { get; set; }
         public long TotalStorage { get; set; }
         public int FileCount { get; set; }
+        public int TotalFiles { get; set; }
+        public long TotalSize { get; set; }
         public DateTime LastUpdated { get; set; }
+        public DateTime LastUpload { get; set; }
     }
 
     public class UnusedFilesDto
@@ -54,16 +63,6 @@ namespace MapleBlog.Admin.DTOs
         public int FileCount { get; set; }
         public int SubdirectoryCount { get; set; }
         public List<DirectoryUsageDto> Subdirectories { get; set; }
-    }
-
-    public class Configuration
-    {
-        public Guid Id { get; set; }
-        public string Key { get; set; }
-        public string Value { get; set; }
-        public string Category { get; set; }
-        public string Description { get; set; }
-        public DateTime UpdatedAt { get; set; }
     }
 
     public class DashboardSummaryDto

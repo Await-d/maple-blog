@@ -263,7 +263,7 @@ public class DashboardService : IDashboardService
             systemStats.UptimeSeconds = (long)(DateTime.UtcNow - systemStats.SystemStartTime).TotalSeconds;
 
             // 内存使用情况
-            systemStats.MemoryUsageMB = process.WorkingSet64 / (1024 * 1024);
+            systemStats.MemoryUsageMB = (int)(process.WorkingSet64 / (1024 * 1024));
 
             // 获取系统总内存（需要更复杂的实现）
             var totalMemoryMB = GC.GetTotalMemory(false) / (1024 * 1024);
@@ -592,7 +592,7 @@ public class DashboardService : IDashboardService
             TotalPosts = stats.TotalPosts,
             TotalUsers = stats.TotalUsers,
             TotalComments = stats.TotalComments,
-            TotalViews = stats.TotalViews,
+            TotalViews = (int)stats.TotalViews,
             AvgResponseTime = 0,
             LastUpdated = DateTime.UtcNow
         };

@@ -6,15 +6,18 @@ namespace MapleBlog.Admin.Documentation
     /// <summary>
     /// Simplified Swagger configuration class for .NET 10 RC compatibility
     /// </summary>
+    /// <summary>
+    /// OpenAPI configuration for .NET 10
+    /// </summary>
     public static class SwaggerExtensions
     {
         /// <summary>
-        /// 添加Swagger配置
+        /// 添加OpenAPI配置
         /// </summary>
         public static IServiceCollection AddSwaggerConfiguration(this IServiceCollection services)
         {
-            // Simplified Swagger configuration without OpenApi types
-            services.AddSwaggerGen();
+            // Use built-in OpenAPI support in .NET 10
+            services.AddOpenApi();
             return services;
         }
     }

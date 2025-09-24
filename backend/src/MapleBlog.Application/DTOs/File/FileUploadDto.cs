@@ -8,6 +8,21 @@ public class FileUploadDto
     public Stream FileStream { get; set; } = null!;
     public string? Description { get; set; }
     public string? Category { get; set; }
+    
+    /// <summary>
+    /// 目标目录
+    /// </summary>
+    public string? Directory { get; set; }
+    
+    /// <summary>
+    /// 标签列表
+    /// </summary>
+    public List<string>? Tags { get; set; }
+    
+    /// <summary>
+    /// 访问级别
+    /// </summary>
+    public string? AccessLevel { get; set; }
 }
 
 
