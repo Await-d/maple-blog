@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React, { useMemo } from 'react';
 import ChartWrapper, { ChartWrapperProps } from './ChartWrapper';
 
@@ -132,7 +131,7 @@ const HeatMapChart: React.FC<HeatMapChartProps> = ({
       }],
       tooltip: {
         position: 'top',
-        formatter: (params: any) => {
+        formatter: (params: { data: [number, number, number, string?] }) => {
           const [xIndex, yIndex, value, label] = params.data;
           const xLabel = autoXAxisData[xIndex];
           const yLabel = autoYAxisData[yIndex];

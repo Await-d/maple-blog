@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React from 'react';
 import { Card, Statistic, Skeleton, Tooltip, Badge } from 'antd';
 import {
@@ -31,6 +30,8 @@ export interface StatCardProps {
   onClick?: () => void;
   formatter?: (value: number | string) => ReactNode;
 }
+
+type BadgeStatus = 'success' | 'processing' | 'default' | 'error' | 'warning';
 
 const StatCard: React.FC<StatCardProps> = ({
   title,
@@ -98,9 +99,11 @@ const StatCard: React.FC<StatCardProps> = ({
   const renderStatus = () => {
     if (status === 'default') return null;
 
+    const badgeStatus: BadgeStatus = status === 'error' ? 'error' : status as BadgeStatus;
+
     return (
       <Badge
-        status={status as any}
+        status={badgeStatus}
         className="absolute top-3 right-3"
       />
     );

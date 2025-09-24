@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React, { useMemo } from 'react';
 import ChartWrapper, { ChartWrapperProps } from './ChartWrapper';
 import { ChartUtils } from '../../utils/chartUtils';
@@ -15,7 +14,37 @@ export interface TreeMapData {
   label?: {
     show?: boolean;
     position?: string;
-    formatter?: string | ((params: any) => string);
+    formatter?: string | ((params: TreeMapTooltipParams) => string);
+  };
+}
+
+interface TreeMapTooltipParams {
+  data: {
+    value: number;
+    treePathInfo: Array<{ name: string }>;
+  };
+}
+
+interface TreeMapLevel {
+  itemStyle?: {
+    borderColor?: string;
+    borderWidth?: number;
+    gapWidth?: number;
+    color?: string;
+    textStyle?: {
+      color?: string;
+    };
+  };
+  upperLabel?: {
+    show?: boolean;
+  };
+  emphasis?: {
+    itemStyle?: {
+      borderColor?: string;
+    };
+  };
+  label?: {
+    show?: boolean;
   };
 }
 
@@ -27,12 +56,7 @@ export interface TreeMapChartProps extends Omit<ChartWrapperProps, 'option' | 't
   roam?: boolean | 'scale' | 'move';
   nodeClick?: 'zoomToNode' | 'link' | false;
   zoomToNodeRatio?: number;
-  levels?: Array<{
-    itemStyle?: any;
-    label?: any;
-    upperLabel?: any;
-    emphasis?: any;
-  }>;
+  levels?: TreeMapLevel[];
   breadcrumb?: {
     show?: boolean;
     height?: number;
@@ -40,6 +64,18 @@ export interface TreeMapChartProps extends Omit<ChartWrapperProps, 'option' | 't
     top?: string | number;
     right?: string | number;
     bottom?: string | number;
+    emptyItemWidth?: number;
+    itemStyle?: {
+      color?: string;
+      textStyle?: {
+        color?: string;
+      };
+    };
+    emphasis?: {
+      itemStyle?: {
+        color?: string;
+      };
+    };
   };
   colorSaturation?: [number, number];
   colorAlpha?: [number, number];
@@ -72,7 +108,7 @@ const TreeMapChart: React.FC<TreeMapChartProps> = ({
     const colors = ChartUtils.generateColors(10, 'default');
 
     // Default levels configuration
-    const defaultLevels = [
+    const defaultLevels: TreeMapLevel[] = [
       {
         itemStyle: {
           borderColor: '#777',
@@ -188,9 +224,9 @@ const TreeMapChart: React.FC<TreeMapChartProps> = ({
       }],
       tooltip: {
         trigger: 'item',
-        formatter: (params: any) => {
+        formatter: (params: TreeMapTooltipParams) => {
           const { value, treePathInfo } = params.data;
-          const path = treePathInfo.map((item: any) => item.name).join(' > ');
+          const path = treePathInfo.map((item) => item.name).join(' > ');
           return `${path}<br/>值: ${value}`;
         }
       }

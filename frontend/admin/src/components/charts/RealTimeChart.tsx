@@ -1,19 +1,17 @@
-// @ts-nocheck
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { Card, Button, Space, Badge, Alert, Statistic, Row, Col } from 'antd';
 import { PlayCircleOutlined, PauseCircleOutlined, ReloadOutlined } from '@ant-design/icons';
 import ChartWrapper, { ChartWrapperRef } from './ChartWrapper';
-// import { useWebSocket } from '../../../hooks/useWebSocket';
 
 // Temporary stub for useWebSocket
-const useWebSocket = (_url: string, _options?: any) => {
+const useWebSocket = (_url: string, _options?: Record<string, unknown>) => {
   return {
     data: null,
     error: null,
     connecting: false,
     connected: false,
     isConnected: false,
-    lastMessage: null as any,
+    lastMessage: null as { data: string } | null,
     sendMessage: () => {},
     disconnect: () => {},
     reconnect: () => {},
@@ -24,7 +22,7 @@ export interface RealTimeDataPoint {
   timestamp: number;
   value: number | number[];
   category?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface RealTimeChartProps {
@@ -84,6 +82,122 @@ interface MetricsData {
   changePercent: number;
 }
 
+interface ChartOption {
+  xAxis?: {
+    type: string;
+    data?: string[];
+    boundaryGap?: boolean;
+    axisLabel?: {
+      interval?: number;
+      rotate?: number;
+    };
+  };
+  yAxis?: {
+    type: string;
+    scale?: boolean;
+    splitLine?: {
+      lineStyle: {
+        type: string;
+      };
+    };
+  };
+  series?: Array<{
+    type: string;
+    data?: Array<number | { value: number; itemStyle: { color: string } }>;
+    smooth?: boolean;
+    symbol?: string;
+    lineStyle?: {
+      width: number;
+      color: string;
+    };
+    areaStyle?: {
+      opacity: number;
+      color: {
+        type: string;
+        x: number;
+        y: number;
+        x2: number;
+        y2: number;
+        colorStops: Array<{ offset: number; color: string }>;
+      };
+    };
+    markLine?: {
+      silent: boolean;
+      data: Array<{
+        yAxis: number;
+        lineStyle: { color: string; type: string };
+        label: { formatter: string };
+      }>;
+    };
+    animationDelay?: (idx: number) => number;
+    center?: string[];
+    startAngle?: number;
+    endAngle?: number;
+    min?: number;
+    max?: number;
+    splitNumber?: number;
+    itemStyle?: {
+      color: string;
+    };
+    progress?: {
+      show: boolean;
+      width: number;
+    };
+    pointer?: {
+      show: boolean;
+    };
+    axisLine?: {
+      lineStyle: {
+        width: number;
+      };
+    };
+    axisTick?: {
+      distance: number;
+      splitNumber: number;
+      lineStyle: {
+        width: number;
+        color: string;
+      };
+    };
+    splitLine?: {
+      distance: number;
+      length: number;
+      lineStyle: {
+        width: number;
+        color: string;
+      };
+    };
+    axisLabel?: {
+      distance: number;
+      color: string;
+      fontSize: number;
+    };
+    anchor?: {
+      show: boolean;
+    };
+    title?: {
+      show: boolean;
+    };
+    detail?: {
+      valueAnimation: boolean;
+      width: string;
+      lineHeight: number;
+      borderRadius: number;
+      offsetCenter: string[];
+      fontSize: number;
+      fontWeight: string;
+      formatter: string;
+      color: string;
+    };
+    radius?: string | string[];
+    name?: string;
+    value?: number;
+  }>;
+  animation?: boolean;
+  animationDuration?: number;
+  animationEasing?: string;
+}
+
 const RealTimeChart: React.FC<RealTimeChartProps> = ({
   websocketUrl,
   dataSource,
@@ -102,7 +216,6 @@ const RealTimeChart: React.FC<RealTimeChartProps> = ({
   showMetrics = true,
   showStatus = true,
   showTrend = true,
-  timeFormat: _timeFormat = 'HH:mm:ss',
   onDataUpdate,
   onThresholdExceeded,
   onError,
@@ -121,7 +234,6 @@ const RealTimeChart: React.FC<RealTimeChartProps> = ({
   const {
     isConnected: wsConnected,
     lastMessage,
-    sendMessage: _sendMessage,
     error: wsError
   } = useWebSocket(websocketUrl || '', {
     shouldReconnect: () => true,
@@ -178,15 +290,22 @@ const RealTimeChart: React.FC<RealTimeChartProps> = ({
   }, [thresholds, onThresholdExceeded]);
 
   // Get current status color
-  const getCurrentStatusColor = () => {
+  const getCurrentStatusColor = useCallback(() => {
     if (!thresholds) return '#52c41a';
 
     const status = checkThresholds(metrics.current);
-    return thresholds.colors[status] || '#52c41a';
-  };
+    switch (status) {
+      case 'critical':
+        return thresholds.colors.critical;
+      case 'warning':
+        return thresholds.colors.warning;
+      default:
+        return thresholds.colors.normal;
+    }
+  }, [thresholds, checkThresholds, metrics.current]);
 
   // Generate chart option
-  const chartOption = useMemo(() => {
+  const chartOption = useMemo((): ChartOption => {
     if (data.length === 0) return {};
 
     const timestamps = data.map(d => new Date(d.timestamp).toLocaleTimeString([], {
@@ -316,7 +435,7 @@ const RealTimeChart: React.FC<RealTimeChartProps> = ({
               width: '60%',
               lineHeight: 40,
               borderRadius: 8,
-              offsetCenter: [0, '-15%'],
+              offsetCenter: ['0', '-15%'],
               fontSize: 24,
               fontWeight: 'bolder',
               formatter: '{value}',
@@ -330,41 +449,43 @@ const RealTimeChart: React.FC<RealTimeChartProps> = ({
         };
 
       case 'bar':
-        const recentData = data.slice(-20);
-        return {
-          xAxis: {
-            type: 'category',
-            data: recentData.map(d => new Date(d.timestamp).toLocaleTimeString([], {
-              minute: '2-digit',
-              second: '2-digit'
-            })),
-            axisLabel: {
-              interval: Math.floor(recentData.length / 6) || 1,
-              rotate: 45
-            }
-          },
-          yAxis: {
-            type: 'value'
-          },
-          series: [{
-            type: 'bar',
-            data: recentData.map(d => ({
-              value: Array.isArray(d.value) ? d.value[0] : d.value,
-              itemStyle: {
-                color: thresholds ?
-                  ((Array.isArray(d.value) ? d.value[0] : d.value) >= thresholds.critical ? thresholds.colors.critical :
-                   (Array.isArray(d.value) ? d.value[0] : d.value) >= thresholds.warning ? thresholds.colors.warning :
-                   thresholds.colors.normal) : colors[0]
+        {
+          const recentData = data.slice(-20);
+          return {
+            xAxis: {
+              type: 'category',
+              data: recentData.map(d => new Date(d.timestamp).toLocaleTimeString([], {
+                minute: '2-digit',
+                second: '2-digit'
+              })),
+              axisLabel: {
+                interval: Math.floor(recentData.length / 6) || 1,
+                rotate: 45
               }
-            })),
-            animationDelay: (idx: number) => idx * 10
-          }]
-        };
+            },
+            yAxis: {
+              type: 'value'
+            },
+            series: [{
+              type: 'bar',
+              data: recentData.map(d => ({
+                value: Array.isArray(d.value) ? d.value[0] : d.value,
+                itemStyle: {
+                  color: thresholds ?
+                    ((Array.isArray(d.value) ? d.value[0] : d.value) >= thresholds.critical ? thresholds.colors.critical :
+                     (Array.isArray(d.value) ? d.value[0] : d.value) >= thresholds.warning ? thresholds.colors.warning :
+                     thresholds.colors.normal) : colors[0]
+                }
+              })),
+              animationDelay: (idx: number) => idx * 10
+            }]
+          };
+        }
 
       default:
         return {};
     }
-  }, [data, type, smooth, colors, thresholds, animated, metrics, title]);
+  }, [data, type, smooth, colors, thresholds, animated, metrics, title, getCurrentStatusColor]);
 
   // Handle WebSocket messages
   useEffect(() => {
@@ -377,6 +498,19 @@ const RealTimeChart: React.FC<RealTimeChartProps> = ({
       }
     }
   }, [lastMessage]);
+
+  // Add single data point
+  const addDataPoint = useCallback((newPoint: RealTimeDataPoint) => {
+    setData(prevData => {
+      const newData = [...prevData, newPoint];
+      const trimmedData = newData.slice(-maxDataPoints);
+
+      onDataUpdate?.(trimmedData);
+      setLastUpdateTime(Date.now());
+
+      return trimmedData;
+    });
+  }, [maxDataPoints, onDataUpdate]);
 
   // Handle polling data source
   useEffect(() => {
@@ -408,19 +542,6 @@ const RealTimeChart: React.FC<RealTimeChartProps> = ({
       }
     };
   }, [isRunning, websocketUrl, dataSource, updateInterval, maxDataPoints, onError]);
-
-  // Add single data point
-  const addDataPoint = useCallback((newPoint: RealTimeDataPoint) => {
-    setData(prevData => {
-      const newData = [...prevData, newPoint];
-      const trimmedData = newData.slice(-maxDataPoints);
-
-      onDataUpdate?.(trimmedData);
-      setLastUpdateTime(Date.now());
-
-      return trimmedData;
-    });
-  }, [maxDataPoints, onDataUpdate]);
 
   // Simulate real-time data for demo
   const generateSimulatedData = useCallback(() => {
@@ -489,7 +610,6 @@ const RealTimeChart: React.FC<RealTimeChartProps> = ({
           type={isRunning ? 'default' : 'primary'}
           icon={isRunning ? <PauseCircleOutlined /> : <PlayCircleOutlined />}
           onClick={handleToggleRunning}
-          
         >
           {isRunning ? '暂停' : '开始'}
         </Button>
@@ -498,7 +618,6 @@ const RealTimeChart: React.FC<RealTimeChartProps> = ({
         <Button
           icon={<ReloadOutlined />}
           onClick={handleRefresh}
-          
         >
           重置
         </Button>

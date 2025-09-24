@@ -23,6 +23,7 @@ const RegisterPage = React.lazy(() => import('./pages/auth/RegisterPage'));
 const ResetPasswordPage = React.lazy(() => import('./pages/auth/ResetPasswordPage'));
 const AdminDashboard = React.lazy(() => import('./pages/admin/AdminDashboard'));
 const ArchivePage = React.lazy(() => import('./pages/archive/ArchivePage'));
+const UserProfilePage = React.lazy(() => import('./pages/UserProfilePage'));
 
 // 错误和加载组件
 import { NotFoundPage } from './pages/errors/NotFoundPage';
@@ -126,6 +127,11 @@ const App: React.FC = () => {
           title: '注册 - Maple Blog',
           description: '加入Maple Blog社区，开始您的技术分享之旅',
         };
+      case '/profile':
+        return {
+          title: '个人资料 - Maple Blog',
+          description: '管理您的个人资料、偏好设置和账户安全',
+        };
       default:
         return defaultMeta;
     }
@@ -197,7 +203,7 @@ const App: React.FC = () => {
                 path="/profile"
                 element={
                   <ProtectedRoute>
-                    <div>用户个人资料页面</div>
+                    <UserProfilePage />
                   </ProtectedRoute>
                 }
               />

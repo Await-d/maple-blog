@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React, { useMemo, useRef } from 'react';
 import ReactECharts from 'echarts-for-react';
 import type { EChartsOption } from 'echarts';
@@ -9,12 +8,13 @@ import {
   ReloadOutlined,
   MoreOutlined
 } from '@ant-design/icons';
+import type { ChartData, ChartInstance, TooltipParam } from './chart-types';
 
 interface AnalyticsChartProps {
   type: 'line' | 'bar' | 'pie' | 'scatter' | 'heatmap' | 'radar' | 'funnel' | 'gauge' | 'map' | 'treemap' | 'sunburst' | 'sankey';
   title?: string;
   subtitle?: string;
-  data: any;
+  data: ChartData;
   loading?: boolean;
   height?: number | string;
   onRefresh?: () => void;
@@ -46,7 +46,7 @@ const AnalyticsChart: React.FC<AnalyticsChartProps> = ({
   animation = true,
   className
 }) => {
-  const chartRef = useRef<any>(null);
+  const chartRef = useRef<ChartInstance>(null);
 
   // Generate chart options based on type
   const chartOptions = useMemo((): EChartsOption => {
@@ -76,10 +76,10 @@ const AnalyticsChart: React.FC<AnalyticsChartProps> = ({
         textStyle: {
           color: theme === 'dark' ? '#fff' : '#333'
         },
-        formatter: (params: any) => {
+        formatter: (params: TooltipParam | TooltipParam[]) => {
           if (Array.isArray(params)) {
             let result = `<div style="font-weight: bold; margin-bottom: 8px;">${params[0].axisValue}</div>`;
-            params.forEach((item: any) => {
+            params.forEach((item: TooltipParam) => {
               result += `
                 <div style="display: flex; align-items: center; margin: 4px 0;">
                   <span style="display: inline-block; width: 10px; height: 10px; background: ${item.color}; border-radius: 50%; margin-right: 8px;"></span>
@@ -191,7 +191,7 @@ const AnalyticsChart: React.FC<AnalyticsChartProps> = ({
               }
             }
           },
-          series: data.series?.map((s: any) => ({
+          series: data.series?.map((s) => ({
             ...s,
             type: 'line',
             smooth: true,
@@ -250,7 +250,7 @@ const AnalyticsChart: React.FC<AnalyticsChartProps> = ({
               }
             }
           },
-          series: data.series?.map((s: any) => ({
+          series: data.series?.map((s) => ({
             ...s,
             type: 'bar',
             barWidth: '60%',

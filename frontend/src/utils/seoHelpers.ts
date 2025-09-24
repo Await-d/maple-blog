@@ -277,7 +277,7 @@ export const generateStructuredData = (
     case 'BreadcrumbList':
       return {
         ...baseStructuredData,
-        itemListElement: (data.items as any[] || []).map((item: Record<string, unknown>, index: number) => ({
+        itemListElement: ((data.items as Array<{ name: string; url: string }>) || []).map((item, index: number) => ({
           '@type': 'ListItem',
           position: index + 1,
           name: item.name,

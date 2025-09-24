@@ -1,4 +1,3 @@
-// @ts-nocheck
 import dayjs from 'dayjs';
 import 'dayjs/locale/zh-cn';
 import relativeTime from 'dayjs/plugin/relativeTime';
@@ -10,6 +9,21 @@ dayjs.locale('zh-cn');
 dayjs.extend(relativeTime);
 dayjs.extend(utc);
 dayjs.extend(timezone);
+
+interface StorageItem {
+  value: unknown;
+  expiry: number | null;
+}
+
+interface PaginationResult<T> {
+  data: T[];
+  pagination: {
+    current: number;
+    pageSize: number;
+    total: number;
+    totalPages: number;
+  };
+}
 
 // 格式化工具
 export const formatUtils = {
@@ -125,7 +139,7 @@ export const arrayUtils = {
   // 数组分组
   groupBy: <T>(arr: T[], key: keyof T) => {
     return arr.reduce((groups, item) => {
-      const group = item[key] as string;
+      const group = String(item[key]);
       groups[group] = groups[group] || [];
       groups[group].push(item);
       return groups;
@@ -144,7 +158,7 @@ export const arrayUtils = {
   },
 
   // 数组分页
-  paginate: <T>(arr: T[], page: number, pageSize: number) => {
+  paginate: <T>(arr: T[], page: number, pageSize: number): PaginationResult<T> => {
     const start = (page - 1) * pageSize;
     const end = start + pageSize;
     return {
@@ -162,11 +176,14 @@ export const arrayUtils = {
 // 对象工具
 export const objectUtils = {
   // 深度合并对象
-  deepMerge: (target: any, source: any): any => {
+  deepMerge: (target: Record<string, unknown>, source: Record<string, unknown>): Record<string, unknown> => {
     const result = { ...target };
     for (const key in source) {
       if (source[key] && typeof source[key] === 'object' && !Array.isArray(source[key])) {
-        result[key] = objectUtils.deepMerge(result[key] || {}, source[key]);
+        result[key] = objectUtils.deepMerge(
+          (result[key] as Record<string, unknown>) || {}, 
+          source[key] as Record<string, unknown>
+        );
       } else {
         result[key] = source[key];
       }
@@ -180,8 +197,8 @@ export const objectUtils = {
   },
 
   // 移除空值
-  removeEmpty: (obj: Record<string, any>) => {
-    const result: Record<string, any> = {};
+  removeEmpty: (obj: Record<string, unknown>) => {
+    const result: Record<string, unknown> = {};
     for (const key in obj) {
       const value = obj[key];
       if (value !== null && value !== undefined && value !== '') {
@@ -192,12 +209,12 @@ export const objectUtils = {
   },
 
   // 获取嵌套属性
-  get: (obj: any, path: string, defaultValue?: any) => {
+  get: (obj: Record<string, unknown>, path: string, defaultValue?: unknown) => {
     const keys = path.split('.');
-    let result = obj;
+    let result: unknown = obj;
     for (const key of keys) {
       if (result == null) return defaultValue;
-      result = result[key];
+      result = (result as Record<string, unknown>)[key];
     }
     return result ?? defaultValue;
   },
@@ -234,8 +251,8 @@ export const colorUtils = {
 // 本地存储工具
 export const storageUtils = {
   // 设置本地存储
-  set: (key: string, value: any, expiry?: number) => {
-    const item = {
+  set: (key: string, value: unknown, expiry?: number) => {
+    const item: StorageItem = {
       value,
       expiry: expiry ? Date.now() + expiry : null,
     };
@@ -248,7 +265,7 @@ export const storageUtils = {
       const item = localStorage.getItem(key);
       if (!item) return null;
 
-      const parsed = JSON.parse(item);
+      const parsed = JSON.parse(item) as StorageItem;
       if (parsed.expiry && Date.now() > parsed.expiry) {
         localStorage.removeItem(key);
         return null;
@@ -293,7 +310,7 @@ export const permissionUtils = {
 };
 
 // 防抖和节流
-export const debounce = <T extends (...args: any[]) => any>(
+export const debounce = <T extends (...args: unknown[]) => unknown>(
   func: T,
   wait: number
 ): ((...args: Parameters<T>) => void) => {
@@ -304,7 +321,7 @@ export const debounce = <T extends (...args: any[]) => any>(
   };
 };
 
-export const throttle = <T extends (...args: any[]) => any>(
+export const throttle = <T extends (...args: unknown[]) => unknown>(
   func: T,
   wait: number
 ): ((...args: Parameters<T>) => void) => {
@@ -321,15 +338,24 @@ export const throttle = <T extends (...args: any[]) => any>(
 // 错误处理
 export const errorUtils = {
   // 格式化错误消息
-  format: (error: any): string => {
+  format: (error: unknown): string => {
     if (typeof error === 'string') return error;
-    if (error?.message) return error.message;
-    if (error?.response?.data?.message) return error.response.data.message;
+    if (error && typeof error === 'object') {
+      const errorObj = error as Record<string, unknown>;
+      if (errorObj.message && typeof errorObj.message === 'string') return errorObj.message;
+      if (errorObj.response && typeof errorObj.response === 'object') {
+        const response = errorObj.response as Record<string, unknown>;
+        if (response.data && typeof response.data === 'object') {
+          const data = response.data as Record<string, unknown>;
+          if (data.message && typeof data.message === 'string') return data.message;
+        }
+      }
+    }
     return '未知错误';
   },
 
   // 错误日志
-  log: (error: any, context?: string) => {
+  log: (error: unknown, context?: string) => {
     console.error(`[${context || 'Error'}]:`, error);
   },
 };

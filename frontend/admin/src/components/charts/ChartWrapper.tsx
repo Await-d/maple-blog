@@ -1,5 +1,4 @@
-// @ts-nocheck
-import React, { forwardRef, useImperativeHandle, useRef, useMemo } from 'react';
+import React, { forwardRef, useImperativeHandle, useRef, useMemo, useCallback } from 'react';
 import { Card, Spin, Empty, Button, Dropdown, message } from 'antd';
 import { DownloadOutlined, FullscreenOutlined, ReloadOutlined, SettingOutlined } from '@ant-design/icons';
 import ReactEChartsCore from 'echarts-for-react/lib/core';
@@ -117,7 +116,7 @@ echarts.use([
 
 export interface ChartWrapperProps {
   // Chart configuration
-  option: any;
+  option: echarts.EChartsOption;
   type?: 'line' | 'bar' | 'pie' | 'scatter' | 'radar' | 'heatmap' | 'tree' | 'treemap' | 'sunburst' | 'gauge' | 'funnel' | 'sankey' | 'graph' | 'custom';
   theme?: 'light' | 'dark' | string;
 
@@ -148,7 +147,7 @@ export interface ChartWrapperProps {
 
   // Events
   onChartReady?: (chart: echarts.ECharts) => void;
-  onEvents?: Record<string, (params: any) => void>;
+  onEvents?: Record<string, (params: unknown) => void>;
   onRefresh?: () => void;
   onExport?: (format: 'png' | 'svg') => void;
   onFullscreen?: () => void;
@@ -173,9 +172,9 @@ export interface ChartWrapperRef {
   chart: echarts.ECharts | null;
   exportChart: (format: 'png' | 'svg') => void;
   resize: () => void;
-  dispatchAction: (payload: any) => void;
-  getOption: () => any;
-  setOption: (option: any, notMerge?: boolean, lazyUpdate?: boolean) => void;
+  dispatchAction: (payload: unknown) => void;
+  getOption: () => echarts.EChartsOption;
+  setOption: (option: echarts.EChartsOption, notMerge?: boolean, lazyUpdate?: boolean) => void;
 }
 
 const ChartWrapper = forwardRef<ChartWrapperRef, ChartWrapperProps>(({
@@ -273,7 +272,7 @@ const ChartWrapper = forwardRef<ChartWrapperRef, ChartWrapperProps>(({
   }, [option, animation, animationDuration, animationEasing, responsive, type]);
 
   // Chart methods
-  const exportChart = (format: 'png' | 'svg' = 'png') => {
+  const exportChart = useCallback((format: 'png' | 'svg' = 'png') => {
     const chart = chartRef.current?.getEchartsInstance();
     if (!chart) return;
 
@@ -307,7 +306,7 @@ const ChartWrapper = forwardRef<ChartWrapperRef, ChartWrapperProps>(({
       console.error('Chart export failed:', error);
       message.error('图表导出失败');
     }
-  };
+  }, [onExport]);
 
   const resizeChart = () => {
     const chart = chartRef.current?.getEchartsInstance();
@@ -318,10 +317,10 @@ const ChartWrapper = forwardRef<ChartWrapperRef, ChartWrapperProps>(({
 
   // Expose chart methods via ref
   useImperativeHandle(ref, () => ({
-    chart: chartRef.current?.getEchartsInstance() as any || null,
+    chart: chartRef.current?.getEchartsInstance() || null,
     exportChart,
     resize: resizeChart,
-    dispatchAction: (payload: any) => {
+    dispatchAction: (payload: unknown) => {
       const chart = chartRef.current?.getEchartsInstance();
       if (chart) {
         chart.dispatchAction(payload);
@@ -331,13 +330,13 @@ const ChartWrapper = forwardRef<ChartWrapperRef, ChartWrapperProps>(({
       const chart = chartRef.current?.getEchartsInstance();
       return chart?.getOption() || null;
     },
-    setOption: (newOption: any, merge?: boolean, lazy?: boolean) => {
+    setOption: (newOption: echarts.EChartsOption, merge?: boolean, lazy?: boolean) => {
       const chart = chartRef.current?.getEchartsInstance();
       if (chart) {
         chart.setOption(newOption, !merge, lazy);
       }
     }
-  }), []);
+  }), [exportChart]);
 
   // Handle chart ready
   const handleChartReady = (chart: echarts.ECharts) => {
@@ -393,7 +392,7 @@ const ChartWrapper = forwardRef<ChartWrapperRef, ChartWrapperProps>(({
 
     return (
       <div className="flex items-center gap-2">
-        {toolbarItems.map((item: any) => {
+        {toolbarItems.map((item: { key: string; label: string; icon?: React.ReactNode; onClick?: () => void }) => {
           if (item.children) {
             return (
               <Dropdown

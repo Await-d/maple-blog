@@ -438,8 +438,8 @@ export class AnalyticsTracker {
       // Cumulative Layout Shift
       let clsValue = 0;
       const clsObserver = new PerformanceObserver((list) => {
-        const entries = list.getEntries() as any[];
-        entries.forEach((entry: any) => {
+        const entries = list.getEntries() as PerformanceEntry[];
+        entries.forEach((entry) => {
           if (!entry.hadRecentInput) {
             clsValue += entry.value;
           }
@@ -451,8 +451,8 @@ export class AnalyticsTracker {
 
       // Navigation Timing
       const navigationObserver = new PerformanceObserver((list) => {
-        const entries = list.getEntries() as any[];
-        entries.forEach((entry: any) => {
+        const entries = list.getEntries() as PerformanceEntry[];
+        entries.forEach((entry) => {
           this.trackPerformance({
             ttfb: entry.responseStart - entry.requestStart,
             fcp: entry.responseEnd - entry.requestStart,
@@ -472,12 +472,12 @@ export class AnalyticsTracker {
   private enablePerformanceTracking() {
     // 监控资源加载
     window.addEventListener('load', () => {
-      const navigation = performance.getEntriesByType('navigation')[0] as any;
+      const navigation = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming;
       const resources = performance.getEntriesByType('resource');
 
       this.trackPerformance({
         resourceCount: resources.length,
-        totalResourceSize: resources.reduce((total, r: any) => total + (r.transferSize || 0), 0),
+        totalResourceSize: resources.reduce((total, r) => total + ((r as any).transferSize || 0), 0),
         loadTime: navigation?.loadEventEnd - navigation?.navigationStart
       });
     });

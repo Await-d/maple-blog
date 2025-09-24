@@ -1,4 +1,3 @@
-// @ts-nocheck
 import type { User, Role } from '@/types';
 
 // 权限常量定义
@@ -112,6 +111,38 @@ export const PERMISSION_DEPENDENCIES = {
   [PERMISSION_CONSTANTS.ROLE_WRITE]: [PERMISSION_CONSTANTS.ROLE_READ],
   [PERMISSION_CONSTANTS.ROLE_DELETE]: [PERMISSION_CONSTANTS.ROLE_READ, PERMISSION_CONSTANTS.ROLE_WRITE]
 } as const;
+
+interface CacheItem {
+  data: unknown;
+  timestamp: number;
+  ttl: number;
+}
+
+interface PermissionSummary {
+  total: number;
+  byLevel: Record<string, number>;
+  byResource: Record<string, number>;
+  highRisk: string[];
+}
+
+interface RoleValidationResult {
+  valid: boolean;
+  errors: string[];
+  warnings: string[];
+}
+
+interface AuditResult {
+  summary: PermissionSummary;
+  issues: string[];
+  recommendations: string[];
+}
+
+interface PermissionReport {
+  totalUsers: number;
+  permissionDistribution: Record<string, number>;
+  riskAssessment: string;
+  recommendations: string[];
+}
 
 // 权限工具类
 export class PermissionUtils {
@@ -322,12 +353,7 @@ export class PermissionUtils {
   /**
    * 生成权限摘要
    */
-  static generatePermissionSummary(permissions: string[]): {
-    total: number;
-    byLevel: Record<string, number>;
-    byResource: Record<string, number>;
-    highRisk: string[];
-  } {
+  static generatePermissionSummary(permissions: string[]): PermissionSummary {
     const byLevel: Record<string, number> = { admin: 0, delete: 0, write: 0, read: 0, other: 0 };
     const byResource: Record<string, number> = {};
     const highRisk: string[] = [];
@@ -427,11 +453,7 @@ export class RoleUtils {
   /**
    * 验证角色配置
    */
-  static validateRoleConfiguration(role: Role): {
-    valid: boolean;
-    errors: string[];
-    warnings: string[];
-  } {
+  static validateRoleConfiguration(role: Role): RoleValidationResult {
     const errors: string[] = [];
     const warnings: string[] = [];
     
@@ -508,12 +530,12 @@ export class PermissionExpressionParser {
 
 // 权限缓存管理器
 export class PermissionCacheManager {
-  private static cache = new Map<string, { data: any; timestamp: number; ttl: number }>();
+  private static cache = new Map<string, CacheItem>();
   
   /**
    * 设置缓存
    */
-  static set(key: string, data: any, ttl: number = 300000): void {
+  static set(key: string, data: unknown, ttl: number = 300000): void {
     this.cache.set(key, {
       data,
       timestamp: Date.now(),
@@ -534,7 +556,7 @@ export class PermissionCacheManager {
       return null;
     }
     
-    return item.data;
+    return item.data as T;
   }
   
   /**
@@ -584,11 +606,7 @@ export class PermissionAuditor {
   /**
    * 审计用户权限
    */
-  static auditUserPermissions(user: User): {
-    summary: any;
-    issues: string[];
-    recommendations: string[];
-  } {
+  static auditUserPermissions(user: User): AuditResult {
     const permissions = user.roles.flatMap(role => role.permissions.map(p => p.code));
     const summary = PermissionUtils.generatePermissionSummary(permissions);
     const issues: string[] = [];
@@ -618,12 +636,7 @@ export class PermissionAuditor {
   /**
    * 生成权限报告
    */
-  static generateReport(users: User[]): {
-    totalUsers: number;
-    permissionDistribution: Record<string, number>;
-    riskAssessment: string;
-    recommendations: string[];
-  } {
+  static generateReport(users: User[]): PermissionReport {
     const permissionCounts: Record<string, number> = {};
     let highRiskUsers = 0;
     
@@ -659,8 +672,6 @@ export class PermissionAuditor {
     };
   }
 }
-
-// 这些类已经通过 export class 语法导出，不需要重复导出
 
 // 便捷函数
 export const hasPermission = (userPermissions: string[], requiredPermission: string): boolean => {

@@ -69,6 +69,10 @@ builder.Services.AddDbContext<MapleBlog.Infrastructure.Data.ApplicationDbContext
     options.UseSqlite(connectionString);
 });
 
+// Register IApplicationDbContext interface
+builder.Services.AddScoped<MapleBlog.Application.Interfaces.IApplicationDbContext>(provider => 
+    provider.GetRequiredService<MapleBlog.Infrastructure.Data.ApplicationDbContext>());
+
 builder.Services.AddDbContext<MapleBlog.Infrastructure.Data.BlogDbContext>(options =>
 {
     // For now, just use SQLite
@@ -282,6 +286,7 @@ builder.Services.AddHttpContextAccessor(); // Required for UserContextService
 
 // Add missing services
 builder.Services.AddScoped<MapleBlog.Application.Interfaces.IUserManagementService, MapleBlog.Application.Services.UserManagementService>();
+// Admin User Management Service (Removed - using frontend mock data)
 builder.Services.AddScoped<MapleBlog.Application.Interfaces.ILoginTrackingService, MapleBlog.Infrastructure.Services.LoginTrackingService>();
 builder.Services.AddScoped<MapleBlog.Domain.Interfaces.IUserRoleRepository, MapleBlog.Infrastructure.Repositories.UserRoleRepository>();
 // Add LoginHistory repository

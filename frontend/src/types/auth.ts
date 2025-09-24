@@ -29,6 +29,51 @@ export interface User {
   updatedAt: string;
 }
 
+// Extended User Profile interface for comprehensive profile management
+export interface UserProfile {
+  id: string;
+  username: string;
+  email: string;
+  displayName: string;
+  bio?: string;
+  avatar?: string;
+  location?: string;
+  website?: string;
+  socialLinks: {
+    twitter?: string;
+    github?: string;
+    linkedin?: string;
+  };
+  birthday?: string;
+  timezone: string;
+  preferences: {
+    language: string;
+    theme: 'light' | 'dark' | 'auto';
+    emailNotifications: boolean;
+    marketingEmails: boolean;
+    profileVisibility: 'public' | 'private';
+    showEmail: boolean;
+  };
+  stats: {
+    postsCount: number;
+    commentsCount: number;
+    joinDate: string;
+    lastLoginDate: string;
+    totalViews: number;
+  };
+  security: {
+    twoFactorEnabled: boolean;
+    lastPasswordChange: string;
+    activeSessions: number;
+    loginHistory: Array<{
+      date: string;
+      ip: string;
+      device: string;
+      location: string;
+    }>;
+  };
+}
+
 // Login request interface matching backend LoginRequest
 export interface LoginRequest {
   emailOrUsername: string;
@@ -223,7 +268,7 @@ export interface AuthContextType {
 }
 
 // API response wrapper
-export interface ApiResponse<T = any> {
+export interface ApiResponse<T = unknown> {
   success: boolean;
   data?: T;
   message?: string;
@@ -300,7 +345,7 @@ export interface FormFieldConfig {
     minLength?: number;
     maxLength?: number;
     pattern?: RegExp;
-    custom?: (value: any) => string | null;
+    custom?: (value: unknown) => string | null;
   };
   options?: Array<{ value: string; label: string }>; // For select fields
 }
@@ -310,7 +355,7 @@ export interface AuthEvent {
   type: 'login_attempt' | 'login_success' | 'login_failure' | 'registration' | 'logout' | 'token_refresh';
   timestamp: Date;
   userId?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 // Security settings

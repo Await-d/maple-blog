@@ -89,7 +89,7 @@ export function useSEO(config: SEOConfig) {
 
       // Article tags
       mergedConfig.tags?.forEach((tag, index) => {
-        setMetaTag(`article:tag`, tag, 'property');
+        setMetaTag('article:tag', tag, 'property');
       });
     }
 

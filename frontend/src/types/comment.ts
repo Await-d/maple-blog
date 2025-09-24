@@ -165,8 +165,8 @@ export interface CommentSocketEvents {
   UnreadNotificationCount: (count: number) => void;
   RecentNotifications: (notifications: CommentNotification[]) => void;
   NotificationMarkedAsRead: (notificationId: string) => void;
-  ModerationStats: (stats: any) => void;
-  CommentsModerated: (data: any) => void;
+  ModerationStats: (stats: { pending: number; approved: number; rejected: number }) => void;
+  CommentsModerated: (data: { commentIds: string[]; action: string }) => void;
   Error: (message: string) => void;
   JoinedPostGroup: (postId: string) => void;
   LeftPostGroup: (postId: string) => void;
@@ -250,5 +250,5 @@ export interface ApiResponse<T> {
 export interface CommentError {
   type: 'validation' | 'permission' | 'network' | 'server' | 'unknown';
   message: string;
-  details?: Record<string, any>;
+  details?: Record<string, unknown>;
 }

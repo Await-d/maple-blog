@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { Row, Col, Button, Modal, Select, Switch, Slider, Space, Divider, message } from 'antd';
 import { SettingOutlined, ExpandOutlined, SyncOutlined, DownloadOutlined, PlusOutlined, DeleteOutlined } from '@ant-design/icons';

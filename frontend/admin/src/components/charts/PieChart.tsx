@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React, { useMemo, useRef, useEffect, useState } from 'react';
 import { Card, Space, Button, Tooltip, Spin } from 'antd';
 import {
@@ -37,6 +36,12 @@ export interface PieChartProps {
   onRefresh?: () => void;
   onExport?: (format: 'png' | 'jpg' | 'svg') => void;
   chartOptions?: Partial<EChartsOption>;
+}
+
+interface TooltipParams {
+  name: string;
+  value: number;
+  percent: number;
 }
 
 const PieChart: React.FC<PieChartProps> = ({
@@ -166,7 +171,7 @@ const PieChart: React.FC<PieChartProps> = ({
         textStyle: {
           color: theme === 'dark' ? '#fff' : '#666',
         },
-        formatter: (params: any) => {
+        formatter: (params: TooltipParams) => {
           return `${params.name}<br/>${params.value} (${params.percent}%)`;
         },
       },
@@ -258,7 +263,6 @@ const PieChart: React.FC<PieChartProps> = ({
             <Tooltip title="刷新">
               <Button
                 type="text"
-                
                 icon={<ReloadOutlined />}
                 onClick={onRefresh}
               />
@@ -268,7 +272,6 @@ const PieChart: React.FC<PieChartProps> = ({
           <Tooltip title="导出">
             <Button
               type="text"
-              
               icon={<DownloadOutlined />}
               onClick={() => handleExport('png')}
             />
@@ -277,7 +280,6 @@ const PieChart: React.FC<PieChartProps> = ({
           <Tooltip title="全屏">
             <Button
               type="text"
-              
               icon={<FullscreenOutlined />}
               onClick={handleFullscreen}
             />

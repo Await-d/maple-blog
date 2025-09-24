@@ -48,7 +48,7 @@ ${this.entries
   }
 
   private generateUrlElement(entry: SitemapEntry): string {
-    const elements = [`  <url>`, `    <loc>${this.escapeXml(entry.url)}</loc>`];
+    const elements = ['  <url>', `    <loc>${this.escapeXml(entry.url)}</loc>`];
 
     if (entry.lastModified) {
       elements.push(`    <lastmod>${entry.lastModified.toISOString()}</lastmod>`);
@@ -62,7 +62,7 @@ ${this.entries
       elements.push(`    <priority>${entry.priority.toFixed(1)}</priority>`);
     }
 
-    elements.push(`  </url>`);
+    elements.push('  </url>');
     return elements.join('\n');
   }
 

@@ -27,7 +27,7 @@ interface ImportMetaEnv {
   // Add more environment variables as needed
 }
 
-interface ImportMeta {
+interface _ImportMeta {
   readonly env: ImportMetaEnv;
   readonly hot?: {
     readonly accept: (dep: string, cb?: () => void) => void;
@@ -38,7 +38,7 @@ interface ImportMeta {
 }
 
 // Extend global process.env for Node.js compatibility
-declare namespace NodeJS {
+declare namespace _NodeJS {
   interface ProcessEnv extends ImportMetaEnv {
     NODE_ENV: 'development' | 'production' | 'test';
   }

@@ -457,7 +457,7 @@ export const queryClientConfig = {
       // 重试配置
       retry: (failureCount: number, error: Error) => {
         // 客户端错误不重试
-        const httpError = error as any;
+        const httpError = error as Error & { status?: number };
         if (httpError?.status >= 400 && httpError?.status < 500) {
           return false;
         }

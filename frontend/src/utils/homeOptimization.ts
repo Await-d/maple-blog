@@ -264,18 +264,18 @@ export const performanceMonitoring = {
 
       // 测量 FID
       new PerformanceObserver((list) => {
-        const entries = list.getEntries() as any[];
-        entries.forEach((entry: any) => {
-          metrics.fid = entry.processingStart - entry.startTime;
+        const entries = list.getEntries() as PerformanceEntry[];
+        entries.forEach((entry) => {
+          metrics.fid = (entry as any).processingStart - entry.startTime;
         });
       }).observe({ entryTypes: ['first-input'] });
 
       // 测量 CLS
       let clsValue = 0;
       new PerformanceObserver((list) => {
-        for (const entry of list.getEntries() as any[]) {
-          if (!entry.hadRecentInput) {
-            clsValue += entry.value;
+        for (const entry of list.getEntries() as PerformanceEntry[]) {
+          if (!(entry as any).hadRecentInput) {
+            clsValue += (entry as any).value;
           }
         }
         metrics.cls = clsValue;
@@ -355,7 +355,7 @@ export const initializePerformanceOptimizations = () => {
       performanceMonitoring.reportPerformanceMetrics({
         ...metrics,
         budgetPassed: budgetCheck.passed ? 1 : 0,
-        url: window.location.href as any,
+        url: window.location.href,
         timestamp: Date.now()
       });
     }, 5000);

@@ -522,7 +522,7 @@ export interface BlogPlugin {
   description: string;
   author: string;
   enabled: boolean;
-  settings: Record<string, any>;
+  settings: Record<string, unknown>;
   hooks: {
     beforeSave?: (post: Post) => Promise<Post>;
     afterSave?: (post: Post) => Promise<void>;

@@ -1,5 +1,4 @@
-// @ts-nocheck
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Card, Tabs, Button, Space, Select, Switch, Row, Col, Typography, Divider } from 'antd';
 import { ReloadOutlined } from '@ant-design/icons';
 import ChartWrapper, { ChartWrapperRef } from './ChartWrapper';
@@ -58,7 +57,7 @@ const ChartShowcase: React.FC<ChartShowcaseProps> = ({ className }) => {
         type: 'bar',
         data: categories.map(() => Math.floor(Math.random() * 800) + 200),
         itemStyle: {
-          color: (params: any) => {
+          color: (params: { dataIndex: number }) => {
             const colors = COLOR_PALETTES.business;
             return colors[params.dataIndex % colors.length];
           }
@@ -226,7 +225,7 @@ const ChartShowcase: React.FC<ChartShowcaseProps> = ({ className }) => {
   const [multiCharts, setMultiCharts] = useState<ChartConfig[]>(multiChartConfigs);
 
   // Refresh chart data
-  const refreshChartData = () => {
+  const refreshChartData = useCallback(() => {
     const newCharts = multiCharts.map(chart => ({
       ...chart,
       option: (() => {
@@ -245,7 +244,7 @@ const ChartShowcase: React.FC<ChartShowcaseProps> = ({ className }) => {
       })()
     }));
     setMultiCharts(newCharts);
-  };
+  }, [multiCharts]);
 
   // Auto refresh effect
   useEffect(() => {
@@ -253,7 +252,7 @@ const ChartShowcase: React.FC<ChartShowcaseProps> = ({ className }) => {
 
     const interval = setInterval(refreshChartData, 5000);
     return () => clearInterval(interval);
-  }, [autoRefresh, multiCharts]);
+  }, [autoRefresh, refreshChartData]);
 
   return (
     <div className={className}>

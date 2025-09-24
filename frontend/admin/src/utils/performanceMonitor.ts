@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Frontend Performance Monitor for Admin Dashboard
  * Provides comprehensive performance monitoring, analysis, and optimization insights
@@ -127,6 +126,25 @@ export interface PerformanceInsight {
   impact: string;
   recommendations: string[];
   metrics: Record<string, number>;
+}
+
+interface PerformanceEntryWithProcessing extends PerformanceEntry {
+  processingStart: number;
+}
+
+interface LayoutShiftEntry extends PerformanceEntry {
+  value: number;
+  hadRecentInput: boolean;
+}
+
+interface PerformanceMemory {
+  usedJSHeapSize: number;
+  totalJSHeapSize: number;
+  jsHeapSizeLimit: number;
+}
+
+interface ExtendedPerformance extends Performance {
+  memory?: PerformanceMemory;
 }
 
 // Performance Monitor Class
@@ -264,9 +282,10 @@ class PerformanceMonitor {
       // FID Observer
       const fidObserver = new PerformanceObserver((list) => {
         const entries = list.getEntries();
-        entries.forEach((entry: any) => {
-          this.metrics.vitals.fid = entry.processingStart - entry.startTime;
-          this.metrics.pageLoad.firstInputDelay = entry.processingStart - entry.startTime;
+        entries.forEach((entry) => {
+          const fidEntry = entry as PerformanceEntryWithProcessing;
+          this.metrics.vitals.fid = fidEntry.processingStart - fidEntry.startTime;
+          this.metrics.pageLoad.firstInputDelay = fidEntry.processingStart - fidEntry.startTime;
         });
       });
       fidObserver.observe({ entryTypes: ['first-input'] });
@@ -276,9 +295,10 @@ class PerformanceMonitor {
       const clsObserver = new PerformanceObserver((list) => {
         let clsValue = 0;
         const entries = list.getEntries();
-        entries.forEach((entry: any) => {
-          if (!entry.hadRecentInput) {
-            clsValue += entry.value;
+        entries.forEach((entry) => {
+          const clsEntry = entry as LayoutShiftEntry;
+          if (!clsEntry.hadRecentInput) {
+            clsValue += clsEntry.value;
           }
         });
         this.metrics.vitals.cls = clsValue;
@@ -385,8 +405,9 @@ class PerformanceMonitor {
   // Memory Monitoring
   private setupMemoryMonitoring(): void {
     setInterval(() => {
-      if ('memory' in performance) {
-        const memory = (performance as any).memory;
+      const extendedPerformance = performance as ExtendedPerformance;
+      if ('memory' in extendedPerformance && extendedPerformance.memory) {
+        const memory = extendedPerformance.memory;
         this.metrics.memory.heapUsed = memory.usedJSHeapSize;
         this.metrics.memory.heapTotal = memory.totalJSHeapSize;
         this.metrics.memory.heapLimit = memory.jsHeapSizeLimit;

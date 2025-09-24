@@ -1,10 +1,96 @@
-// @ts-nocheck
 import * as echarts from 'echarts';
+
 // RGB Color interface
 interface RGBColor {
   r: number;
   g: number;
   b: number;
+}
+
+interface ChartTooltipParams {
+  seriesName: string;
+  data: number[];
+}
+
+interface HeatmapTooltipParams {
+  data: [string, string, number];
+}
+
+interface ChartOption {
+  [key: string]: unknown;
+  grid?: {
+    left?: string;
+    right?: string;
+    bottom?: string;
+    top?: string;
+    height?: string;
+    containLabel?: boolean;
+    backgroundColor?: string;
+    borderColor?: string;
+  };
+  legend?: {
+    textStyle?: { color: string };
+    type?: string;
+    orient?: string;
+    bottom?: number | string;
+    left?: string;
+    data?: string[];
+  };
+  tooltip?: {
+    trigger?: string;
+    backgroundColor?: string;
+    borderColor?: string;
+    textStyle?: { color: string };
+    axisPointer?: {
+      type?: string;
+      label?: { backgroundColor: string };
+    };
+    position?: string;
+    formatter?: string | ((params: ChartTooltipParams | HeatmapTooltipParams) => string);
+  };
+  title?: {
+    text?: string;
+    left?: string;
+    textStyle?: { color: string };
+    subtextStyle?: { color: string };
+  };
+  xAxis?: {
+    type?: string;
+    data?: string[];
+    axisLine?: { lineStyle: { color: string } };
+    axisLabel?: { color: string };
+    splitLine?: { lineStyle: { color: string } };
+  };
+  yAxis?: {
+    type?: string;
+    axisLine?: { lineStyle: { color: string } };
+    axisLabel?: { color: string };
+    splitLine?: { lineStyle: { color: string } };
+  };
+  series?: Array<{
+    name?: string;
+    type?: string;
+    data?: number[] | Array<{ value: number; name: string }>;
+    radius?: string;
+  }>;
+  animation?: boolean;
+  animationType?: string;
+  animationEasing?: string;
+  animationDuration?: number;
+  animationDelay?: (idx: number) => number;
+  toolbox?: {
+    feature?: {
+      saveAsImage?: { show: boolean };
+      dataZoom?: { show: boolean };
+      restore?: { show: boolean };
+    };
+  };
+}
+
+interface TimeSeriesDataPoint {
+  date: string;
+  value: number;
+  timestamp: number;
 }
 
 // Color palettes for different themes
@@ -149,7 +235,7 @@ export const CHART_CONFIGS = {
     },
     tooltip: {
       trigger: 'item',
-      formatter: (params: any) => {
+      formatter: (params: ChartTooltipParams) => {
         return `${params.seriesName}<br/>${params.data[0]} : ${params.data[1]}`;
       }
     }
@@ -158,7 +244,7 @@ export const CHART_CONFIGS = {
     animation: true,
     tooltip: {
       position: 'top',
-      formatter: (params: any) => {
+      formatter: (params: HeatmapTooltipParams) => {
         return `${params.data[0]} - ${params.data[1]}: ${params.data[2]}`;
       }
     },
@@ -285,8 +371,8 @@ export class ChartUtils {
     endDate: Date,
     interval: 'hour' | 'day' | 'week' | 'month',
     valueGenerator: (date: Date, index: number) => number
-  ): Array<{ date: string; value: number; timestamp: number }> {
-    const data = [];
+  ): TimeSeriesDataPoint[] {
+    const data: TimeSeriesDataPoint[] = [];
     const current = new Date(startDate);
     let index = 0;
 
@@ -354,7 +440,7 @@ export class ChartUtils {
   /**
    * Create responsive chart option
    */
-  static createResponsiveOption(baseOption: any, containerWidth: number): any {
+  static createResponsiveOption(baseOption: ChartOption, containerWidth: number): ChartOption {
     const option = { ...baseOption };
 
     // Adjust based on container width
@@ -439,15 +525,17 @@ export class ChartUtils {
   /**
    * Merge chart options deeply
    */
-  static mergeOptions(target: any, ...sources: any[]): any {
+  static mergeOptions(target: ChartOption, ...sources: ChartOption[]): ChartOption {
     if (!sources.length) return target;
     const source = sources.shift();
+    
+    if (!source) return target;
 
     if (this.isObject(target) && this.isObject(source)) {
       for (const key in source) {
         if (this.isObject(source[key])) {
           if (!target[key]) Object.assign(target, { [key]: {} });
-          this.mergeOptions(target[key], source[key]);
+          this.mergeOptions(target[key] as ChartOption, source[key] as ChartOption);
         } else {
           Object.assign(target, { [key]: source[key] });
         }
@@ -460,8 +548,8 @@ export class ChartUtils {
   /**
    * Check if value is object
    */
-  private static isObject(item: any): boolean {
-    return item && typeof item === 'object' && !Array.isArray(item);
+  private static isObject(item: unknown): item is Record<string, unknown> {
+    return item !== null && typeof item === 'object' && !Array.isArray(item);
   }
 
   /**

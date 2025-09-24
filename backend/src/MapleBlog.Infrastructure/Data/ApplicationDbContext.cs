@@ -10,7 +10,7 @@ namespace MapleBlog.Infrastructure.Data
     /// <summary>
     /// Application database context for Entity Framework Core - Authentication Module
     /// </summary>
-    public class ApplicationDbContext : DbContext
+    public class ApplicationDbContext : DbContext, MapleBlog.Application.Interfaces.IApplicationDbContext
     {
         public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : base(options)
         {

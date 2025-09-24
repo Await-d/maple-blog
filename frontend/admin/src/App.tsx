@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React from 'react';
 import { RouterProvider } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -23,10 +22,13 @@ dayjs.locale('zh-cn');
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      retry: (failureCount, error: any) => {
+      retry: (failureCount, error: unknown) => {
         // 对于认证错误不重试
-        if (error?.status === 401 || error?.status === 403) {
-          return false;
+        if (error && typeof error === 'object' && 'status' in error) {
+          const statusError = error as { status: number };
+          if (statusError.status === 401 || statusError.status === 403) {
+            return false;
+          }
         }
         return failureCount < 3;
       },
@@ -109,7 +111,7 @@ const AppContent: React.FC = () => {
             {env.isDev && (
               <ReactQueryDevtools
                 initialIsOpen={false}
-                position="bottom-right" as any
+                position="bottom-right"
               />
             )}
           </QueryClientProvider>
