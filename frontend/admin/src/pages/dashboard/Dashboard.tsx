@@ -1,6 +1,5 @@
-// @ts-nocheck
 import React from 'react';
-import { Card, Row, Col, Statistic, Typography, Space, Button } from 'antd';
+import { Card, Row, Col, Typography, Space, Button } from 'antd';
 import {
   UserOutlined,
   FileTextOutlined,

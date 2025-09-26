@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React, { useState, useEffect } from 'react';
 import {
   Card,
@@ -10,23 +9,17 @@ import {
   Tabs,
   Alert,
   Statistic,
-  Progress,
   Badge,
   Tag,
   Modal,
   Table,
   List,
   Avatar,
-  Tooltip,
-  Dropdown,
-  Menu,
   Switch,
   Select,
   Input,
-  DatePicker,
   notification,
   Divider,
-  Timeline,
 } from 'antd';
 import {
   DashboardOutlined,
@@ -36,37 +29,25 @@ import {
   ReloadOutlined,
   BellOutlined,
   CloudServerOutlined,
-  DatabaseOutlined,
-  ThunderboltOutlined,
-  HddOutlined,
   WifiOutlined,
-  SafetyCertificateOutlined,
-  BugOutlined,
   CheckCircleOutlined,
   ExclamationCircleOutlined,
   CloseCircleOutlined,
-  SyncOutlined,
   EyeOutlined,
   EditOutlined,
   DeleteOutlined,
   PlusOutlined,
-  DownloadOutlined,
-  UploadOutlined,
   InfoCircleOutlined,
   WarningOutlined,
   UserOutlined,
-  ClockCircleOutlined,
 } from '@ant-design/icons';
 import SystemStatus from '../../components/monitoring/SystemStatus';
 import LineChart from '../../components/charts/LineChart';
-import BarChart from '../../components/charts/BarChart';
-import PieChart from '../../components/charts/PieChart';
 import dayjs from 'dayjs';
 
 const { Title, Text, Paragraph } = Typography;
 const { TabPane } = Tabs;
 const { Option } = Select;
-const { RangePicker } = DatePicker;
 
 interface AlertRule {
   id: string;
@@ -87,7 +68,7 @@ interface NotificationChannel {
   id: string;
   name: string;
   type: 'email' | 'slack' | 'webhook' | 'sms';
-  config: Record<string, any>;
+  config: Record<string, unknown>;
   enabled: boolean;
   createdAt: string;
 }
@@ -110,7 +91,6 @@ const SystemMonitoring: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [refreshInterval, setRefreshInterval] = useState(30); // seconds
-  const [selectedDateRange, setSelectedDateRange] = useState<[dayjs.Dayjs, dayjs.Dayjs] | null>(null);
 
   // Modals
   const [alertRuleModalVisible, setAlertRuleModalVisible] = useState(false);
@@ -792,7 +772,7 @@ const SystemMonitoring: React.FC = () => {
                 {
                   title: 'Actions',
                   key: 'actions',
-                  render: (_, record) => (
+                  render: (_, _record) => (
                     <Space>
                       <Button  icon={<EditOutlined />}>
                         Edit

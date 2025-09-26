@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * 评论通知系统 Hook
  * 管理实时通知、未读数量、通知权限等
@@ -18,7 +17,7 @@ interface NotificationState {
 }
 
 export const useCommentNotifications = () => {
-  const { user, isAuthenticated } = useAuth();
+  const { user: _user, isAuthenticated } = useAuth();
   const commentSocket = useCommentSocket();
   const [state, setState] = useState<NotificationState>({
     notifications: [],
@@ -277,6 +276,7 @@ export const useCommentNotifications = () => {
     return () => {
       if (vibrationTimeoutRef.current) {
         clearTimeout(vibrationTimeoutRef.current);
+        vibrationTimeoutRef.current = null;
       }
     };
   }, [isAuthenticated, commentSocket, handleNewNotification, loadRecentNotifications]);

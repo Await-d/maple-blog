@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Header component - Main site header with navigation, search, and user controls
  * Features: Responsive design, theme toggle, search integration, user authentication
@@ -6,7 +5,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Search, Menu, X, Moon, Sun, Monitor, User, LogOut, Settings, Bell } from 'lucide-react';
+import { Search, Menu, X, User, LogOut, Settings, Bell } from 'lucide-react';
 import { Navigation } from './Navigation';
 import { SearchBox } from '../common/SearchBox';
 import { ThemeToggle } from '../common/ThemeToggle';
@@ -30,8 +29,8 @@ export const Header: React.FC<HeaderProps> = ({
   const navigate = useNavigate();
   const { user, isAuthenticated, logout } = useAuth();
   const isMobile = useIsMobile();
-  const currentTheme = useCurrentTheme();
-  const { sidebarCollapsed, setSidebarCollapsed } = useHomeStore();
+  const _currentTheme = useCurrentTheme();
+  const { sidebarCollapsed: _sidebarCollapsed, setSidebarCollapsed: _setSidebarCollapsed } = useHomeStore();
 
   // Local state
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);

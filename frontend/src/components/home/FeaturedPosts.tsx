@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * FeaturedPosts component - Display featured posts in elegant layouts
  * Features: Featured badges, highlighted design, responsive layouts

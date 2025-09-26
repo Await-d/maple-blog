@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React from 'react';
 import { cn } from '../../utils/cn';
 
@@ -7,7 +6,7 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
   size?: 'default' | 'sm' | 'md' | 'lg' | 'icon';
   fullWidth?: boolean;
   loading?: boolean;
-  as?: any;
+  as?: React.ElementType;
   to?: string;
 }
 

@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * useDebounce Hook
  * 防抖钩子，用于延迟执行值的更新
@@ -37,7 +36,7 @@ export function useDebounce<T>(value: T, delay: number): T {
  * @param deps 依赖项数组
  * @returns 防抖后的回调函数
  */
-export function useDebounceCallback<T extends (...args: any[]) => any>(
+export function useDebounceCallback<T extends (...args: unknown[]) => unknown>(
   callback: T,
   delay: number,
   deps: React.DependencyList = []
@@ -52,6 +51,7 @@ export function useDebounceCallback<T extends (...args: any[]) => any>(
     return () => {
       clearTimeout(handler);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [callback, delay, ...deps]);
 
   return debouncedCallback;
@@ -64,7 +64,7 @@ export function useDebounceCallback<T extends (...args: any[]) => any>(
  * @param immediate 是否立即执行第一次调用
  * @returns 防抖后的回调函数
  */
-export function useDebounceImmediate<T extends (...args: any[]) => any>(
+export function useDebounceImmediate<T extends (...args: unknown[]) => unknown>(
   callback: T,
   delay: number,
   immediate: boolean = true

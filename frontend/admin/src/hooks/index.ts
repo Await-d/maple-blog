@@ -1,6 +1,5 @@
-// @ts-nocheck
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { message } from 'antd';
 import { debounce, throttle, storageUtils } from '@/utils';
 import type { QueryParams, PaginatedResponse, ApiError } from '@/types';
@@ -49,7 +48,7 @@ export const useDebounce = <T>(value: T, delay: number): T => {
 };
 
 // 防抖回调Hook
-export const useDebouncedCallback = <T extends (...args: any[]) => any>(
+export const useDebouncedCallback = <T extends (...args: unknown[]) => unknown>(
   callback: T,
   delay: number
 ): T => {
@@ -57,7 +56,7 @@ export const useDebouncedCallback = <T extends (...args: any[]) => any>(
   callbackRef.current = callback;
 
   return useMemo(
-    () => debounce((...args: any[]) => callbackRef.current(...args), delay) as T,
+    () => debounce((...args: unknown[]) => callbackRef.current(...args), delay) as T,
     [delay]
   );
 };
@@ -86,7 +85,7 @@ export const useThrottle = <T>(value: T, delay: number): T => {
 };
 
 // 节流回调Hook
-export const useThrottledCallback = <T extends (...args: any[]) => any>(
+export const useThrottledCallback = <T extends (...args: unknown[]) => unknown>(
   callback: T,
   delay: number
 ): T => {
@@ -94,7 +93,7 @@ export const useThrottledCallback = <T extends (...args: any[]) => any>(
   callbackRef.current = callback;
 
   return useMemo(
-    () => throttle((...args: any[]) => callbackRef.current(...args), delay) as T,
+    () => throttle((...args: unknown[]) => callbackRef.current(...args), delay) as T,
     [delay]
   );
 };
@@ -131,12 +130,12 @@ export const usePagination = (
 };
 
 // 表格Hook
-export const useTable = <T = any>(
+export const useTable = <T = Record<string, unknown>>(
   queryFn: (params: QueryParams) => Promise<PaginatedResponse<T>>,
   options?: {
     defaultPageSize?: number;
     defaultSorter?: { field: string; order: 'asc' | 'desc' };
-    defaultFilters?: Record<string, any>;
+    defaultFilters?: Record<string, unknown>;
   }
 ) => {
   const [filters, setFilters] = useState(options?.defaultFilters || {});
@@ -153,7 +152,7 @@ export const useTable = <T = any>(
     sortBy: sorter?.field,
     sortOrder: sorter?.order,
     ...filters,
-  }), [pagination.current, pagination.pageSize, debouncedSearchText, sorter, filters]);
+  }), [pagination, debouncedSearchText, sorter, filters]);
 
   const {
     data,
@@ -167,7 +166,7 @@ export const useTable = <T = any>(
     keepPreviousData: true,
   });
 
-  const handleTableChange = useCallback((paginationConfig: any, filtersConfig: any, sorterConfig: any) => {
+  const handleTableChange = useCallback((paginationConfig: Record<string, unknown>, filtersConfig: Record<string, unknown>, sorterConfig: Record<string, unknown>) => {
     // 处理分页
     if (paginationConfig) {
       pagination.onChange(paginationConfig.current, paginationConfig.pageSize);
@@ -232,7 +231,7 @@ export const useTable = <T = any>(
 };
 
 // 通用请求Hook
-export const useRequest = <T = any, P = any>(
+export const useRequest = <T = unknown, P = unknown>(
   requestFn: (params?: P) => Promise<T>,
   options?: {
     manual?: boolean;
@@ -280,7 +279,7 @@ export const useRequest = <T = any, P = any>(
     if (!options?.manual) {
       run();
     }
-  }, []);
+  }, [options?.manual, run]);
 
   return {
     data,
@@ -291,12 +290,12 @@ export const useRequest = <T = any, P = any>(
 };
 
 // 表单状态Hook
-export const useFormState = <T extends Record<string, any>>(initialValues: T) => {
+export const useFormState = <T extends Record<string, unknown>>(initialValues: T) => {
   const [values, setValues] = useState<T>(initialValues);
   const [errors, setErrors] = useState<Partial<Record<keyof T, string>>>({});
   const [touched, setTouched] = useState<Partial<Record<keyof T, boolean>>>({});
 
-  const setValue = useCallback((name: keyof T, value: any) => {
+  const setValue = useCallback((name: keyof T, value: unknown) => {
     setValues(prev => ({ ...prev, [name]: value }));
     if (errors[name]) {
       setErrors(prev => ({ ...prev, [name]: undefined }));
@@ -307,7 +306,7 @@ export const useFormState = <T extends Record<string, any>>(initialValues: T) =>
     setErrors(prev => ({ ...prev, [name]: error }));
   }, []);
 
-  const setTouched = useCallback((name: keyof T, isTouched: boolean = true) => {
+  const setFieldTouched = useCallback((name: keyof T, isTouched: boolean = true) => {
     setTouched(prev => ({ ...prev, [name]: isTouched }));
   }, []);
 
@@ -331,7 +330,7 @@ export const useFormState = <T extends Record<string, any>>(initialValues: T) =>
     touched,
     setValue,
     setError,
-    setTouched,
+    setTouched: setFieldTouched,
     reset,
     isValid,
     isDirty,
@@ -445,7 +444,7 @@ export const useTimer = (initialTime: number, options?: {
         clearInterval(intervalRef.current);
       }
     };
-  }, [isRunning, time, options?.onEnd]);
+  }, [isRunning, time, options?.onEnd, options]);
 
   return {
     time,

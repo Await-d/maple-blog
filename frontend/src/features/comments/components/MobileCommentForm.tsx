@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * 移动端评论表单组件
  * 专门为移动设备优化的评论表单
@@ -8,7 +7,8 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useCommentStore } from '../../../stores/commentStore';
-import { CommentFormData } from '../../../types/comment';
+import { CommentFormData, Comment, CommentAuthor } from '../../../types/comment';
+import { CommentEditorRef } from './CommentEditor';
 import { useAuth } from '../../../hooks/useAuth';
 import CommentEditor from './CommentEditor';
 import EmojiPicker from './EmojiPicker';
@@ -22,7 +22,7 @@ interface MobileCommentFormProps {
   isEditing?: boolean;
   commentId?: string;
   onCancel?: () => void;
-  onSubmitSuccess?: (comment: any) => void;
+  onSubmitSuccess?: (comment: Comment) => void;
   isOpen: boolean;
   onClose: () => void;
 }
@@ -58,8 +58,8 @@ const MobileCommentForm: React.FC<MobileCommentFormProps> = ({
 
   // Refs
   const modalRef = useRef<HTMLDivElement>(null);
-  const editorRef = useRef<any>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const editorRef = useRef<CommentEditorRef>(null);
+  const _textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // 检测虚拟键盘
   useEffect(() => {
@@ -130,7 +130,7 @@ const MobileCommentForm: React.FC<MobileCommentFormProps> = ({
   }, []);
 
   // 处理提及选择
-  const handleMentionSelect = useCallback((user: any) => {
+  const handleMentionSelect = useCallback((user: CommentAuthor) => {
     const { content } = formData;
     const beforeMention = content.slice(0, mentionPosition);
     const afterMention = content.slice(mentionPosition + mentionQuery.length + 1);
@@ -186,7 +186,7 @@ const MobileCommentForm: React.FC<MobileCommentFormProps> = ({
         });
 
         // 回调
-        if (onSubmitSuccess) {
+        if (onSubmitSuccess && 'id' in result) {
           onSubmitSuccess(result);
         }
 

@@ -1,5 +1,5 @@
-// @ts-nocheck
-import React, { useMemo, useCallback, useRef, useEffect, useState } from 'react';
+/* eslint-disable react-refresh/only-export-components */
+import React, { useMemo, useCallback, useRef, useState } from 'react';
 import { Table, Empty, Spin } from 'antd';
 import type { TableProps, ColumnsType } from 'antd/es/table';
 import { List } from 'react-window';
@@ -8,7 +8,7 @@ import ResizeObserver from 'rc-resize-observer';
 import classNames from 'classnames';
 
 // 虚拟滚动表格行高配置
-interface VirtualTableProps<T = any> extends Omit<TableProps<T>, 'pagination'> {
+interface VirtualTableProps<T = Record<string, unknown>> extends Omit<TableProps<T>, 'pagination'> {
   itemHeight?: number; // 固定行高
   estimatedItemHeight?: number; // 预估行高（动态高度时使用）
   overscan?: number; // 预渲染行数
@@ -25,13 +25,13 @@ const VirtualTableRow: React.FC<{
   index: number;
   style: React.CSSProperties;
   data: {
-    columns: ColumnsType<any>;
-    dataSource: any[];
-    rowKey: string | ((record: any) => string);
-    onRow?: (record: any, index?: number) => React.HTMLAttributes<any>;
-    rowClassName?: string | ((record: any, index: number) => string);
-    rowSelection?: any;
-    expandedRowRender?: any;
+    columns: ColumnsType<Record<string, unknown>>;
+    dataSource: Record<string, unknown>[];
+    rowKey: string | ((record: Record<string, unknown>) => string);
+    onRow?: (record: Record<string, unknown>, index?: number) => React.HTMLAttributes<HTMLElement>;
+    rowClassName?: string | ((record: Record<string, unknown>, index: number) => string);
+    rowSelection?: Record<string, unknown>;
+    expandedRowRender?: (record: Record<string, unknown>, index: number, indent: number, expanded: boolean) => React.ReactNode;
     expandRowByClick?: boolean;
   };
 }> = ({ index, style, data }) => {
@@ -43,7 +43,6 @@ const VirtualTableRow: React.FC<{
     rowClassName,
     rowSelection,
     expandedRowRender,
-    expandRowByClick,
   } = data;
 
   const record = dataSource[index];
@@ -76,7 +75,7 @@ const VirtualTableRow: React.FC<{
         )}
 
         {/* 数据列 */}
-        {columns.map((col: any, colIndex) => {
+        {columns.map((col: Record<string, unknown>, colIndex) => {
           const value = record[col.dataIndex] || record[col.key];
           const cellContent = col.render 
             ? col.render(value, record, index)
@@ -111,8 +110,8 @@ const VirtualTableRow: React.FC<{
 
 // 虚拟滚动表格头组件
 const VirtualTableHeader: React.FC<{
-  columns: ColumnsType<any>;
-  rowSelection?: any;
+  columns: ColumnsType<Record<string, unknown>>;
+  rowSelection?: Record<string, unknown>;
 }> = ({ columns, rowSelection }) => {
   return (
     <div className="virtual-table-header">
@@ -122,11 +121,18 @@ const VirtualTableHeader: React.FC<{
           {rowSelection.type !== 'radio' && !rowSelection.hideSelectAll && (
             <input
               type="checkbox"
-              checked={rowSelection.selectedRowKeys?.length > 0}
-              indeterminate={
+              checked={
+                rowSelection.selectedRowKeys?.length === rowSelection.dataSource?.length &&
+                rowSelection.selectedRowKeys?.length > 0
+              }
+              {...(
                 rowSelection.selectedRowKeys?.length > 0 &&
                 rowSelection.selectedRowKeys?.length < rowSelection.dataSource?.length
-              }
+                  ? { ref: (input: HTMLInputElement | null) => {
+                      if (input) input.indeterminate = true;
+                    }}
+                  : {}
+              )}
               onChange={(e) => {
                 if (rowSelection.onSelectAll) {
                   rowSelection.onSelectAll(e.target.checked, [], []);
@@ -138,7 +144,7 @@ const VirtualTableHeader: React.FC<{
       )}
 
       {/* 数据列头 */}
-      {columns.map((col: any, index) => (
+      {columns.map((col: Record<string, unknown>, index) => (
         <div
           key={col.key || index}
           className={classNames('virtual-table-header-cell', {
@@ -164,13 +170,13 @@ const VirtualTableHeader: React.FC<{
   );
 };
 
-export const VirtualTable = <T extends Record<string, any>>(props: VirtualTableProps<T>) => {
+export const VirtualTable = <T extends Record<string, unknown>>(props: VirtualTableProps<T>) => {
   const {
     dataSource = [],
     columns = [],
     loading = false,
     itemHeight = 54,
-    estimatedItemHeight = 54,
+  
     overscan = 5,
     threshold = 100,
     maxHeight = 600,
@@ -189,32 +195,12 @@ export const VirtualTable = <T extends Record<string, any>>(props: VirtualTableP
   } = props;
 
   const [containerHeight, setContainerHeight] = useState(maxHeight);
-  const [scrollTop, setScrollTop] = useState(0);
+
   const listRef = useRef<List>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // 如果数据量小于阈值，使用原生Table组件
-  if (dataSource.length < threshold) {
-    return (
-      <Table
-        {...restProps}
-        dataSource={dataSource}
-        columns={columns}
-        loading={loading}
-        rowKey={rowKey}
-        onRow={onRow}
-        rowClassName={rowClassName}
-        rowSelection={rowSelection}
-        expandedRowRender={expandedRowRender}
-        expandRowByClick={expandRowByClick}
-        pagination={false}
-        scroll={scroll}
-      />
-    );
-  }
-
   // 计算行高（支持动态高度）
-  const getItemHeight = useCallback((index: number) => {
+  const getItemHeight = useCallback((_index: number) => {
     // 可以根据具体数据计算动态高度
     // 这里简化为固定高度
     return itemHeight;
@@ -222,7 +208,7 @@ export const VirtualTable = <T extends Record<string, any>>(props: VirtualTableP
 
   // 滚动事件处理
   const handleScroll = useCallback(({ scrollTop: newScrollTop }: { scrollTop: number }) => {
-    setScrollTop(newScrollTop);
+
     onScroll?.(newScrollTop);
 
     // 无限加载逻辑
@@ -244,15 +230,7 @@ export const VirtualTable = <T extends Record<string, any>>(props: VirtualTableP
     setContainerHeight(newHeight);
   }, [maxHeight]);
 
-  // 滚动到指定位置
-  const scrollToItem = useCallback((index: number, align: 'start' | 'center' | 'end' | 'smart' = 'start') => {
-    listRef.current?.scrollToItem(index, align);
-  }, []);
 
-  // 刷新虚拟列表
-  const resetAfterIndex = useCallback((index: number) => {
-    listRef.current?.resetAfterIndex(index);
-  }, []);
 
   // 准备传递给行组件的数据
   const rowData = useMemo(() => ({
@@ -277,6 +255,26 @@ export const VirtualTable = <T extends Record<string, any>>(props: VirtualTableP
       data={rowData}
     />
   ), [rowData]);
+
+  // 如果数据量小于阈值，使用原生Table组件
+  if (dataSource.length < threshold) {
+    return (
+      <Table
+        {...restProps}
+        dataSource={dataSource}
+        columns={columns}
+        loading={loading}
+        rowKey={rowKey}
+        onRow={onRow}
+        rowClassName={rowClassName}
+        rowSelection={rowSelection}
+        expandedRowRender={expandedRowRender}
+        expandRowByClick={expandRowByClick}
+        pagination={false}
+        scroll={scroll}
+      />
+    );
+  }
 
   if (loading && dataSource.length === 0) {
     return (
@@ -321,7 +319,7 @@ export const VirtualTable = <T extends Record<string, any>>(props: VirtualTableP
         </div>
       )}
 
-      <style jsx>{`
+      <style>{`
         .virtual-table-container {
           border: 1px solid #f0f0f0;
           border-radius: 6px;
@@ -521,7 +519,7 @@ export const VirtualTableUtils = {
   },
 
   // 优化数据处理
-  memoizeRowData: <T extends unknown>(data: T[], keyExtractor: (item: T) => string) => {
+  memoizeRowData: function<T>(data: T[], keyExtractor: (item: T) => string) {
     const cache = new Map();
     return data.map(item => {
       const key = keyExtractor(item);
@@ -530,7 +528,7 @@ export const VirtualTableUtils = {
       }
       return cache.get(key);
     });
-  },
+  }
 };
 
 export default VirtualTable;

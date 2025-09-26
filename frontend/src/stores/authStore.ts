@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Authentication State Management using Zustand
  * Manages global authentication state, JWT tokens, and user session
@@ -11,8 +10,6 @@ import {
   AuthState,
   AuthResult,
   LoginRequest,
-  RegisterRequest,
-  RefreshTokenRequest,
   JwtPayload,
   AuthLoadingStates,
   UserRole,
@@ -125,7 +122,7 @@ export const useAuthStore = create<AuthStore>()(
       ...initialState,
 
       // Login action
-      login: async (credentials: LoginRequest): Promise<AuthResult> => {
+      login: async (_credentials: LoginRequest): Promise<AuthResult> => {
         set((state) => ({
           ...state,
           loadingStates: { ...state.loadingStates, login: true },

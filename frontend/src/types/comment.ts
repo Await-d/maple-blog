@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * 评论系统类型定义
  * 对应后端CommentDto等DTO结构

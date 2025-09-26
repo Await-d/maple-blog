@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * PopularPosts component - Display popular posts with different layouts
  * Features: Multiple layouts, loading states, responsive design, animations

@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * SearchBox component - Advanced search with suggestions and history
  * Features: Real-time suggestions, search history, keyboard navigation, debounced search
@@ -140,6 +139,30 @@ export const SearchBox: React.FC<SearchBoxProps> = ({
     return results;
   }, [tags, authors, searchHistory]);
 
+  const saveToHistory = useCallback((term: string) => {
+    const newHistory = [term, ...searchHistory.filter(h => h !== term)].slice(0, 10);
+    setSearchHistory(newHistory);
+    localStorage.setItem('searchHistory', JSON.stringify(newHistory));
+  }, [searchHistory]);
+
+  const handleSearch = useCallback((searchTerm: string) => {
+    if (!searchTerm.trim()) return;
+
+    saveToHistory(searchTerm.trim());
+    navigate(`/search?q=${encodeURIComponent(searchTerm.trim())}`);
+    setShowSuggestions(false);
+    if (onClose) onClose();
+  }, [navigate, onClose, saveToHistory]);
+
+  const handleSuggestionClick = useCallback((suggestion: SearchSuggestion) => {
+    if (suggestion.type === 'post' || suggestion.type === 'history') {
+      saveToHistory(query.trim() || suggestion.title);
+    }
+    navigate(suggestion.url);
+    setShowSuggestions(false);
+    if (onClose) onClose();
+  }, [query, navigate, onClose, saveToHistory]);
+
   // Debounced search
   useEffect(() => {
     const timeoutId = setTimeout(async () => {
@@ -198,31 +221,7 @@ export const SearchBox: React.FC<SearchBoxProps> = ({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [showSuggestions, suggestions, selectedIndex, query, onClose]);
-
-  const saveToHistory = useCallback((term: string) => {
-    const newHistory = [term, ...searchHistory.filter(h => h !== term)].slice(0, 10);
-    setSearchHistory(newHistory);
-    localStorage.setItem('searchHistory', JSON.stringify(newHistory));
-  }, [searchHistory]);
-
-  const handleSearch = useCallback((searchTerm: string) => {
-    if (!searchTerm.trim()) return;
-
-    saveToHistory(searchTerm.trim());
-    navigate(`/search?q=${encodeURIComponent(searchTerm.trim())}`);
-    setShowSuggestions(false);
-    if (onClose) onClose();
-  }, [navigate, onClose, saveToHistory]);
-
-  const handleSuggestionClick = useCallback((suggestion: SearchSuggestion) => {
-    if (suggestion.type === 'post' || suggestion.type === 'history') {
-      saveToHistory(query.trim() || suggestion.title);
-    }
-    navigate(suggestion.url);
-    setShowSuggestions(false);
-    if (onClose) onClose();
-  }, [query, navigate, onClose, saveToHistory]);
+  }, [showSuggestions, suggestions, selectedIndex, query, onClose, handleSearch, handleSuggestionClick]);
 
   // Close suggestions when clicking outside
   useEffect(() => {

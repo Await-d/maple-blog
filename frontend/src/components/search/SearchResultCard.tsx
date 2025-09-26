@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * SearchResultCard Component
  * 搜索结果卡片组件 - 显示单个搜索结果的详细信息

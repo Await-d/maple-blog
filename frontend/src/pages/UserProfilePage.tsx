@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * UserProfilePage - Comprehensive user profile management interface
  * Provides tabbed interface for managing all aspects of user profile

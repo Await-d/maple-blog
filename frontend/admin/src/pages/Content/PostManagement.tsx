@@ -1,5 +1,4 @@
-// @ts-nocheck
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import {
   Card,
   Table,
@@ -13,19 +12,16 @@ import {
   Modal,
   message,
   Dropdown,
-  Checkbox,
-  Badge,
   Tooltip,
   Progress,
   Popconfirm,
   Form,
   Row,
   Col,
+  Image,
   Drawer,
   Tabs,
   Statistic,
-  Upload,
-  Image
 } from 'antd';
 import {
   PlusOutlined,
@@ -36,25 +32,17 @@ import {
   ExportOutlined,
   ImportOutlined,
   FilterOutlined,
-  SearchOutlined,
   CalendarOutlined,
-  TagsOutlined,
   FileTextOutlined,
   BarChartOutlined,
   CheckCircleOutlined,
   ClockCircleOutlined,
   ExclamationCircleOutlined,
   SendOutlined,
-  SaveOutlined,
   CopyOutlined,
   ShareAltOutlined,
   DownloadOutlined,
-  UploadOutlined,
   ReloadOutlined,
-  SortAscendingOutlined,
-  SortDescendingOutlined,
-  GlobalOutlined,
-  UserOutlined,
   CommentOutlined
 } from '@ant-design/icons';
 import dayjs, { Dayjs } from 'dayjs';
@@ -76,7 +64,7 @@ const POST_STATUS = {
 
 // API service for posts
 const postService = {
-  async getPosts(params: any = {}) {
+  async getPosts(_params: Record<string, unknown> = {}) {
     const response = await fetch('/api/posts', {
       method: 'GET',
       headers: {
@@ -176,7 +164,7 @@ const PostManagement: React.FC = () => {
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
   const [batchActionModal, setBatchActionModal] = useState<{ visible: boolean; action: string }>({ visible: false, action: '' });
   const [loading, setLoading] = useState(false);
-  const [sortConfig, setSortConfig] = useState<{ field: string; direction: 'asc' | 'desc' }>({ field: 'updatedAt', direction: 'desc' });
+  const [sortConfig] = useState<{ field: string; direction: 'asc' | 'desc' }>({ field: 'updatedAt', direction: 'desc' });
 
   // Load posts data from API
   useEffect(() => {
@@ -248,8 +236,8 @@ const PostManagement: React.FC = () => {
 
     // Sort
     filtered.sort((a, b) => {
-      let aValue: any = a[sortConfig.field as keyof Post];
-      let bValue: any = b[sortConfig.field as keyof Post];
+      let aValue: unknown = a[sortConfig.field as keyof Post];
+      let bValue: unknown = b[sortConfig.field as keyof Post];
 
       if (sortConfig.field === 'author') {
         aValue = a.author.name;
@@ -423,7 +411,6 @@ const PostManagement: React.FC = () => {
       key: 'status',
       width: 100,
       render: (record: Post) => {
-        const status = POST_STATUS[record.status];
         return (
           <Select
             value={record.status}
@@ -564,7 +551,7 @@ const PostManagement: React.FC = () => {
       {
         key: 'published',
         text: '选择已发布',
-        onSelect: (changeableRowKeys: React.Key[]) => {
+        onSelect: (_changeableRowKeys: React.Key[]) => {
           const publishedKeys = posts
             .filter(post => post.status === 'PUBLISHED')
             .map(post => post.id);

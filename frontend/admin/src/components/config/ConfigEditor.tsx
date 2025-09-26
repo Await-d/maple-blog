@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React, { useState, useCallback, useEffect } from 'react';
 import {
   Card,
@@ -64,7 +63,12 @@ const ConfigEditor: React.FC<ConfigEditorProps> = ({
   const [diffData] = useState<ConfigurationDiff | null>(null);
   const [backupModalVisible, setBackupModalVisible] = useState(false);
   const [restoreModalVisible, setRestoreModalVisible] = useState(false);
-  const [impactAnalysis, setImpactAnalysis] = useState<any>(null);
+  const [impactAnalysis, setImpactAnalysis] = useState<{
+    affectedServices: string[];
+    requiredRestarts: boolean;
+    warnings: string[];
+    estimatedDowntime?: number;
+  } | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
   // const editorRef = useRef<any>(null);
@@ -213,7 +217,7 @@ const ConfigEditor: React.FC<ConfigEditorProps> = ({
   const renderModeTabs = () => (
     <Tabs
       activeKey={mode}
-      onChange={(key) => setMode(key as any)}
+      onChange={(key) => setMode(key as 'form' | 'json' | 'diff')}
       
       tabBarExtraContent={
         <Space>
@@ -502,7 +506,11 @@ const ConfigEditor: React.FC<ConfigEditorProps> = ({
 
   // Render tree view
   const renderTreeView = () => {
-    const convertToTreeData = (obj: any, prefix = ''): any[] => {
+    const convertToTreeData = (obj: Record<string, unknown>, prefix = ''): Array<{
+      title: React.ReactNode;
+      key: string;
+      children?: Array<{ title: React.ReactNode; key: string; children?: unknown[] }>;
+    }> => {
       return Object.entries(obj).map(([key, value]) => {
         const fullKey = prefix ? `${prefix}.${key}` : key;
         const node = {

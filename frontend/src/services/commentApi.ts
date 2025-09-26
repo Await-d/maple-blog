@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * 评论API服务
  * 封装所有评论相关的HTTP请求
@@ -14,7 +13,7 @@ import type {
   CommentStats,
   UserCommentStats,
   CommentReportRequest,
-  CommentSearchResult,
+  CommentSearchResult as _CommentSearchResult,
   ApiResponse
 } from '../types/comment';
 
@@ -260,7 +259,7 @@ export class CommentApiService {
 export const commentApi = CommentApiService;
 
 // 错误处理包装器
-export const withErrorHandling = <T extends any[], R>(
+export const withErrorHandling = <T extends unknown[], R>(
   fn: (...args: T) => Promise<R>
 ) => {
   return async (...args: T): Promise<ApiResponse<R>> => {
@@ -270,13 +269,13 @@ export const withErrorHandling = <T extends any[], R>(
         data,
         success: true
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Comment API Error:', error);
 
       return {
         success: false,
-        message: error.response?.data?.message || error.message || '请求失败',
-        errors: error.response?.data?.errors || []
+        message: (error as { response?: { data?: { message?: string, errors?: string[] } } }).response?.data?.message || (error as Error).message || '请求失败',
+        errors: (error as { response?: { data?: { errors?: string[] } } }).response?.data?.errors || []
       };
     }
   };

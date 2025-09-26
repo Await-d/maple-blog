@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef } from 'react';
 import { message } from 'antd';
@@ -6,7 +5,6 @@ import { useDashboardStore } from '@/stores/dashboardStore';
 import { useRealTimeStore } from '@/stores/realTimeStore';
 import { ApiService } from '@/services/api';
 import type { DashboardStats, SystemMetrics, HealthCheck, Activity } from '@/types';
-import type { LineChartData } from '@/components/charts/LineChart';
 
 // Dashboard query keys
 const DASHBOARD_QUERY_KEYS = {

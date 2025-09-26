@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * 分析追踪工具
  * 实现用户行为追踪、性能监控、A/B测试等分析功能
@@ -438,10 +437,13 @@ export class AnalyticsTracker {
       // Cumulative Layout Shift
       let clsValue = 0;
       const clsObserver = new PerformanceObserver((list) => {
-        const entries = list.getEntries() as PerformanceEntry[];
+        const entries = list.getEntries() as (PerformanceEntry & {
+          hadRecentInput?: boolean;
+          value?: number;
+        })[];
         entries.forEach((entry) => {
           if (!entry.hadRecentInput) {
-            clsValue += entry.value;
+            clsValue += entry.value || 0;
           }
         });
         this.trackPerformance({ cls: clsValue });
@@ -451,13 +453,13 @@ export class AnalyticsTracker {
 
       // Navigation Timing
       const navigationObserver = new PerformanceObserver((list) => {
-        const entries = list.getEntries() as PerformanceEntry[];
+        const entries = list.getEntries() as PerformanceNavigationTiming[];
         entries.forEach((entry) => {
           this.trackPerformance({
             ttfb: entry.responseStart - entry.requestStart,
             fcp: entry.responseEnd - entry.requestStart,
-            loadTime: entry.loadEventEnd - entry.navigationStart,
-            domContentLoaded: entry.domContentLoadedEventEnd - entry.navigationStart
+            loadTime: entry.loadEventEnd - entry.fetchStart,
+            domContentLoaded: entry.domContentLoadedEventEnd - entry.fetchStart
           });
         });
       });
@@ -477,8 +479,8 @@ export class AnalyticsTracker {
 
       this.trackPerformance({
         resourceCount: resources.length,
-        totalResourceSize: resources.reduce((total, r) => total + ((r as any).transferSize || 0), 0),
-        loadTime: navigation?.loadEventEnd - navigation?.navigationStart
+        totalResourceSize: resources.reduce((total, r) => total + ((r as PerformanceResourceTiming).transferSize || 0), 0),
+        loadTime: navigation.loadEventEnd - navigation.fetchStart
       });
     });
   }

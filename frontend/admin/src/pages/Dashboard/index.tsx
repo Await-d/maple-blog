@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React, { useState, useCallback } from 'react';
 import {
   Row,
@@ -9,8 +8,6 @@ import {
   Dropdown,
   Switch,
   InputNumber,
-  message,
-  Spin,
   Alert,
   Tag,
   Avatar,
@@ -22,7 +19,6 @@ import {
 import {
   ReloadOutlined,
   SettingOutlined,
-  DownloadOutlined,
   FullscreenOutlined,
   UserOutlined,
   FileTextOutlined,
@@ -33,12 +29,10 @@ import {
   ExclamationCircleOutlined,
   CloseCircleOutlined,
 } from '@ant-design/icons';
-import { useQuery } from '@tanstack/react-query';
 import dayjs from 'dayjs';
-import StatCard, { StatCardVariants, StatCardFormatters } from '@/components/charts/StatCard';
+import { StatCardVariants, StatCardFormatters } from '@/components/charts/StatCard';
 import LineChart from '@/components/charts/LineChart';
 import { useDashboard, useDashboardConfig } from '@/hooks/useDashboard';
-import { usePermissions } from '@/hooks/usePermissions';
 import type { Activity, HealthCheck } from '@/types';
 
 const { Text, Title } = Typography;
@@ -95,9 +89,7 @@ const DASHBOARD_LAYOUTS = {
 
 const Dashboard: React.FC = () => {
   const [currentLayout, setCurrentLayout] = useState<'default' | 'compact'>('default');
-  const [isFullscreen, setIsFullscreen] = useState(false);
-
-  const { hasPermission } = usePermissions();
+  // Removed unused state variables: isFullscreen, setIsFullscreen, hasPermission
 
   const {
     stats,
@@ -123,7 +115,7 @@ const Dashboard: React.FC = () => {
   const layout = DASHBOARD_LAYOUTS[currentLayout];
 
   // Handle refresh settings change
-  const handleRefreshSettingsChange = useCallback((key: string, value: any) => {
+  const handleRefreshSettingsChange = useCallback((key: string, value: unknown) => {
     updateRefreshSettings({ [key]: value });
   }, [updateRefreshSettings]);
 
@@ -266,7 +258,7 @@ const Dashboard: React.FC = () => {
 
     return (
       <Alert
-        type={statusConfig.color as any}
+        type={statusConfig.color as 'success' | 'info' | 'warning' | 'error'}
         showIcon
         icon={statusConfig.icon}
         message={`系统状态：${statusConfig.text}`}

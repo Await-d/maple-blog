@@ -1,25 +1,14 @@
-// @ts-nocheck
-import React, { useState, useEffect } from 'react';
-import { Row, Col, Card, Statistic, Space, DatePicker, Select, Button, Segmented, Typography, Tooltip, Badge, Progress, Divider } from 'antd';
+import React, { useState } from 'react';
+import { Row, Col, Card, Statistic, Space, DatePicker, Select, Button, Segmented, Typography, Badge, Progress, Divider } from 'antd';
 import {
   EyeOutlined,
   UserOutlined,
   FileTextOutlined,
   RiseOutlined,
   FallOutlined,
-  GlobalOutlined,
-  MobileOutlined,
-  DesktopOutlined,
-  TabletOutlined,
   ClockCircleOutlined,
   ThunderboltOutlined,
   DashboardOutlined,
-  BarChartOutlined,
-  LineChartOutlined,
-  PieChartOutlined,
-  AreaChartOutlined,
-  RadarChartOutlined,
-  HeatMapOutlined,
   ReloadOutlined,
   ExportOutlined,
   SettingOutlined
@@ -28,7 +17,7 @@ import { useQuery } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 import AnalyticsChart from '@/components/analytics/AnalyticsChart';
 import { analyticsService } from '@/services/analytics.service';
-import type { AnalyticsOverview, TimeRange, TrafficData, TrafficSource, DeviceAnalytics, GeographicData, RealTimeData } from '@/types/analytics';
+import type { TimeRange } from '@/types/analytics';
 
 const { Title, Text } = Typography;
 const { RangePicker } = DatePicker;
@@ -40,10 +29,10 @@ const Overview: React.FC = () => {
     dayjs()
   ]);
   const [viewMode, setViewMode] = useState<'overview' | 'detailed'>('overview');
-  const [chartType, setChartType] = useState<'line' | 'bar' | 'area'>('line');
+  const [chartType] = useState<'line' | 'bar' | 'area'>('line');
 
   // Fetch overview data
-  const { data: overviewData, isLoading: overviewLoading, refetch: refetchOverview } = useQuery({
+  const { data: overviewData, refetch: refetchOverview } = useQuery({
     queryKey: ['analytics-overview', timeRange, customDateRange],
     queryFn: () => analyticsService.getOverview({
       timeRange,
@@ -93,7 +82,7 @@ const Overview: React.FC = () => {
   });
 
   // Fetch real-time data
-  const { data: realTimeData, isLoading: realTimeLoading } = useQuery({
+  const { data: realTimeData } = useQuery({
     queryKey: ['analytics-realtime'],
     queryFn: () => analyticsService.getRealTimeData(),
     refetchInterval: 30000 // Refresh every 30 seconds

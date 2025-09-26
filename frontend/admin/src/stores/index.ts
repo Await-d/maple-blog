@@ -1,6 +1,6 @@
-// @ts-nocheck
 // Main admin store exports
 import { useAdminStore } from './adminStore';
+import type { User } from '@/types';
 export {
   useAdminStore,
   type AdminState,
@@ -146,23 +146,23 @@ export const storeUtils = {
   },
 
   // Subscribe to cross-store updates
-  subscribeToStoreUpdates: (callback: (storeName: string, state: any) => void) => {
+  subscribeToStoreUpdates: (callback: (storeName: string, state: Record<string, unknown>) => void) => {
     const unsubscribers = [
       useAdminStore.subscribe(
-        (state: any) => state.user,
-        (user: any) => callback('admin', { user })
+        (state) => state.user,
+        (user) => callback('admin', { user })
       ),
       useDashboardStore.subscribe(
-        (state: any) => state.stats,
-        (stats: any) => callback('dashboard', { stats })
+        (state) => state.stats,
+        (stats) => callback('dashboard', { stats })
       ),
       useUserManagementStore.subscribe(
-        (state: any) => state.users,
-        (users: any) => callback('userManagement', { users })
+        (state) => state.users,
+        (users) => callback('userManagement', { users })
       ),
       usePermissionStore.subscribe(
-        (state: any) => state.permissions,
-        (permissions: any) => callback('permission', { permissions })
+        (state) => state.permissions,
+        (permissions) => callback('permission', { permissions })
       ),
     ];
 
@@ -173,23 +173,23 @@ export const storeUtils = {
   },
 
   // Sync user permissions across stores
-  syncUserPermissions: (user: any) => {
+  syncUserPermissions: (user: User | null) => {
     const adminStore = useAdminStore.getState();
     const permissionStore = usePermissionStore.getState();
 
     if (user) {
-      const permissions = user.roles.flatMap((role: any) =>
-        role.permissions.map((permission: any) => permission.code)
-      );
+      const permissions = user.roles?.flatMap((role) =>
+        role.permissions?.map((permission) => permission.code) ?? []
+      ) ?? [];
 
       adminStore.setPermissions(permissions);
 
       // Update permission store with user's roles if needed
-      const userRoles = user.roles;
+      const userRoles = user.roles || [];
       const existingRoles = permissionStore.roles;
 
-      userRoles.forEach((userRole: any) => {
-        const existingRole = existingRoles.find((r: any) => r.id === userRole.id);
+      userRoles.forEach((userRole) => {
+        const existingRole = existingRoles.find((r) => r.id === userRole.id);
         if (!existingRole) {
           permissionStore.addRole(userRole);
         }
@@ -244,8 +244,8 @@ export const storeDebug = process.env.NODE_ENV === 'development' ? {
     const unsubscribers = targetStores.map(name => {
       const store = stores[name as keyof typeof stores];
       return store.subscribe(
-        (state: any) => state,
-        (newState: any, previousState: any) => {
+        (state) => state,
+        (newState, previousState) => {
           console.log(`Store "${name}" changed:`, {
             previous: previousState,
             current: newState,

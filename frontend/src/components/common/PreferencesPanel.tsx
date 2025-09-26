@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * PreferencesPanel component - Comprehensive user preferences and settings
  * Features: Theme settings, layout preferences, content filters, accessibility options

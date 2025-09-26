@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Blog Content Management State using Zustand
  * Manages global blog state, posts, categories, tags, and editor state
@@ -23,7 +22,6 @@ import {
   BulkOperation,
   PostStatus,
   PostFormData,
-  DEFAULT_POST_STATUS,
   DEFAULT_PAGE_SIZE,
   AUTO_SAVE_INTERVAL,
 } from '../types/blog';
@@ -277,7 +275,7 @@ const defaultEditorConfig: EditorConfig = {
 };
 
 // Blog actions function
-const createBlogActions = (set: any, get: any) => ({
+const createBlogActions = (set: (partial: BlogStore | ((state: BlogStore) => BlogStore)) => void, get: () => BlogStore) => ({
   // Posts actions
   setPosts: (posts: Post[]) => {
     set((state: BlogStore) => ({
@@ -786,9 +784,7 @@ const createBlogActions = (set: any, get: any) => ({
 
   // Utility actions
   reset: () => {
-    set(() => ({
-      ...initialState,
-    }));
+    set(() => ({ ...initialState } as unknown as BlogStore));
   },
 
   initialize: () => {
@@ -848,7 +844,7 @@ export const setupAutoSave = () => {
 
     if (store.autoSaveEnabled && store.hasUnsavedChanges && store.currentPost) {
       // This would be implemented in the API service layer
-      console.log('Auto-saving draft...');
+      // Auto-saving draft...
     }
   }, AUTO_SAVE_INTERVAL * 1000);
 };
@@ -947,7 +943,8 @@ export const blogSelectors = {
     // Apply sorting
     if (params.sortBy) {
       filtered = [...filtered].sort((a, b) => {
-        let aVal: any, bVal: any;
+        let aVal: string | number | Date;
+        let bVal: string | number | Date;
 
         switch (params.sortBy) {
           case 'title':
@@ -978,13 +975,23 @@ export const blogSelectors = {
             return 0;
         }
 
-        if (typeof aVal === 'string') {
+        if (typeof aVal === 'string' && typeof bVal === 'string') {
           return params.sortOrder === 'desc'
-            ? bVal.localeCompare(aVal)
-            : aVal.localeCompare(bVal);
+            ? (bVal as string).localeCompare(aVal as string)
+            : (aVal as string).localeCompare(bVal as string);
         }
 
-        return params.sortOrder === 'desc' ? bVal - aVal : aVal - bVal;
+        if (aVal instanceof Date && bVal instanceof Date) {
+          return params.sortOrder === 'desc'
+            ? (bVal as Date).getTime() - (aVal as Date).getTime()
+            : (aVal as Date).getTime() - (bVal as Date).getTime();
+        }
+
+        if (typeof aVal === 'number' && typeof bVal === 'number') {
+          return params.sortOrder === 'desc' ? (bVal as number) - (aVal as number) : (aVal as number) - (bVal as number);
+        }
+
+        return 0;
       });
     }
 

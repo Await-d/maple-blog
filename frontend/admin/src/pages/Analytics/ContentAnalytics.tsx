@@ -1,6 +1,5 @@
-// @ts-nocheck
 import React, { useState } from 'react';
-import { Row, Col, Card, Table, Tag, Space, DatePicker, Select, Button, Tabs, Statistic, Avatar, Typography, Badge, Progress, Tooltip, Dropdown, Radio, Segmented } from 'antd';
+import { Row, Col, Card, Table, Tag, Space, DatePicker, Select, Button, Tabs, Statistic, Avatar, Typography, Badge, Progress, Tooltip, Radio, Segmented, Divider } from 'antd';
 import {
   FileTextOutlined,
   EyeOutlined,
@@ -10,28 +9,21 @@ import {
   RiseOutlined,
   FallOutlined,
   TrophyOutlined,
-  FireOutlined,
   ThunderboltOutlined,
-  ClockCircleOutlined,
-  UserOutlined,
   TagOutlined,
   FolderOutlined,
   BarChartOutlined,
-  LineChartOutlined,
   PieChartOutlined,
   HeatMapOutlined,
-  ExportOutlined,
-  FilterOutlined,
-  SortAscendingOutlined,
-  SortDescendingOutlined
+  ExportOutlined
 } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 import AnalyticsChart from '@/components/analytics/AnalyticsChart';
 import { analyticsService } from '@/services/analytics.service';
-import type { ContentMetrics, ContentPerformance, AuthorPerformance, CategoryPerformance, TagPerformance, TimeRange } from '@/types/analytics';
+import type { ContentMetrics, AuthorPerformance, TimeRange } from '@/types/analytics';
 
-const { Title, Text, Paragraph } = Typography;
+const { Title, Text } = Typography;
 const { RangePicker } = DatePicker;
 const { TabPane } = Tabs;
 
@@ -113,7 +105,7 @@ const ContentAnalytics: React.FC = () => {
       key: 'rank',
       width: 60,
       fixed: 'left' as const,
-      render: (_: any, __: any, index: number) => {
+      render: (_: unknown, __: unknown, index: number) => {
         const medals = ['🥇', '🥈', '🥉'];
         return index < 3 ? medals[index] : `#${index + 1}`;
       }
@@ -361,14 +353,6 @@ const ContentAnalytics: React.FC = () => {
           (engagementData?.engagementRate || 0) * 100
         ]
       }
-    ]
-  };
-
-  const contentTypeDistribution = {
-    items: [
-      { name: '文章', value: sortedContent.filter(c => c.type === 'post').length },
-      { name: '页面', value: sortedContent.filter(c => c.type === 'page').length },
-      { name: '媒体', value: sortedContent.filter(c => c.type === 'media').length }
     ]
   };
 

@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * TagCloud component - Interactive tag cloud with visual weighting
  * Features: Size-based frequency, color themes, filtering, animations

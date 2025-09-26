@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * 评论表单组件
  * 支持创建新评论、回复评论、编辑评论
@@ -8,7 +7,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useCommentStore } from '../../../stores/commentStore';
 import { useCommentSocket } from '../../../services/commentSocket';
-import { CommentFormData } from '../../../types/comment';
+import { CommentFormData, Comment, CommentAuthor } from '../../../types/comment';
+import { CommentEditorRef } from './CommentEditor';
 import { useAuth } from '../../../hooks/useAuth';
 import CommentEditor from './CommentEditor';
 import MentionSuggestions from './MentionSuggestions';
@@ -24,7 +24,7 @@ interface CommentFormProps {
   isEditing?: boolean;
   commentId?: string;
   onCancel?: () => void;
-  onSubmitSuccess?: (comment: any) => void;
+  onSubmitSuccess?: (comment: Comment) => void;
   className?: string;
   compact?: boolean;
   showPreview?: boolean;
@@ -65,7 +65,7 @@ const CommentForm: React.FC<CommentFormProps> = ({
 
   // Refs
   const formRef = useRef<HTMLFormElement>(null);
-  const editorRef = useRef<any>(null);
+  const editorRef = useRef<CommentEditorRef>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // 草稿键
@@ -126,7 +126,7 @@ const CommentForm: React.FC<CommentFormProps> = ({
   }, [postId, parentId, commentSocket]);
 
   // 处理提及选择
-  const handleMentionSelect = useCallback((user: any) => {
+  const handleMentionSelect = useCallback((user: CommentAuthor) => {
     const { content } = formData;
     const beforeMention = content.slice(0, mentionPosition);
     const afterMention = content.slice(mentionPosition + mentionQuery.length + 1);
@@ -200,7 +200,7 @@ const CommentForm: React.FC<CommentFormProps> = ({
         }
 
         // 回调
-        if (onSubmitSuccess) {
+        if (onSubmitSuccess && 'id' in result) {
           onSubmitSuccess(result);
         }
 

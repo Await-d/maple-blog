@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React, { useState, useCallback, useEffect } from 'react';
 import {
   Card,
@@ -10,36 +9,27 @@ import {
   Alert,
   Spin,
   Typography,
-  Divider,
   Modal,
   Input,
-  Select,
   Table,
   Tag,
   Dropdown,
   Menu,
   message,
   Statistic,
-  Progress,
   Timeline,
   List,
   Avatar,
-  Tooltip,
   Badge,
 } from 'antd';
 import {
   SettingOutlined,
-  SafetyCertificateOutlined,
-  DatabaseOutlined,
-  ApiOutlined,
   HistoryOutlined,
   CloudDownloadOutlined,
   UserOutlined,
   LockOutlined,
   ThunderboltOutlined,
   ExperimentOutlined,
-  FileTextOutlined,
-  BellOutlined,
   SyncOutlined,
   CheckCircleOutlined,
   ExclamationCircleOutlined,
@@ -50,28 +40,22 @@ import {
   DeleteOutlined,
   CloudUploadOutlined,
   CloudDownloadOutlined,
-  BranchesOutlined,
   DiffOutlined,
   SecurityScanOutlined,
 } from '@ant-design/icons';
 import ConfigEditor from '../../components/config/ConfigEditor';
-import ConfigForm from '../../components/config/ConfigForm';
 import useSystemConfig from '../../hooks/useSystemConfig';
-import { SystemConfiguration, ConfigurationTemplate, ConfigurationAudit } from '../../types/systemConfig';
+import { ConfigurationTemplate, ConfigurationAudit } from '../../types/systemConfig';
 
 const { Title, Text, Paragraph } = Typography;
 const { TabPane } = Tabs;
-const { Option } = Select;
 const { TextArea } = Input;
 
 const SystemSettings: React.FC = () => {
   const [activeTab, setActiveTab] = useState('configuration');
-  const [selectedTemplate, setSelectedTemplate] = useState<ConfigurationTemplate | null>(null);
+  const [,] = useState<ConfigurationTemplate | null>(null);
   const [templateModalVisible, setTemplateModalVisible] = useState(false);
   const [auditModalVisible, setAuditModalVisible] = useState(false);
-  const [conflictModalVisible, setConflictModalVisible] = useState(false);
-  const [approvalModalVisible, setApprovalModalVisible] = useState(false);
-  const [selectedAudit, setSelectedAudit] = useState<ConfigurationAudit | null>(null);
 
   const {
     configs,
@@ -79,18 +63,11 @@ const SystemSettings: React.FC = () => {
     configHistory,
     validationErrors,
     isLoading,
-    isSaving,
-    isValidating,
-    saveConfig,
-    validateConfig,
     rollbackToVersion,
     createBackup,
-    restoreFromBackup,
     compareVersions,
     applyTemplate,
     saveAsTemplate,
-    resolveConflict,
-    analyzeImpact,
   } = useSystemConfig();
 
   // Mock data for demonstration
@@ -804,7 +781,7 @@ const SystemSettings: React.FC = () => {
               title: 'User',
               dataIndex: 'userName',
               key: 'userName',
-              render: (name, record) => (
+              render: (name, _record) => (
                 <Space>
                   <Avatar  icon={<UserOutlined />} />
                   {name}

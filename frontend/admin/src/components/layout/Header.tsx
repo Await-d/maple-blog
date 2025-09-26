@@ -1,5 +1,4 @@
-// @ts-nocheck
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Layout,
@@ -10,7 +9,6 @@ import {
   Space,
   Typography,
   theme,
-  Switch,
   Tooltip,
   Drawer,
   List,
@@ -90,7 +88,7 @@ const Header: React.FC<HeaderProps> = ({
   const unreadCount = notifications.filter(n => !n.read).length;
 
   // 全屏切换
-  const toggleFullscreen = () => {
+  const toggleFullscreen = useCallback(() => {
     if (!document.fullscreenElement) {
       document.documentElement.requestFullscreen().then(() => {
         setIsFullscreen(true);
@@ -104,7 +102,7 @@ const Header: React.FC<HeaderProps> = ({
         message.success('已退出全屏模式');
       });
     }
-  };
+  }, [message]);
 
   // 用户下拉菜单
   const userMenuItems: MenuProps['items'] = [
@@ -205,7 +203,7 @@ const Header: React.FC<HeaderProps> = ({
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isDarkMode, onThemeChange]);
+  }, [isDarkMode, onThemeChange, toggleFullscreen, message]);
 
   // 监听全屏状态变化
   React.useEffect(() => {

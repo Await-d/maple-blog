@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { useMemo, useCallback, useRef, useEffect, useState } from 'react';
 import { message } from 'antd';
 import { useDebouncedCallback } from 'use-debounce';
@@ -12,17 +11,17 @@ export interface SortConfig {
 
 // 过滤配置
 export interface FilterConfig {
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 // 选择配置
 export interface SelectionConfig {
   selectedRowKeys: React.Key[];
-  onChange: (selectedRowKeys: React.Key[], selectedRows: any[]) => void;
+  onChange: (selectedRowKeys: React.Key[], selectedRows: Record<string, unknown>[]) => void;
 }
 
 // Hook 参数
-export interface UseDataTableOptions<T = any> {
+export interface UseDataTableOptions<T = Record<string, unknown>> {
   data: T[];
   columns: DataTableColumn<T>[];
   searchValue?: string;
@@ -45,7 +44,7 @@ export interface UseDataTableOptions<T = any> {
 }
 
 // Hook 返回值
-export interface UseDataTableResult<T = any> {
+export interface UseDataTableResult<T = Record<string, unknown>> {
   // 处理后的数据
   processedData: T[];
   originalData: T[];
@@ -254,7 +253,7 @@ const ExportUtils = {
   exportToJson: <T>(data: T[], columns: DataTableColumn<T>[], filename: string) => {
     const exportColumns = columns.filter(col => col.exportable !== false);
     const exportData = data.map(item => {
-      const exportItem: any = {};
+      const exportItem: Record<string, unknown> = {};
       exportColumns.forEach(col => {
         exportItem[col.dataIndex || col.key] = item[col.dataIndex || col.key];
       });
@@ -294,7 +293,7 @@ class PerformanceMonitor {
   }
 }
 
-export const useDataTable = <T extends Record<string, any>>(
+export const useDataTable = <T extends Record<string, unknown>>(
   options: UseDataTableOptions<T>
 ): UseDataTableResult<T> => {
   const {
@@ -304,8 +303,6 @@ export const useDataTable = <T extends Record<string, any>>(
     filters = {},
     sortConfig = null,
     rowSelection,
-    enableVirtualization = true,
-    virtualizationThreshold = 1000,
     debounceMs = 300,
     enableCache = true,
     cacheKey = 'default',
@@ -329,7 +326,6 @@ export const useDataTable = <T extends Record<string, any>>(
   
   // 缓存引用
   const cache = useRef(new Map());
-  const lastCacheKey = useRef('');
 
   // 防抖处理
   const debouncedProcess = useDebouncedCallback(
@@ -409,7 +405,7 @@ export const useDataTable = <T extends Record<string, any>>(
   // 处理后的数据
   const processedData = useMemo(() => {
     return processData(searchValue, filters, sortConfig);
-  }, [data, searchValue, filters, sortConfig, processData]);
+  }, [searchValue, filters, sortConfig, processData]);
 
   // 可见列
   const visibleColumns = useMemo(() => {
@@ -424,7 +420,7 @@ export const useDataTable = <T extends Record<string, any>>(
         : item.id || item.key;
       return selectedRowKeys.includes(key);
     });
-  }, [processedData, selectedRowKeys]);
+  }, [processedData, selectedRowKeys, options.rowSelection?.onChange]);
 
   // 数据操作方法
   const searchData = useCallback((value: string) => {

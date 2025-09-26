@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * 客户端缓存工具
  * 实现浏览器端缓存策略和智能管理
@@ -458,7 +457,7 @@ export const queryClientConfig = {
       retry: (failureCount: number, error: Error) => {
         // 客户端错误不重试
         const httpError = error as Error & { status?: number };
-        if (httpError?.status >= 400 && httpError?.status < 500) {
+        if (httpError?.status && httpError.status >= 400 && httpError.status < 500) {
           return false;
         }
         return failureCount < 3;

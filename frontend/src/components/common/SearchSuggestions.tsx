@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * SearchSuggestions component - Advanced search suggestions with multiple sources
  * Features: Trending searches, smart completions, contextual suggestions, analytics

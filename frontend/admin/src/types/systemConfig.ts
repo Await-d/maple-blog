@@ -1,4 +1,3 @@
-// @ts-nocheck
 // System Configuration Types
 
 export interface SystemConfiguration {
@@ -96,7 +95,7 @@ export interface SystemConfiguration {
   metricsEndpoint?: string;
 
   // Custom Configuration
-  customSettings?: Record<string, any>;
+  customSettings?: Record<string, unknown>;
 }
 
 export interface ConfigurationField {
@@ -104,17 +103,17 @@ export interface ConfigurationField {
   label: string;
   type: 'input' | 'textarea' | 'number' | 'switch' | 'select' | 'tags' | 'password';
   required?: boolean;
-  defaultValue?: any;
-  options?: Array<{ value: any; label: string }>;
+  defaultValue?: unknown;
+  options?: Array<{ value: unknown; label: string }>;
   validation?: {
     min?: number;
     max?: number;
     pattern?: RegExp;
-    custom?: (value: any) => boolean | string;
+    custom?: (value: unknown) => boolean | string;
   };
   tooltip?: string;
   dependsOn?: string;
-  dependsOnValue?: any;
+  dependsOnValue?: unknown;
   warning?: boolean;
   span?: number;
   group?: string;
@@ -150,7 +149,7 @@ export interface ConfigurationValidationError {
   message: string;
   severity: 'error' | 'warning' | 'info';
   code?: string;
-  value?: any;
+  value?: unknown;
 }
 
 export interface ConfigurationValidationResult {
@@ -164,9 +163,9 @@ export interface ConfigurationDiff {
   fromVersion: string;
   toVersion: string;
   changes: {
-    added: Record<string, any>;
-    modified: Record<string, { from: any; to: any }>;
-    removed: Record<string, any>;
+    added: Record<string, unknown>;
+    modified: Record<string, { from: unknown; to: unknown }>;
+    removed: Record<string, unknown>;
   };
   summary: {
     addedCount: number;
@@ -193,18 +192,20 @@ export interface ConfigurationConflict {
   configId: string;
   field: string;
   conflictType: 'concurrent_modification' | 'validation_failure' | 'dependency_conflict';
-  currentValue: any;
-  conflictingValue: any;
+  currentValue: unknown;
+  conflictingValue: unknown;
   timestamp: string;
   userId: string;
   isResolved: boolean;
-  resolution?: {
-    action: 'keep_current' | 'use_conflicting' | 'merge' | 'custom';
-    value?: any;
-    resolvedBy: string;
-    resolvedAt: string;
-    reason?: string;
-  };
+  resolution?: ConflictResolution;
+}
+
+export interface ConflictResolution {
+  action: 'keep_current' | 'use_conflicting' | 'merge' | 'custom';
+  value?: unknown;
+  resolvedBy: string;
+  resolvedAt: string;
+  reason?: string;
 }
 
 export interface ConfigurationApproval {
@@ -229,7 +230,7 @@ export interface ConfigurationAudit {
   userId: string;
   userName: string;
   timestamp: string;
-  changes: Record<string, { from?: any; to?: any }>;
+  changes: Record<string, { from?: unknown; to?: unknown }>;
   metadata?: {
     ip: string;
     userAgent: string;
@@ -301,7 +302,7 @@ export interface ConfigurationSchema {
   dependencies: Array<{
     field: string;
     dependsOn: string;
-    condition: any;
+    condition: unknown;
   }>;
   migrations?: Array<{
     fromVersion: string;
@@ -357,7 +358,7 @@ export interface ConfigurationEvent {
   type: 'CONFIG_CHANGED' | 'VALIDATION_FAILED' | 'CONFLICT_DETECTED' | 'APPROVAL_REQUIRED';
   configId: string;
   timestamp: string;
-  data: any;
+  data: Record<string, unknown>;
 }
 
 export interface ConfigurationChangeEvent extends ConfigurationEvent {

@@ -1,5 +1,4 @@
-// @ts-nocheck
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
 import {
   Layout,
@@ -17,6 +16,8 @@ import { Helmet } from 'react-helmet-async';
 import Sidebar from '@/components/layout/Sidebar';
 import Header from '@/components/layout/Header';
 import Breadcrumb from '@/components/layout/Breadcrumb';
+import { PermissionProvider } from '@/contexts/PermissionContext';
+import { MessageProvider } from '@/contexts/MessageContext';
 import { useAdminStore, useUser, useCollapsed, useNotifications, useTheme } from '@/stores/adminStore';
 import { env } from '@/utils';
 
@@ -27,13 +28,22 @@ const AdminLayout: React.FC = () => {
   const { token } = theme.useToken();
 
   const user = useUser();
+
+  // 所有 hooks 必须在条件返回之前调用
   const collapsed = useCollapsed();
   const notifications = useNotifications();
   const currentTheme = useTheme();
-  const { setCollapsed, setTheme, logout, clearNotifications } = useAdminStore();
-
+  const { setCollapsed, setTheme, clearNotifications } = useAdminStore();
+  
   const [isMobile, setIsMobile] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(collapsed);
+
+  // 检查登录状态，未登录则跳转到登录页
+  useEffect(() => {
+    if (!user) {
+      navigate('/login', { replace: true });
+    }
+  }, [user, navigate]);
 
   // 响应式检测
   useEffect(() => {
@@ -58,10 +68,10 @@ const AdminLayout: React.FC = () => {
   }, [collapsed]);
 
   // 处理侧边栏折叠
-  const handleSidebarCollapse = (newCollapsed: boolean) => {
+  const handleSidebarCollapse = useCallback((newCollapsed: boolean) => {
     setSidebarCollapsed(newCollapsed);
     setCollapsed(newCollapsed);
-  };
+  }, [setCollapsed]);
 
   // 处理主题切换
   const handleThemeChange = (isDark: boolean) => {
@@ -100,7 +110,30 @@ const AdminLayout: React.FC = () => {
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [sidebarCollapsed]);
+  }, [sidebarCollapsed, handleSidebarCollapse]);
+
+  // 如果用户未登录，显示加载状态直到跳转完成
+  if (!user) {
+    return (
+      <div style={{
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        height: '100vh',
+        background: token.colorBgLayout
+      }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ 
+            fontSize: 16, 
+            color: token.colorTextSecondary,
+            marginBottom: 16 
+          }}>
+            检查登录状态...
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // 主题配置
   const themeConfig = {
@@ -217,9 +250,15 @@ const AdminLayout: React.FC = () => {
                     boxShadow: '0 2px 8px 0 rgba(29, 35, 41, 0.05)',
                   }}
                 >
-                  <div className="fade-in">
-                    <Outlet />
-                  </div>
+                  <PermissionProvider
+                    enableDebug={env.isDev}
+                  >
+                    <MessageProvider>
+                      <div className="fade-in">
+                        <Outlet />
+                      </div>
+                    </MessageProvider>
+                  </PermissionProvider>
                 </div>
               </Content>
             </Layout>

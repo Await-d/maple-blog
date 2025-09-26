@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { useMemo, useCallback, useRef, useEffect } from 'react';
 import { usePermissionContext, PermissionLevel } from '@/contexts/PermissionContext';
 import { useAdminStore } from '@/stores/adminStore';
@@ -44,8 +43,8 @@ export interface UsePermissionsReturn {
   
   // 高级权限检查
   canAccess: (resource: string, action: string) => boolean;
-  canModify: (resource: string, data?: any) => boolean;
-  canCreate: (resource: string, data?: any) => boolean;
+  canModify: (resource: string, data?: Record<string, unknown>) => boolean;
+  canCreate: (resource: string, data?: Record<string, unknown>) => boolean;
   
   // 批量权限检查
   checkBatch: (permissions: string[]) => BatchPermissionResult;
@@ -284,7 +283,7 @@ export const usePermissions = (options: PermissionCheckOptions = {}): UsePermiss
     return canAccessResource(resource, action);
   }, [canAccessResource]);
 
-  const canModify = useCallback((resource: string, data?: any): boolean => {
+  const canModify = useCallback((resource: string, data?: Record<string, unknown>): boolean => {
     // 基础写权限检查
     if (!canWrite(resource)) return false;
 
@@ -297,7 +296,7 @@ export const usePermissions = (options: PermissionCheckOptions = {}): UsePermiss
     return true;
   }, [canWrite, canAdmin, can, user?.id]);
 
-  const canCreate = useCallback((resource: string, data?: any): boolean => {
+  const canCreate = useCallback((resource: string, _data?: Record<string, unknown>): boolean => {
     // 基础创建权限检查
     if (!can(`${resource}.create`)) return false;
 

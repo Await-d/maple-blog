@@ -1,0 +1,544 @@
+
+> maple-blog-frontend@0.1.0 lint /home/await/project/maple-blog/frontend
+> eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0
+
+
+/home/await/project/maple-blog/frontend/admin/src/components/PermissionGuard.tsx
+  365:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+/home/await/project/maple-blog/frontend/admin/src/components/charts/LineChart.tsx
+  363:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+/home/await/project/maple-blog/frontend/admin/src/components/charts/StatCard.tsx
+  196:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  235:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+/home/await/project/maple-blog/frontend/admin/src/components/logs/LogViewer.tsx
+  202:6  warning  React Hook useEffect has a missing dependency: 'fetchLogs'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+/home/await/project/maple-blog/frontend/admin/src/components/tables/TableActions.tsx
+  187:48  warning  Unexpected any. Specify a different type                                                                                        @typescript-eslint/no-explicit-any
+  513:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+/home/await/project/maple-blog/frontend/admin/src/components/tables/VirtualTable.tsx
+  172:55  warning  Unexpected any. Specify a different type                                                                                        @typescript-eslint/no-explicit-any
+  504:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+/home/await/project/maple-blog/frontend/admin/src/components/users/UserForm.tsx
+  103:39  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  162:68  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/await/project/maple-blog/frontend/admin/src/contexts/MessageContext.tsx
+  15:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+/home/await/project/maple-blog/frontend/admin/src/contexts/PermissionContext.tsx
+   13:13  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+   25:31  warning  Unexpected any. Specify a different type                                                                                        @typescript-eslint/no-explicit-any
+   42:99  warning  Unexpected any. Specify a different type                                                                                        @typescript-eslint/no-explicit-any
+  172:34  warning  Unexpected any. Specify a different type                                                                                        @typescript-eslint/no-explicit-any
+  393:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  404:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  409:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  414:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  419:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  424:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  429:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+/home/await/project/maple-blog/frontend/admin/src/hooks/index.ts
+   51:58  warning  Unexpected any. Specify a different type                                                                                                                                                                                                                @typescript-eslint/no-explicit-any
+   51:68  warning  Unexpected any. Specify a different type                                                                                                                                                                                                                @typescript-eslint/no-explicit-any
+   59:30  warning  Unexpected any. Specify a different type                                                                                                                                                                                                                @typescript-eslint/no-explicit-any
+   88:58  warning  Unexpected any. Specify a different type                                                                                                                                                                                                                @typescript-eslint/no-explicit-any
+   88:68  warning  Unexpected any. Specify a different type                                                                                                                                                                                                                @typescript-eslint/no-explicit-any
+   96:30  warning  Unexpected any. Specify a different type                                                                                                                                                                                                                @typescript-eslint/no-explicit-any
+  133:30  warning  Unexpected any. Specify a different type                                                                                                                                                                                                                @typescript-eslint/no-explicit-any
+  138:37  warning  Unexpected any. Specify a different type                                                                                                                                                                                                                @typescript-eslint/no-explicit-any
+  155:7   warning  React Hook useMemo has a missing dependency: 'pagination'. Either include it or remove the dependency array. Mutable values like 'pagination.current' aren't valid dependencies because mutating them doesn't re-render the component                   react-hooks/exhaustive-deps
+  169:60  warning  Unexpected any. Specify a different type                                                                                                                                                                                                                @typescript-eslint/no-explicit-any
+  169:80  warning  Unexpected any. Specify a different type                                                                                                                                                                                                                @typescript-eslint/no-explicit-any
+  169:99  warning  Unexpected any. Specify a different type                                                                                                                                                                                                                @typescript-eslint/no-explicit-any
+  234:32  warning  Unexpected any. Specify a different type                                                                                                                                                                                                                @typescript-eslint/no-explicit-any
+  234:41  warning  Unexpected any. Specify a different type                                                                                                                                                                                                                @typescript-eslint/no-explicit-any
+  282:6   warning  React Hook useEffect has missing dependencies: 'options?.manual' and 'run'. Either include them or remove the dependency array                                                                                                                          react-hooks/exhaustive-deps
+  293:55  warning  Unexpected any. Specify a different type                                                                                                                                                                                                                @typescript-eslint/no-explicit-any
+  298:55  warning  Unexpected any. Specify a different type                                                                                                                                                                                                                @typescript-eslint/no-explicit-any
+  311:6   warning  React Hook useCallback has a missing dependency: 'setTouched'. Either include it or remove the dependency array                                                                                                                                         react-hooks/exhaustive-deps
+  317:6   warning  React Hook useCallback has a missing dependency: 'setTouched'. Either include it or remove the dependency array                                                                                                                                         react-hooks/exhaustive-deps
+  447:6   warning  React Hook useEffect has a missing dependency: 'options'. Either include it or remove the dependency array. If 'setTime' needs the current value of 'options', you can also switch to useReducer instead of useState and read 'options' in the reducer  react-hooks/exhaustive-deps
+
+/home/await/project/maple-blog/frontend/admin/src/hooks/useDataTable.ts
+   14:18  warning  Unexpected any. Specify a different type                                                                                         @typescript-eslint/no-explicit-any
+   20:58  warning  Unexpected any. Specify a different type                                                                                         @typescript-eslint/no-explicit-any
+   24:42  warning  Unexpected any. Specify a different type                                                                                         @typescript-eslint/no-explicit-any
+   47:41  warning  Unexpected any. Specify a different type                                                                                         @typescript-eslint/no-explicit-any
+  256:25  warning  Unexpected any. Specify a different type                                                                                         @typescript-eslint/no-explicit-any
+  296:55  warning  Unexpected any. Specify a different type                                                                                         @typescript-eslint/no-explicit-any
+  408:6   warning  React Hook useMemo has an unnecessary dependency: 'data'. Either exclude it or remove the dependency array                       react-hooks/exhaustive-deps
+  423:6   warning  React Hook useMemo has a missing dependency: 'options.rowSelection?.onChange'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+/home/await/project/maple-blog/frontend/admin/src/hooks/usePermissions.ts
+   46:40  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   47:40  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  286:59  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  299:60  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/await/project/maple-blog/frontend/admin/src/hooks/useSystemConfig.ts
+   33:53  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   36:68  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   78:22  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  174:80  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  227:78  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/await/project/maple-blog/frontend/admin/src/layouts/AdminLayout.tsx
+  71:9  warning  The 'handleSidebarCollapse' function makes the dependencies of useEffect Hook (at line 113) change on every render. To fix this, wrap the definition of 'handleSidebarCollapse' in its own useCallback() Hook  react-hooks/exhaustive-deps
+
+/home/await/project/maple-blog/frontend/admin/src/pages/Analytics/ContentAnalytics.tsx
+  108:19  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  108:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/await/project/maple-blog/frontend/admin/src/pages/Content/CategoryManagement.tsx
+  393:6   warning  React Hook useMemo has missing dependencies: 'handleEdit' and 'handleViewDetail'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+  414:49  warning  Unexpected any. Specify a different type                                                                                              @typescript-eslint/no-explicit-any
+
+/home/await/project/maple-blog/frontend/admin/src/pages/Content/PostManagement.tsx
+   66:27  warning  Unexpected any. Specify a different type     @typescript-eslint/no-explicit-any
+  238:19  warning  Unexpected any. Specify a different type     @typescript-eslint/no-explicit-any
+  239:19  warning  Unexpected any. Specify a different type     @typescript-eslint/no-explicit-any
+  371:14  error    'Image' is not defined                       react/jsx-no-undef
+  413:15  error    'status' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+/home/await/project/maple-blog/frontend/admin/src/pages/Dashboard/index.tsx
+   93:10  error    'isFullscreen' is assigned a value but never used     @typescript-eslint/no-unused-vars
+   93:24  error    'setIsFullscreen' is assigned a value but never used  @typescript-eslint/no-unused-vars
+   95:11  error    'hasPermission' is assigned a value but never used    @typescript-eslint/no-unused-vars
+  121:72  warning  Unexpected any. Specify a different type              @typescript-eslint/no-explicit-any
+  264:37  warning  Unexpected any. Specify a different type              @typescript-eslint/no-explicit-any
+
+/home/await/project/maple-blog/frontend/admin/src/pages/System/Logs.tsx
+    86:10  error    'analyticsModalVisible' is assigned a value but never used     @typescript-eslint/no-unused-vars
+    86:33  error    'setAnalyticsModalVisible' is assigned a value but never used  @typescript-eslint/no-unused-vars
+   253:37  warning  Unexpected any. Specify a different type                       @typescript-eslint/no-explicit-any
+   266:9   error    Unexpected lexical declaration in case block                   no-case-declarations
+   267:9   error    Unexpected lexical declaration in case block                   no-case-declarations
+   910:8   error    'Modal' is not defined                                         react/jsx-no-undef
+  1005:8   error    'Modal' is not defined                                         react/jsx-no-undef
+
+/home/await/project/maple-blog/frontend/admin/src/pages/System/Monitoring.tsx
+  71:26  warning  Unexpected any. Specify a different type                   @typescript-eslint/no-explicit-any
+  94:10  error    'selectedDateRange' is assigned a value but never used     @typescript-eslint/no-unused-vars
+  94:29  error    'setSelectedDateRange' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+/home/await/project/maple-blog/frontend/admin/src/pages/System/Settings.tsx
+  59:10  error  'conflictModalVisible' is assigned a value but never used     @typescript-eslint/no-unused-vars
+  59:32  error  'setConflictModalVisible' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  60:10  error  'approvalModalVisible' is assigned a value but never used     @typescript-eslint/no-unused-vars
+  60:32  error  'setApprovalModalVisible' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  61:10  error  'selectedAudit' is assigned a value but never used            @typescript-eslint/no-unused-vars
+  69:5   error  'isSaving' is assigned a value but never used                 @typescript-eslint/no-unused-vars
+  70:5   error  'isValidating' is assigned a value but never used             @typescript-eslint/no-unused-vars
+  71:5   error  'saveConfig' is assigned a value but never used               @typescript-eslint/no-unused-vars
+  72:5   error  'validateConfig' is assigned a value but never used           @typescript-eslint/no-unused-vars
+  75:5   error  'restoreFromBackup' is assigned a value but never used        @typescript-eslint/no-unused-vars
+  79:5   error  'resolveConflict' is assigned a value but never used          @typescript-eslint/no-unused-vars
+  80:5   error  'analyzeImpact' is assigned a value but never used            @typescript-eslint/no-unused-vars
+
+/home/await/project/maple-blog/frontend/admin/src/pages/__tests__/Dashboard.test.tsx
+   53:40  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   66:44  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   71:47  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   76:46  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   81:51  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   95:50  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  114:30  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/await/project/maple-blog/frontend/admin/src/router/index.tsx
+  9:7  warning  Fast refresh only works when a file only exports components. Move your component(s) to a separate file  react-refresh/only-export-components
+
+/home/await/project/maple-blog/frontend/admin/src/services/analytics.service.ts
+   71:59  warning  Unexpected any. Specify a different type      @typescript-eslint/no-explicit-any
+   75:61  warning  Unexpected any. Specify a different type      @typescript-eslint/no-explicit-any
+   96:61  warning  Unexpected any. Specify a different type      @typescript-eslint/no-explicit-any
+  100:61  warning  Unexpected any. Specify a different type      @typescript-eslint/no-explicit-any
+  113:63  warning  Unexpected any. Specify a different type      @typescript-eslint/no-explicit-any
+  139:65  warning  Unexpected any. Specify a different type      @typescript-eslint/no-explicit-any
+  143:60  warning  Unexpected any. Specify a different type      @typescript-eslint/no-explicit-any
+  152:49  warning  Unexpected any. Specify a different type      @typescript-eslint/no-explicit-any
+  156:61  warning  Unexpected any. Specify a different type      @typescript-eslint/no-explicit-any
+  165:63  warning  Unexpected any. Specify a different type      @typescript-eslint/no-explicit-any
+  169:66  warning  Unexpected any. Specify a different type      @typescript-eslint/no-explicit-any
+  194:78  warning  Unexpected any. Specify a different type      @typescript-eslint/no-explicit-any
+  236:14  warning  Unexpected any. Specify a different type      @typescript-eslint/no-explicit-any
+  248:14  warning  Unexpected any. Specify a different type      @typescript-eslint/no-explicit-any
+  261:14  warning  Unexpected any. Specify a different type      @typescript-eslint/no-explicit-any
+  273:14  warning  Unexpected any. Specify a different type      @typescript-eslint/no-explicit-any
+  284:14  warning  Unexpected any. Specify a different type      @typescript-eslint/no-explicit-any
+  314:9   error    Unexpected lexical declaration in case block  no-case-declarations
+  315:9   error    Unexpected lexical declaration in case block  no-case-declarations
+
+/home/await/project/maple-blog/frontend/admin/src/services/api.ts
+  178:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  180:29  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  188:25  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  190:12  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  198:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  200:12  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  208:26  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  210:12  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  218:27  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  227:27  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  275:26  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  276:35  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/await/project/maple-blog/frontend/admin/src/services/systemConfigService.ts
+   58:21  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   74:21  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  269:57  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/await/project/maple-blog/frontend/admin/src/stores/index.ts
+  148:66  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  151:17  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  152:16  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  155:17  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  156:17  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  159:17  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  160:17  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  163:17  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  164:23  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  175:31  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  180:53  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  181:43  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  190:36  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  191:53  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  246:17  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  247:20  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  247:40  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/await/project/maple-blog/frontend/admin/src/stores/realTimeStore.ts
+   28:43  warning  Unexpected any. Specify a different type                                                                                                                           @typescript-eslint/no-explicit-any
+   41:53  warning  Unexpected any. Specify a different type                                                                                                                           @typescript-eslint/no-explicit-any
+   45:26  warning  Unexpected any. Specify a different type                                                                                                                           @typescript-eslint/no-explicit-any
+   46:25  warning  Unexpected any. Specify a different type                                                                                                                           @typescript-eslint/no-explicit-any
+   78:47  warning  Unexpected any. Specify a different type                                                                                                                           @typescript-eslint/no-explicit-any
+  252:57  warning  Unexpected any. Specify a different type                                                                                                                           @typescript-eslint/no-explicit-any
+  276:30  warning  Unexpected any. Specify a different type                                                                                                                           @typescript-eslint/no-explicit-any
+  338:29  warning  Unexpected any. Specify a different type                                                                                                                           @typescript-eslint/no-explicit-any
+  362:13  error    Unexpected lexical declaration in case block                                                                                                                       no-case-declarations
+  411:19  warning  Unexpected any. Specify a different type                                                                                                                           @typescript-eslint/no-explicit-any
+  423:6   warning  React Hook React.useEffect has missing dependencies: 'addEventListener', 'handler', and 'removeEventListener'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+  423:14  warning  React Hook React.useEffect has a spread element in its dependency array. This means we can't statically verify whether you've passed the correct dependencies      react-hooks/exhaustive-deps
+
+/home/await/project/maple-blog/frontend/admin/src/stores/userManagementStore.ts
+   78:38  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  272:29  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/await/project/maple-blog/frontend/admin/src/test/utils.tsx
+   15:12  warning  Unexpected any. Specify a different type                        @typescript-eslint/no-explicit-any
+   38:5   error    'permissions' is assigned a value but never used                @typescript-eslint/no-unused-vars
+   39:5   error    'userRole' is assigned a value but never used                   @typescript-eslint/no-unused-vars
+   61:53  warning  Unexpected any. Specify a different type                        @typescript-eslint/no-explicit-any
+   73:53  warning  Unexpected any. Specify a different type                        @typescript-eslint/no-explicit-any
+   92:56  warning  Unexpected any. Specify a different type                        @typescript-eslint/no-explicit-any
+  106:63  warning  Unexpected any. Specify a different type                        @typescript-eslint/no-explicit-any
+  133:62  warning  Unexpected any. Specify a different type                        @typescript-eslint/no-explicit-any
+  162:60  warning  Unexpected any. Specify a different type                        @typescript-eslint/no-explicit-any
+  175:57  warning  Unexpected any. Specify a different type                        @typescript-eslint/no-explicit-any
+  212:39  warning  Unexpected any. Specify a different type                        @typescript-eslint/no-explicit-any
+  218:37  warning  Unexpected any. Specify a different type                        @typescript-eslint/no-explicit-any
+  312:1   warning  This rule can't verify that `export *` only exports components  react-refresh/only-export-components
+
+/home/await/project/maple-blog/frontend/admin/src/types/analytics.ts
+  306:12  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  330:37  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  340:10  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  341:27  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/await/project/maple-blog/frontend/admin/src/types/index.ts
+    2:35  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+    9:40  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   24:18  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  174:29  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  198:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  199:29  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  244:34  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  252:20  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  255:33  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  269:41  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  275:34  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  315:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  338:37  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  339:16  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  346:34  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  347:37  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  358:9   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  363:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/await/project/maple-blog/frontend/admin/src/types/systemConfig.ts
+   98:35  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  106:18  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  107:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  112:22  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  116:20  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  152:11  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  166:27  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  167:38  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  167:47  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  168:29  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  195:17  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  196:21  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  202:13  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  231:36  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  231:46  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  303:16  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  359:9   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/await/project/maple-blog/frontend/src/components/common/ProtectedRoute.tsx
+  266:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  293:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+/home/await/project/maple-blog/frontend/src/components/common/RichTextRenderer.tsx
+  115:53  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  116:66  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  124:49  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  125:42  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  126:68  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  184:27  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  275:73  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/await/project/maple-blog/frontend/src/components/common/SEOProvider.tsx
+  74:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+/home/await/project/maple-blog/frontend/src/components/common/ThemeToggle.tsx
+  156:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+/home/await/project/maple-blog/frontend/src/components/home/ResponsiveLayout.tsx
+  460:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+/home/await/project/maple-blog/frontend/src/components/layout/__tests__/Header.test.tsx
+    7:46  warning  'within' is defined but never used. Allowed unused vars must match /^_/u                  @typescript-eslint/no-unused-vars
+  566:13  warning  'blogLink' is assigned a value but never used. Allowed unused vars must match /^_/u       @typescript-eslint/no-unused-vars
+  649:13  warning  'scrollHandler' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/home/await/project/maple-blog/frontend/src/components/search/AdvancedSearch.tsx
+   6:8   warning  'React' is defined but never used. Allowed unused vars must match /^_/u                @typescript-eslint/no-unused-vars
+  50:5   warning  'setFilters' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  92:64  warning  Unexpected any. Specify a different type                                               @typescript-eslint/no-explicit-any
+
+/home/await/project/maple-blog/frontend/src/components/search/SearchBox.tsx
+   59:9   warning  'mediaRecorderRef' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  220:46  warning  Unexpected empty method 'preventDefault'                                                     @typescript-eslint/no-empty-function
+
+/home/await/project/maple-blog/frontend/src/components/search/SearchFilters.tsx
+  14:3   warning  'Clock' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  29:47  warning  Unexpected any. Specify a different type                                 @typescript-eslint/no-explicit-any
+
+/home/await/project/maple-blog/frontend/src/components/ui/Button.tsx
+  9:8  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/await/project/maple-blog/frontend/src/components/ui/Input.tsx
+  111:12  warning  'isFocused' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/home/await/project/maple-blog/frontend/src/components/ui/Modal.tsx
+  405:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  471:11  warning  Unexpected alert                                                                                                                no-alert
+
+/home/await/project/maple-blog/frontend/src/components/ui/dialog.tsx
+  15:70  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/await/project/maple-blog/frontend/src/components/ui/tabs.tsx
+  36:16  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/await/project/maple-blog/frontend/src/features/auth/components/RegisterForm.tsx
+  223:9  warning  'watchedConfirmPassword' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/home/await/project/maple-blog/frontend/src/features/comments/CommentSystem.tsx
+  31:3   warning  'initialSort' is assigned a value but never used. Allowed unused vars must match /^_/u         @typescript-eslint/no-unused-vars
+  42:36  warning  'replyingTo' is assigned a value but never used. Allowed unused vars must match /^_/u          @typescript-eslint/no-unused-vars
+  81:9   warning  'handleMobileEdit' is assigned a value but never used. Allowed unused vars must match /^_/u    @typescript-eslint/no-unused-vars
+  92:9   warning  'handleDesktopReply' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  97:9   warning  'handleDesktopEdit' is assigned a value but never used. Allowed unused vars must match /^_/u   @typescript-eslint/no-unused-vars
+
+/home/await/project/maple-blog/frontend/src/features/comments/components/CommentActions.tsx
+   38:7   warning  Unexpected alert  no-alert
+  208:13  warning  Unexpected alert  no-alert
+
+/home/await/project/maple-blog/frontend/src/features/comments/components/CommentEditor.tsx
+  170:11  warning  Unexpected console statement  no-console
+
+/home/await/project/maple-blog/frontend/src/features/comments/components/CommentForm.tsx
+   26:31  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   67:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  128:50  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/await/project/maple-blog/frontend/src/features/comments/components/CommentItem.tsx
+  82:9  warning  Unexpected confirm  no-alert
+
+/home/await/project/maple-blog/frontend/src/features/comments/components/CommentList.tsx
+    8:10  warning  'useCommentSocket' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+   28:12  warning  Unexpected any. Specify a different type                                            @typescript-eslint/no-explicit-any
+  120:32  warning  Unexpected any. Specify a different type                                            @typescript-eslint/no-explicit-any
+
+/home/await/project/maple-blog/frontend/src/features/comments/components/ImageUploadModal.tsx
+   61:7  warning  Unexpected alert  no-alert
+   68:7  warning  Unexpected alert  no-alert
+   89:7  warning  Unexpected alert  no-alert
+  141:7  warning  Unexpected alert  no-alert
+
+/home/await/project/maple-blog/frontend/src/features/comments/components/MobileCommentForm.tsx
+   24:31  warning  Unexpected any. Specify a different type                                                @typescript-eslint/no-explicit-any
+   60:28  warning  Unexpected any. Specify a different type                                                @typescript-eslint/no-explicit-any
+   61:9   warning  'textareaRef' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  132:50  warning  Unexpected any. Specify a different type                                                @typescript-eslint/no-explicit-any
+
+/home/await/project/maple-blog/frontend/src/features/comments/components/NotificationBadge.tsx
+  30:5  warning  'permission' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/home/await/project/maple-blog/frontend/src/hooks/useAuth.ts
+  10:52  warning  'AUTH_QUERY_KEYS' is defined but never used. Allowed unused vars must match /^_/u           @typescript-eslint/no-unused-vars
+  14:3   warning  'PasswordResetRequest' is defined but never used. Allowed unused vars must match /^_/u      @typescript-eslint/no-unused-vars
+  19:3   warning  'EmailVerificationRequest' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  23:3   warning  'User' is defined but never used. Allowed unused vars must match /^_/u                      @typescript-eslint/no-unused-vars
+  46:9   warning  'hasAnyRole' is assigned a value but never used. Allowed unused vars must match /^_/u       @typescript-eslint/no-unused-vars
+  49:9   warning  'getTimeToExpiry' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/home/await/project/maple-blog/frontend/src/hooks/useCommentNotifications.ts
+   20:11  warning  'user' is assigned a value but never used. Allowed unused vars must match /^_/u                                                                                                                                                                                                        @typescript-eslint/no-unused-vars
+  277:45  warning  The ref value 'vibrationTimeoutRef.current' will likely have changed by the time this effect cleanup function runs. If this ref points to a node rendered by React, copy 'vibrationTimeoutRef.current' to a variable inside the effect, and use that variable in the cleanup function  react-hooks/exhaustive-deps
+
+/home/await/project/maple-blog/frontend/src/hooks/useDebounce.ts
+  39:57  warning  Unexpected any. Specify a different type                                                                                                                 @typescript-eslint/no-explicit-any
+  39:67  warning  Unexpected any. Specify a different type                                                                                                                 @typescript-eslint/no-explicit-any
+  54:24  warning  React Hook useEffect has a spread element in its dependency array. This means we can't statically verify whether you've passed the correct dependencies  react-hooks/exhaustive-deps
+  66:58  warning  Unexpected any. Specify a different type                                                                                                                 @typescript-eslint/no-explicit-any
+  66:68  warning  Unexpected any. Specify a different type                                                                                                                 @typescript-eslint/no-explicit-any
+
+/home/await/project/maple-blog/frontend/src/hooks/useHomePerformance.ts
+   76:58  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   91:33  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  106:50  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  123:33  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  231:10  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/await/project/maple-blog/frontend/src/hooks/usePersonalization.ts
+    7:10  warning  'useQuery' is defined but never used. Allowed unused vars must match /^_/u                     @typescript-eslint/no-unused-vars
+    7:20  warning  'useMutation' is defined but never used. Allowed unused vars must match /^_/u                  @typescript-eslint/no-unused-vars
+   93:22  warning  Unexpected any. Specify a different type                                                       @typescript-eslint/no-explicit-any
+  143:11  warning  'recentInteractions' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  148:11  warning  'today' is assigned a value but never used. Allowed unused vars must match /^_/u               @typescript-eslint/no-unused-vars
+  376:19  warning  Unexpected console statement                                                                   no-console
+
+/home/await/project/maple-blog/frontend/src/hooks/useResponsive.ts
+  226:35  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  227:41  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  228:57  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  231:55  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/await/project/maple-blog/frontend/src/hooks/useTouchGestures.ts
+   75:22  warning  Unexpected empty method 'persist'  @typescript-eslint/no-empty-function
+  123:22  warning  Unexpected empty method 'persist'  @typescript-eslint/no-empty-function
+
+/home/await/project/maple-blog/frontend/src/main.tsx
+   25:36  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  112:7   warning  Unexpected console statement              no-console
+  113:7   warning  Unexpected console statement              no-console
+  191:5   warning  Unexpected console statement              no-console
+
+/home/await/project/maple-blog/frontend/src/pages/HomePage.tsx
+  23:15  warning  'HomePageData' is defined but never used. Allowed unused vars must match /^_/u        @typescript-eslint/no-unused-vars
+  44:28  warning  'user' is assigned a value but never used. Allowed unused vars must match /^_/u       @typescript-eslint/no-unused-vars
+  53:17  warning  'siteStats' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/home/await/project/maple-blog/frontend/src/pages/admin/SeedDataManagement.tsx
+    6:3   warning  'CardFooter' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+   27:10  warning  'Progress' is defined but never used. Allowed unused vars must match /^_/u    @typescript-eslint/no-unused-vars
+   28:10  warning  'Separator' is defined but never used. Allowed unused vars must match /^_/u   @typescript-eslint/no-unused-vars
+   44:3   warning  'Download' is defined but never used. Allowed unused vars must match /^_/u    @typescript-eslint/no-unused-vars
+   74:27  warning  Unexpected any. Specify a different type                                      @typescript-eslint/no-explicit-any
+  165:9   warning  Unexpected console statement                                                  no-console
+
+/home/await/project/maple-blog/frontend/src/pages/admin/SystemSettings.tsx
+    34:3   warning  'VALIDATION_RULES' is defined but never used. Allowed unused vars must match /^_/u                @typescript-eslint/no-unused-vars
+    61:10  warning  'showUnsavedWarning' is assigned a value but never used. Allowed unused vars must match /^_/u     @typescript-eslint/no-unused-vars
+    61:30  warning  'setShowUnsavedWarning' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+   136:9   warning  Unexpected confirm                                                                                no-alert
+   200:12  warning  Unexpected any. Specify a different type                                                          @typescript-eslint/no-explicit-any
+   481:45  warning  Unexpected any. Specify a different type                                                          @typescript-eslint/no-explicit-any
+   493:3   warning  Unexpected console statement                                                                      no-console
+   499:62  warning  Unexpected any. Specify a different type                                                          @typescript-eslint/no-explicit-any
+   778:62  warning  Unexpected any. Specify a different type                                                          @typescript-eslint/no-explicit-any
+  1058:63  warning  Unexpected any. Specify a different type                                                          @typescript-eslint/no-explicit-any
+  1368:60  warning  Unexpected any. Specify a different type                                                          @typescript-eslint/no-explicit-any
+  1738:66  warning  Unexpected any. Specify a different type                                                          @typescript-eslint/no-explicit-any
+  2114:65  warning  Unexpected any. Specify a different type                                                          @typescript-eslint/no-explicit-any
+
+/home/await/project/maple-blog/frontend/src/pages/admin/UserManagement.tsx
+     5:3   warning  'CardDescription' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+    27:10  warning  'Separator' is defined but never used. Allowed unused vars must match /^_/u        @typescript-eslint/no-unused-vars
+    41:3   warning  'Upload' is defined but never used. Allowed unused vars must match /^_/u           @typescript-eslint/no-unused-vars
+    52:3   warning  'EyeOff' is defined but never used. Allowed unused vars must match /^_/u           @typescript-eslint/no-unused-vars
+    56:3   warning  'Clock' is defined but never used. Allowed unused vars must match /^_/u            @typescript-eslint/no-unused-vars
+   401:5   warning  Unexpected console statement                                                       no-console
+   409:13  warning  Unexpected confirm                                                                 no-alert
+   421:9   warning  Unexpected alert                                                                   no-alert
+   441:5   warning  Unexpected console statement                                                       no-console
+   446:13  warning  Unexpected confirm                                                                 no-alert
+   992:50  warning  Unexpected alert                                                                   no-alert
+  1247:15  warning  Unexpected alert                                                                   no-alert
+  1458:17  warning  Unexpected alert                                                                   no-alert
+
+/home/await/project/maple-blog/frontend/src/pages/blog/BlogPostPageEnhanced.tsx
+  6:8  warning  'React' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/home/await/project/maple-blog/frontend/src/services/api/client.ts
+    9:10  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  202:17  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  206:18  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  206:27  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  210:17  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  210:26  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  214:19  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  214:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  218:20  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  223:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  275:19  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/await/project/maple-blog/frontend/src/services/blog/blogApi.ts
+    7:10  warning  'AxiosError' is defined but never used. Allowed unused vars must match /^_/u               @typescript-eslint/no-unused-vars
+   19:3   warning  'FileUploadRequest' is defined but never used. Allowed unused vars must match /^_/u        @typescript-eslint/no-unused-vars
+   26:3   warning  'OperationResultWithData' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  314:79  warning  Unexpected any. Specify a different type                                                   @typescript-eslint/no-explicit-any
+  315:54  warning  Unexpected any. Specify a different type                                                   @typescript-eslint/no-explicit-any
+
+/home/await/project/maple-blog/frontend/src/services/blog/categoryApi.ts
+  7:10  warning  'AxiosError' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/home/await/project/maple-blog/frontend/src/services/blog/tagApi.ts
+  7:10  warning  'AxiosError' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/home/await/project/maple-blog/frontend/src/services/commentApi.ts
+   16:3   warning  'CommentSearchResult' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  262:45  warning  Unexpected any. Specify a different type                                               @typescript-eslint/no-explicit-any
+  272:21  warning  Unexpected any. Specify a different type                                               @typescript-eslint/no-explicit-any
+
+/home/await/project/maple-blog/frontend/src/services/commentSocket.ts
+    7:36  warning  'TypingUser' is defined but never used. Allowed unused vars must match /^_/u           @typescript-eslint/no-unused-vars
+    7:48  warning  'CommentNotification' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+   41:13  warning  Unexpected console statement                                                           no-console
+   54:7   warning  Unexpected console statement                                                           no-console
+   77:9   warning  Unexpected console statement                                                           no-console
+  190:7   warning  Unexpected console statement                                                           no-console
+  195:7   warning  Unexpected console statement                                                           no-console
+  200:7   warning  Unexpected console statement                                                           no-console
+  205:7   warning  Unexpected console statement                                                           no-console
+  211:7   warning  Unexpected console statement                                                           no-console
+  215:7   warning  Unexpected console statement                                                           no-console
+  223:7   warning  Unexpected console statement                                                           no-console
+  462:24  warning  Unexpected any. Specify a different type                                               @typescript-eslint/no-explicit-any
+  473:35  warning  Unexpected any. Specify a different type                                               @typescript-eslint/no-explicit-any
+  493:34  warning  Unexpected any. Specify a different type                                               @typescript-eslint/no-explicit-any
+
+/home/await/project/maple-blog/frontend/src/stores/commentStore.ts
+  503:75  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+✖ 382 problems (30 errors, 352 warnings)
+
+ ELIFECYCLE  Command failed with exit code 1.

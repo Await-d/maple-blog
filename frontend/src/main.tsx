@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * React应用程序主入口点
  * 初始化应用程序，配置提供者，并渲染根组件
@@ -23,9 +22,10 @@ const queryClient = new QueryClient({
     queries: {
       staleTime: 5 * 60 * 1000, // 5分钟
       gcTime: 10 * 60 * 1000, // 10分钟 (替代cacheTime)
-      retry: (failureCount, error: any) => {
+      retry: (failureCount, error) => {
         // 不重试4xx错误
-        if (error?.status >= 400 && error?.status < 500) {
+        const httpError = error as Error & { status?: number };
+        if (httpError?.status && httpError.status >= 400 && httpError.status < 500) {
           return false;
         }
         // 最多重试3次
@@ -56,6 +56,8 @@ class ErrorBoundary extends React.Component<
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    // TODO: Replace with proper error reporting service (e.g., Sentry)
+    // For now, keeping critical error logging for debugging
     console.error('应用程序错误:', error);
     console.error('错误信息:', errorInfo);
 
@@ -110,13 +112,12 @@ async function initializeApp() {
 
     // 初始化分析追踪（如果启用）
     if (isDevelopment()) {
-      console.log('🚀 Maple Blog 开发模式启动');
-      console.log('📊 React Query DevTools 已启用');
+      // Development mode initialized - React Query DevTools enabled
     }
 
     return true;
   } catch (error) {
-    console.error('应用程序初始化失败:', error);
+    // TODO: Replace with proper error reporting service
     return false;
   }
 }
@@ -166,6 +167,8 @@ async function renderApp() {
 
 // 启动应用
 renderApp().catch((error) => {
+  // TODO: Replace with proper error reporting service (e.g., Sentry)
+  // For now, keeping critical error logging for debugging
   console.error('应用程序渲染失败:', error);
 
   // 显示fallback错误UI
@@ -189,6 +192,6 @@ renderApp().catch((error) => {
 // 开发时热重载支持
 if (isDevelopment() && import.meta.hot) {
   import.meta.hot.accept('./App', () => {
-    console.log('🔄 热重载: App组件已更新');
+    // Hot reload: App component updated
   });
 }

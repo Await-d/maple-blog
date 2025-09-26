@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
@@ -7,7 +6,6 @@ import {
   Typography,
   theme,
   Tooltip,
-  Divider,
 } from 'antd';
 import {
   DashboardOutlined,

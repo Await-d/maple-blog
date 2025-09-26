@@ -1,4 +1,3 @@
-// @ts-nocheck
 // Analytics specific types
 
 // Time ranges for analytics
@@ -304,7 +303,7 @@ export interface CustomReport {
   filters?: Array<{
     field: string;
     operator: 'equals' | 'contains' | 'greater' | 'less' | 'between';
-    value: any;
+    value: unknown;
   }>;
   timeRange: TimeRange;
   visualization: 'table' | 'line' | 'bar' | 'pie' | 'map' | 'heatmap';
@@ -328,7 +327,7 @@ export interface AnalyticsFilter {
   author?: string;
   category?: string;
   tags?: string[];
-  customDimensions?: Record<string, any>;
+  customDimensions?: Record<string, unknown>;
 }
 
 // Dashboard Widget
@@ -338,8 +337,8 @@ export interface DashboardWidget {
   title: string;
   metric?: string;
   visualization?: string;
-  data?: any;
-  config?: Record<string, any>;
+  data?: unknown;
+  config?: Record<string, unknown>;
   position: {
     x: number;
     y: number;
@@ -378,4 +377,310 @@ export interface AnalyticsAlert {
   isActive: boolean;
   lastTriggered?: string;
   createdAt: string;
+}
+
+// Additional Analytics Types
+
+// User Cohort Analytics
+export interface UserCohortData {
+  cohortDate: string;
+  userCount: number;
+  periods: Array<{
+    period: number;
+    retainedUsers: number;
+    retentionRate: number;
+  }>;
+}
+
+// User Retention Analytics
+export interface UserRetentionData {
+  period: string;
+  totalUsers: number;
+  returnedUsers: number;
+  retentionRate: number;
+  segments: Array<{
+    segment: string;
+    retentionRate: number;
+  }>;
+}
+
+// Content Trends
+export interface ContentTrendsData {
+  period: string;
+  trendingTopics: Array<{
+    topic: string;
+    posts: number;
+    views: number;
+    growth: number;
+  }>;
+  contentTypes: Array<{
+    type: string;
+    count: number;
+    engagement: number;
+  }>;
+  keywords: Array<{
+    keyword: string;
+    mentions: number;
+    sentiment: 'positive' | 'negative' | 'neutral';
+  }>;
+}
+
+// Attribution Analytics
+export interface AttributionData {
+  model: 'first-click' | 'last-click' | 'linear' | 'time-decay' | 'position';
+  channels: Array<{
+    channel: string;
+    conversions: number;
+    attributedValue: number;
+    percentage: number;
+  }>;
+  paths: Array<{
+    path: string[];
+    conversions: number;
+    value: number;
+  }>;
+}
+
+// Search Console Data
+export interface SearchConsoleData {
+  period: {
+    start: string;
+    end: string;
+  };
+  performance: {
+    totalClicks: number;
+    totalImpressions: number;
+    averageCtr: number;
+    averagePosition: number;
+  };
+  queries: Array<{
+    query: string;
+    clicks: number;
+    impressions: number;
+    ctr: number;
+    position: number;
+  }>;
+  pages: Array<{
+    page: string;
+    clicks: number;
+    impressions: number;
+    ctr: number;
+    position: number;
+  }>;
+}
+
+// Page Rankings
+export interface PageRankingsData {
+  url: string;
+  keywords: Array<{
+    keyword: string;
+    position: number;
+    previousPosition?: number;
+    searchVolume: number;
+    difficulty: number;
+  }>;
+  competitorAnalysis: Array<{
+    competitor: string;
+    url: string;
+    position: number;
+    strengthScore: number;
+  }>;
+}
+
+// Page Speed Data
+export interface PageSpeedData {
+  url: string;
+  device: 'mobile' | 'desktop';
+  score: number;
+  metrics: {
+    firstContentfulPaint: number;
+    speedIndex: number;
+    largestContentfulPaint: number;
+    timeToInteractive: number;
+    totalBlockingTime: number;
+    cumulativeLayoutShift: number;
+  };
+  opportunities: Array<{
+    id: string;
+    title: string;
+    description: string;
+    savings: number;
+    impact: 'low' | 'medium' | 'high';
+  }>;
+}
+
+// Core Web Vitals
+export interface CoreWebVitalsData {
+  period: string;
+  metrics: {
+    lcp: {
+      value: number;
+      rating: 'good' | 'needs-improvement' | 'poor';
+      percentile75: number;
+    };
+    fid: {
+      value: number;
+      rating: 'good' | 'needs-improvement' | 'poor';
+      percentile75: number;
+    };
+    cls: {
+      value: number;
+      rating: 'good' | 'needs-improvement' | 'poor';
+      percentile75: number;
+    };
+  };
+  urls: Array<{
+    url: string;
+    lcp: number;
+    fid: number;
+    cls: number;
+  }>;
+}
+
+// Transaction Data
+export interface TransactionData {
+  transactionId: string;
+  date: string;
+  amount: number;
+  currency: string;
+  items: Array<{
+    itemId: string;
+    name: string;
+    category: string;
+    quantity: number;
+    price: number;
+  }>;
+  customer: {
+    id: string;
+    type: 'new' | 'returning';
+    segment: string;
+  };
+  source: string;
+  campaign?: string;
+}
+
+// Product Performance
+export interface ProductPerformanceData {
+  productId: string;
+  name: string;
+  category: string;
+  revenue: number;
+  units: number;
+  averagePrice: number;
+  profitMargin: number;
+  conversionRate: number;
+  cartAdditions: number;
+  wishlistAdditions: number;
+  reviews: {
+    count: number;
+    averageRating: number;
+  };
+}
+
+// Custom Report Results
+export interface CustomReportResult {
+  reportId: string;
+  generatedAt: string;
+  data: Array<Record<string, unknown>>;
+  summary: {
+    totalRows: number;
+    totalValue?: number;
+    averageValue?: number;
+  };
+  metadata: {
+    dimensions: string[];
+    metrics: string[];
+    filters: Record<string, unknown>;
+  };
+}
+
+// Comparison Results
+export interface ComparisonResult {
+  type: 'time' | 'segment';
+  baseline: {
+    label: string;
+    period?: {
+      start: string;
+      end: string;
+    };
+    data: Record<string, number>;
+  };
+  comparison: {
+    label: string;
+    period?: {
+      start: string;
+      end: string;
+    };
+    data: Record<string, number>;
+  };
+  changes: Record<string, {
+    absolute: number;
+    percentage: number;
+    significance: 'significant' | 'not-significant';
+  }>;
+}
+
+// Forecast Data
+export interface ForecastData {
+  metric: string;
+  historical: Array<{
+    date: string;
+    value: number;
+  }>;
+  forecast: Array<{
+    date: string;
+    value: number;
+    confidenceInterval: {
+      lower: number;
+      upper: number;
+    };
+  }>;
+  accuracy: {
+    mape: number; // Mean Absolute Percentage Error
+    rmse: number; // Root Mean Square Error
+  };
+  factors: Array<{
+    name: string;
+    impact: number;
+    confidence: number;
+  }>;
+}
+
+// Anomaly Data
+export interface AnomalyData {
+  metric: string;
+  anomalies: Array<{
+    date: string;
+    expected: number;
+    actual: number;
+    deviation: number;
+    severity: 'low' | 'medium' | 'high';
+    factors?: string[];
+  }>;
+  patterns: Array<{
+    type: 'seasonal' | 'trend' | 'outlier';
+    description: string;
+    confidence: number;
+  }>;
+}
+
+// Trend Analysis
+export interface TrendAnalysisData {
+  metric: string;
+  period: string;
+  trend: {
+    direction: 'up' | 'down' | 'stable';
+    strength: number;
+    significance: number;
+  };
+  breakpoints: Array<{
+    date: string;
+    type: 'increase' | 'decrease' | 'plateau';
+    confidence: number;
+  }>;
+  seasonality: {
+    detected: boolean;
+    pattern?: 'weekly' | 'monthly' | 'quarterly' | 'yearly';
+    strength?: number;
+  };
 }

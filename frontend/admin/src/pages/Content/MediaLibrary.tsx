@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React, { useState, useCallback, useMemo } from 'react';
 import {
   Card,
@@ -11,10 +10,7 @@ import {
   Dropdown,
   Upload,
   Image,
-  Grid,
-  List,
   Select,
-  Checkbox,
   Tag,
   Progress,
   Tooltip,
@@ -23,11 +19,9 @@ import {
   Row,
   Col,
   Statistic,
-  Tabs,
   Divider,
   Table,
   Badge,
-  Popconfirm,
   Tree,
   Radio,
   Slider,
@@ -39,7 +33,6 @@ import {
   UploadOutlined,
   DeleteOutlined,
   DownloadOutlined,
-  SearchOutlined,
   EyeOutlined,
   EditOutlined,
   CopyOutlined,
@@ -54,33 +47,21 @@ import {
   FilePptOutlined,
   AudioOutlined,
   CloudUploadOutlined,
-  CloudDownloadOutlined,
   ShareAltOutlined,
   MoreOutlined,
   AppstoreOutlined,
   BarsOutlined,
   FilterOutlined,
-  SortAscendingOutlined,
-  ReloadOutlined,
-  InfoCircleOutlined,
   StarOutlined,
   StarFilled,
   LinkOutlined,
-  ScissorOutlined,
-  CompressOutlined,
-  ExpandOutlined,
-  HistoryOutlined,
-  SafetyOutlined,
-  TagsOutlined
-} from '@ant-design/icons';
-import type { UploadFile, UploadProps } from 'antd/es/upload';
+  SafetyOutlined} from '@ant-design/icons';
 import type { DataNode } from 'antd/es/tree';
 import dayjs from 'dayjs';
 
 const { Title, Text, Paragraph } = Typography;
 const { Search } = Input;
 const { Option } = Select;
-const { TabPane } = Tabs;
 
 // Media file interface
 interface MediaFile {
@@ -325,7 +306,7 @@ interface MediaFilters {
 
 const MediaLibrary: React.FC = () => {
   const [files, setFiles] = useState<MediaFile[]>(mockFiles);
-  const [folders, setFolders] = useState<MediaFolder[]>(mockFolders);
+  const [folders] = useState<MediaFolder[]>(mockFolders);
   const [selectedFileKeys, setSelectedFileKeys] = useState<React.Key[]>([]);
   const [currentFolderId, setCurrentFolderId] = useState<number | null>(null);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
@@ -350,7 +331,6 @@ const MediaLibrary: React.FC = () => {
   const [filterDrawerVisible, setFilterDrawerVisible] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploading, setUploading] = useState(false);
-  const [loading, setLoading] = useState(false);
   const [form] = Form.useForm();
 
   // Get file type icon
@@ -651,17 +631,17 @@ const MediaLibrary: React.FC = () => {
         </div>
       }
       actions={[
-        <Tooltip title="查看详情">
+        <Tooltip key="view" title="查看详情">
           <EyeOutlined onClick={() => handleFileView(file)} />
         </Tooltip>,
-        <Tooltip title={file.isStarred ? '取消收藏' : '收藏'}>
+        <Tooltip key="star" title={file.isStarred ? '取消收藏' : '收藏'}>
           {file.isStarred ? (
             <StarFilled className="text-yellow-500" onClick={() => handleStarToggle(file.id)} />
           ) : (
             <StarOutlined onClick={() => handleStarToggle(file.id)} />
           )}
         </Tooltip>,
-        <Tooltip title="下载">
+        <Tooltip key="download" title="下载">
           <DownloadOutlined onClick={() => {
             // Simulate download
             setFiles(prev => prev.map(f =>
@@ -673,6 +653,7 @@ const MediaLibrary: React.FC = () => {
           }} />
         </Tooltip>,
         <Dropdown
+          key="actions"
           menu={{
             items: [
               {
@@ -1329,7 +1310,7 @@ const MediaLibrary: React.FC = () => {
         <Form
           form={form}
           layout="vertical"
-          onFinish={(values) => {
+          onFinish={(_values) => {
             // Handle folder creation/editing
             message.success(editingFolder ? '文件夹已更新' : '文件夹已创建');
             setFolderModalVisible(false);

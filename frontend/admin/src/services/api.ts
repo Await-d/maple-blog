@@ -1,4 +1,3 @@
-// @ts-nocheck
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse, AxiosError } from 'axios';
 import { message } from 'antd';
 import { env, storageUtils, errorUtils } from '@/utils';
@@ -176,9 +175,9 @@ export const api = createAxiosInstance();
 // API请求方法封装
 export class ApiService {
   // GET请求
-  static async get<T = any>(
+  static async get<T = unknown>(
     url: string,
-    params?: Record<string, any>,
+    params?: Record<string, unknown>,
     config?: AxiosRequestConfig
   ): Promise<T> {
     const response = await api.get<BaseResponse<T>>(url, { params, ...config });
@@ -186,9 +185,9 @@ export class ApiService {
   }
 
   // POST请求
-  static async post<T = any>(
+  static async post<T = unknown>(
     url: string,
-    data?: any,
+    data?: unknown,
     config?: AxiosRequestConfig
   ): Promise<T> {
     const response = await api.post<BaseResponse<T>>(url, data, config);
@@ -196,9 +195,9 @@ export class ApiService {
   }
 
   // PUT请求
-  static async put<T = any>(
+  static async put<T = unknown>(
     url: string,
-    data?: any,
+    data?: unknown,
     config?: AxiosRequestConfig
   ): Promise<T> {
     const response = await api.put<BaseResponse<T>>(url, data, config);
@@ -206,9 +205,9 @@ export class ApiService {
   }
 
   // PATCH请求
-  static async patch<T = any>(
+  static async patch<T = unknown>(
     url: string,
-    data?: any,
+    data?: unknown,
     config?: AxiosRequestConfig
   ): Promise<T> {
     const response = await api.patch<BaseResponse<T>>(url, data, config);
@@ -216,7 +215,7 @@ export class ApiService {
   }
 
   // DELETE请求
-  static async delete<T = any>(
+  static async delete<T = unknown>(
     url: string,
     config?: AxiosRequestConfig
   ): Promise<T> {
@@ -225,7 +224,7 @@ export class ApiService {
   }
 
   // 文件上传
-  static async upload<T = any>(
+  static async upload<T = unknown>(
     url: string,
     file: File,
     onProgress?: (progress: number) => void,
@@ -273,8 +272,8 @@ export class ApiService {
   }
 
   // 批量请求
-  static async batch<T = any>(
-    requests: Array<() => Promise<any>>
+  static async batch<T = unknown>(
+    requests: Array<() => Promise<unknown>>
   ): Promise<T[]> {
     const results = await Promise.allSettled(requests.map(request => request()));
     return results.map(result => {

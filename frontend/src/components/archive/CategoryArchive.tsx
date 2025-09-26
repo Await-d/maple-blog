@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * CategoryArchive Component
  * 分类归档组件 - 展示层级分类结构和相关文章

@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * ResetPasswordPage - Password reset page with form and layout
  * Handles both password reset request and confirmation flows
@@ -23,7 +22,7 @@ const passwordPatterns = {
   hasUppercase: /[A-Z]/,
   hasLowercase: /[a-z]/,
   hasNumber: /\d/,
-  hasSpecialChar: /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/,
+  hasSpecialChar: /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/,
 };
 
 // Custom password validation function
@@ -404,7 +403,7 @@ export const ResetPasswordPage: React.FC<ResetPasswordPageProps> = ({ className 
                     Forgot your password?
                   </h2>
                   <p className="text-gray-600">
-                    Enter your email address and we'll send you a link to reset your password.
+                    Enter your email address and we&apos;ll send you a link to reset your password.
                   </p>
                 </div>
                 <PasswordResetRequestForm onSuccess={handleRequestSuccess} />
@@ -435,11 +434,11 @@ export const ResetPasswordPage: React.FC<ResetPasswordPageProps> = ({ className 
                 </h2>
                 <div className="text-gray-600 mb-8">
                   <p className="mb-2">
-                    We've sent a password reset link to:
+                    We&apos;ve sent a password reset link to:
                   </p>
                   <p className="font-medium text-gray-900">{email}</p>
                   <p className="mt-4">
-                    Click the link in the email to reset your password. If you don't see the email,
+                    Click the link in the email to reset your password. If you don&apos;t see the email,
                     check your spam folder.
                   </p>
                 </div>

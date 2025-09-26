@@ -1,5 +1,5 @@
-// @ts-nocheck
-import React, { Suspense, lazy } from 'react';
+/* eslint-disable react-refresh/only-export-components */
+import { Suspense, lazy } from 'react';
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { Spin } from 'antd';
 import AdminLayout from '@/layouts/AdminLayout';

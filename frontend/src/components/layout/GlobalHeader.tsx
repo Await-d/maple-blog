@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * GlobalHeader - 全局头部组件包装器
  * 对现有Header组件的重新导出和适配
@@ -14,8 +13,8 @@ interface GlobalHeaderProps {
 }
 
 export const GlobalHeader: React.FC<GlobalHeaderProps> = ({
-  theme,
-  onThemeToggle,
+  theme: _theme,
+  onThemeToggle: _onThemeToggle,
   className,
 }) => {
   return (

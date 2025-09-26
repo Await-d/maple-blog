@@ -1,5 +1,4 @@
-// @ts-nocheck
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Card,
   Row,
@@ -13,10 +12,8 @@ import {
   List,
   Avatar,
   Button,
-  Tooltip,
   Alert,
   Divider,
-  Timeline,
   Modal,
   Table,
   notification,
@@ -28,15 +25,9 @@ import {
   SyncOutlined,
   DatabaseOutlined,
   CloudServerOutlined,
-  HddOutlined,
-  WifiOutlined,
   ThunderboltOutlined,
-  BugOutlined,
-  WarningOutlined,
-  InfoCircleOutlined,
   BellOutlined,
   ReloadOutlined,
-  SettingOutlined,
 } from '@ant-design/icons';
 import LineChart from '../charts/LineChart';
 
@@ -128,7 +119,7 @@ const SystemStatus: React.FC<SystemStatusProps> = ({
   ]);
 
   // Mock services data
-  const [services, setServices] = useState<ServiceStatus[]>([
+  const [services] = useState<ServiceStatus[]>([
     {
       id: 'api',
       name: 'MapleBlog API',
@@ -217,7 +208,7 @@ const SystemStatus: React.FC<SystemStatusProps> = ({
   ]);
 
   // Mock performance data for charts
-  const [performanceData, setPerformanceData] = useState({
+  const [performanceData] = useState({
     cpu: Array.from({ length: 24 }, (_, i) => ({
       time: new Date(Date.now() - (23 - i) * 3600000).toISOString(),
       value: Math.random() * 50 + 20 + Math.sin(i / 4) * 10,
@@ -239,10 +230,10 @@ const SystemStatus: React.FC<SystemStatusProps> = ({
     }, refreshInterval);
 
     return () => clearInterval(interval);
-  }, [refreshInterval]);
+  }, [refreshInterval, refreshSystemStatus]);
 
   // Refresh system status
-  const refreshSystemStatus = async () => {
+  const refreshSystemStatus = useCallback(async () => {
     setLoading(true);
     try {
       // Simulate API call
@@ -281,7 +272,7 @@ const SystemStatus: React.FC<SystemStatusProps> = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, [onAlert]);
 
   // Get status color
   const getStatusColor = (status: string) => {
@@ -447,13 +438,13 @@ const SystemStatus: React.FC<SystemStatusProps> = ({
                 <List.Item
                   actions={[
                     <Button
-                      
+                      key="details"
                       onClick={() => setSelectedService(service)}
                     >
                       Details
                     </Button>,
                     service.endpoint && (
-                      <Button  type="link">
+                      <Button key="open" type="link">
                         Open
                       </Button>
                     ),

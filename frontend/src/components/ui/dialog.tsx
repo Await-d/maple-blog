@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React from 'react';
 import { cn } from '../../utils/cn';
 
@@ -13,7 +12,7 @@ export const Dialog: React.FC<DialogProps> = ({ children, open, onOpenChange }) 
     <div>
       {React.Children.map(children, child => {
         if (React.isValidElement(child)) {
-          return React.cloneElement(child, { open, onOpenChange } as any);
+          return React.cloneElement(child, { open, onOpenChange } as Record<string, unknown>);
         }
         return child;
       })}

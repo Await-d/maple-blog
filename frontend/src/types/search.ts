@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Search and Archive Type Definitions
  * 搜索和归档功能的TypeScript类型定义

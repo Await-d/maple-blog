@@ -1,4 +1,3 @@
-// @ts-nocheck
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse, AxiosError, AxiosDefaults } from 'axios';
 import type { ApiErrorResponse } from '../../types/home';
 import { ENV_CONFIG, isDevelopment } from '../../types/env';
@@ -7,7 +6,7 @@ import { ENV_CONFIG, isDevelopment } from '../../types/env';
 interface ApiResponseData {
   message?: string;
   errors?: Record<string, string[]> | string[];
-  data?: any;
+  data?: unknown;
   success?: boolean;
 }
 
@@ -200,28 +199,28 @@ class ApiClient {
   }
 
   // HTTP methods with proper typing
-  async get<T = any>(url: string, config?: AxiosRequestConfig): Promise<AxiosResponse<T>> {
+  async get<T = unknown>(url: string, config?: AxiosRequestConfig): Promise<AxiosResponse<T>> {
     return this.client.get<T>(url, config);
   }
 
-  async post<T = any, D = any>(url: string, data?: D, config?: AxiosRequestConfig): Promise<AxiosResponse<T>> {
+  async post<T = unknown, D = unknown>(url: string, data?: D, config?: AxiosRequestConfig): Promise<AxiosResponse<T>> {
     return this.client.post<T>(url, data, config);
   }
 
-  async put<T = any, D = any>(url: string, data?: D, config?: AxiosRequestConfig): Promise<AxiosResponse<T>> {
+  async put<T = unknown, D = unknown>(url: string, data?: D, config?: AxiosRequestConfig): Promise<AxiosResponse<T>> {
     return this.client.put<T>(url, data, config);
   }
 
-  async patch<T = any, D = any>(url: string, data?: D, config?: AxiosRequestConfig): Promise<AxiosResponse<T>> {
+  async patch<T = unknown, D = unknown>(url: string, data?: D, config?: AxiosRequestConfig): Promise<AxiosResponse<T>> {
     return this.client.patch<T>(url, data, config);
   }
 
-  async delete<T = any>(url: string, config?: AxiosRequestConfig): Promise<AxiosResponse<T>> {
+  async delete<T = unknown>(url: string, config?: AxiosRequestConfig): Promise<AxiosResponse<T>> {
     return this.client.delete<T>(url, config);
   }
 
   // Upload file with progress tracking
-  async uploadFile<T = any>(
+  async uploadFile<T = unknown>(
     url: string,
     file: File,
     onProgress?: (progressEvent: { loaded: number; total?: number; progress?: number }) => void,
@@ -273,7 +272,7 @@ class ApiClient {
   }
 
   // Check if request was cancelled
-  isCancel(error: any): boolean {
+  isCancel(error: unknown): boolean {
     return axios.isCancel(error);
   }
 

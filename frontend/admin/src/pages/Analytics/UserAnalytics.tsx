@@ -1,49 +1,24 @@
-// @ts-nocheck
 import React, { useState } from 'react';
-import { Row, Col, Card, Table, Tag, Space, DatePicker, Select, Button, Tabs, Statistic, Avatar, Typography, Progress, Tooltip, Timeline, List, Divider, Badge, Segmented, Alert } from 'antd';
+import { Row, Col, Card, Table, Tag, Space, DatePicker, Select, Button, Tabs, Statistic, Avatar, Typography, Progress, Timeline, List, Divider, Badge, Segmented, Alert } from 'antd';
 import {
-  UserOutlined,
   TeamOutlined,
   UserAddOutlined,
   UserSwitchOutlined,
-  LoginOutlined,
-  LogoutOutlined,
-  ClockCircleOutlined,
-  GlobalOutlined,
-  MobileOutlined,
-  DesktopOutlined,
-  TabletOutlined,
-  ChromeOutlined,
-  SafariOutlined,
   FireOutlined,
-  IeOutlined,
   RiseOutlined,
   FallOutlined,
-  FunnelPlotOutlined,
-  HeatMapOutlined,
-  LineChartOutlined,
-  BarChartOutlined,
-  PieChartOutlined,
-  RadarChartOutlined,
   ExportOutlined,
-  FilterOutlined,
-  CalendarOutlined,
-  EnvironmentOutlined,
-  ShoppingCartOutlined,
-  DollarOutlined
+  EnvironmentOutlined
 } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 import AnalyticsChart from '@/components/analytics/AnalyticsChart';
 import { analyticsService } from '@/services/analytics.service';
 import type {
-  UserBehavior,
   UserFlow,
   UserSegment,
   UserActivity,
-  TimeRange,
-  ConversionFunnel,
-  GeographicData
+  TimeRange
 } from '@/types/analytics';
 
 const { Title, Text, Paragraph } = Typography;
@@ -56,11 +31,11 @@ const UserAnalytics: React.FC = () => {
     dayjs().subtract(30, 'days'),
     dayjs()
   ]);
-  const [segmentType, setSegmentType] = useState<'all' | 'new' | 'returning' | 'engaged'>('all');
+  const [segmentType] = useState<'all' | 'new' | 'returning' | 'engaged'>('all');
   const [viewMode, setViewMode] = useState<'overview' | 'detailed' | 'cohorts'>('overview');
 
   // Fetch user behavior data
-  const { data: userBehavior, isLoading: behaviorLoading, refetch: refetchBehavior } = useQuery({
+  const { data: userBehavior } = useQuery({
     queryKey: ['user-behavior', timeRange, customDateRange, segmentType],
     queryFn: () => analyticsService.getUserBehavior({
       timeRange,
@@ -101,7 +76,7 @@ const UserAnalytics: React.FC = () => {
   });
 
   // Fetch cohort data
-  const { data: cohortData, isLoading: cohortLoading } = useQuery({
+  const { isLoading: cohortLoading } = useQuery({
     queryKey: ['user-cohorts', timeRange, customDateRange],
     queryFn: () => analyticsService.getUserCohorts({
       timeRange,
@@ -111,7 +86,7 @@ const UserAnalytics: React.FC = () => {
   });
 
   // Fetch retention data
-  const { data: retentionData, isLoading: retentionLoading } = useQuery({
+  const { isLoading: retentionLoading } = useQuery({
     queryKey: ['user-retention', timeRange, customDateRange],
     queryFn: () => analyticsService.getUserRetention({
       timeRange,
@@ -172,7 +147,7 @@ const UserAnalytics: React.FC = () => {
   };
 
   const funnelChartData = {
-    items: funnelData?.map((stage, index) => ({
+    items: funnelData?.map((stage, _index) => ({
       name: stage.stage,
       value: stage.conversionRate,
       users: stage.users,

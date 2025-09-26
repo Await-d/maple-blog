@@ -1,4 +1,4 @@
-// @ts-nocheck
+/* eslint-disable react-refresh/only-export-components */
 /**
  * ThemeToggle component - Theme switching with system preference detection
  * Features: Light/dark/auto modes, smooth transitions, accessibility support

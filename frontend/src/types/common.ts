@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Common types used across the application
  */

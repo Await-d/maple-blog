@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * RegisterForm Component
  * Handles user registration with comprehensive validation
@@ -84,7 +83,7 @@ const getPasswordStrengthText = (strength: number): string => {
 export const RegisterForm: React.FC<RegisterFormProps> = ({
   onSuccess,
   onError,
-  redirectPath = '/',
+  redirectPath: _redirectPath = '/',
   showLoginLink = true,
   className,
 }) => {
@@ -97,7 +96,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
     handleSubmit,
     formState: { errors, isSubmitting },
     watch,
-    trigger,
+    trigger: _trigger,
   } = useForm<RegisterFormData>({
     defaultValues: {
       email: '',

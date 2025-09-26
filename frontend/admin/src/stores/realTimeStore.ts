@@ -1,9 +1,18 @@
-// @ts-nocheck
 import React from 'react';
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
 import { immer } from 'zustand/middleware/immer';
 import type { Activity, SystemMetrics, Notification } from '@/types';
+
+// WebSocket message types
+interface WebSocketMessage {
+  type: string;
+  channel?: string;
+  data: Record<string, unknown>;
+  timestamp?: string;
+}
+
+type EventHandler = (data: Record<string, unknown>) => void;
 
 export interface RealTimeState {
   // Connection management
@@ -26,7 +35,7 @@ export interface RealTimeState {
   liveNotifications: Notification[];
 
   // Event handlers
-  eventHandlers: Map<string, Array<(data: any) => void>>;
+  eventHandlers: Map<string, Array<EventHandler>>;
 
   // Actions
   connect: (url: string) => Promise<void>;
@@ -39,12 +48,12 @@ export interface RealTimeState {
   unsubscribeAll: (subscriberId: string) => void;
 
   // Event handling
-  addEventListener: (event: string, handler: (data: any) => void) => string;
+  addEventListener: (event: string, handler: EventHandler) => string;
   removeEventListener: (event: string, handlerId: string) => void;
 
   // Message sending
-  sendMessage: (message: any) => void;
-  handleMessage: (data: any) => void;
+  sendMessage: (message: WebSocketMessage) => void;
+  handleMessage: (data: WebSocketMessage) => void;
 
   // Data updates
   updateLiveActivities: (activities: Activity[]) => void;
@@ -76,7 +85,7 @@ const initialState = {
   liveMetrics: null,
   liveNotifications: [],
 
-  eventHandlers: new Map<string, Array<(data: any) => void>>(),
+  eventHandlers: new Map<string, Array<EventHandler>>(),
 };
 
 export const useRealTimeStore = create<RealTimeState>()(
@@ -250,7 +259,7 @@ export const useRealTimeStore = create<RealTimeState>()(
         }
       },
 
-      addEventListener: (event: string, handler: (data: any) => void) => {
+      addEventListener: (event: string, handler: EventHandler) => {
         const handlerId = `${event}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
         set((state) => {
@@ -274,7 +283,7 @@ export const useRealTimeStore = create<RealTimeState>()(
         });
       },
 
-      sendMessage: (message: any) => {
+      sendMessage: (message: WebSocketMessage) => {
         const state = get();
         if (state.ws && state.isConnected) {
           state.ws.send(JSON.stringify(message));
@@ -336,7 +345,7 @@ export const useRealTimeStore = create<RealTimeState>()(
       },
 
       // Handle incoming WebSocket messages
-      handleMessage: (data: any) => {
+      handleMessage: (data: WebSocketMessage) => {
         const { type, payload } = data;
 
         switch (type) {
@@ -358,12 +367,14 @@ export const useRealTimeStore = create<RealTimeState>()(
             });
             break;
 
-          default:
+          default: {
             // Call custom event handlers
             const handlers = get().eventHandlers.get(type);
             if (handlers) {
               handlers.forEach(handler => handler(payload));
             }
+            break;
+          }
         }
       },
 
@@ -409,7 +420,7 @@ export const useRealTimeChannel = (channel: string, subscriberId: string) => {
 
 export const useRealTimeEvent = (
   event: string,
-  handler: (data: any) => void,
+  handler: EventHandler,
   deps: React.DependencyList = []
 ) => {
   const addEventListener = useRealTimeStore((state) => state.addEventListener);
@@ -421,5 +432,6 @@ export const useRealTimeEvent = (
     return () => {
       removeEventListener(event, handlerId);
     };
-  }, [event, ...deps]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [event, handler, addEventListener, removeEventListener].concat(deps as React.DependencyList));
 };

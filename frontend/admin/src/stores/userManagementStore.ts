@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { create } from 'zustand';
 import { devtools, persist } from 'zustand/middleware';
 import { immer } from 'zustand/middleware/immer';
@@ -76,7 +75,7 @@ export interface UserManagementState {
 
   // Query
   setQuery: (query: Partial<UserManagementState['query']>) => void;
-  updateFilter: (key: string, value: any) => void;
+  updateFilter: (key: string, value: unknown) => void;
   clearFilters: () => void;
 
   // Loading states
@@ -270,7 +269,7 @@ export const useUserManagementStore = create<UserManagementState>()(
 
         updateFilter: (key, value) => {
           set((state) => {
-            (state.query as any)[key] = value;
+            (state.query as Record<string, unknown>)[key] = value;
             // Reset to first page when filtering
             state.query.page = 1;
             state.pagination.current = 1;

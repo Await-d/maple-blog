@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * PersonalizedFeed component - Intelligent personalized content recommendations
  * Features: ML-powered recommendations, user feedback, adaptive learning

@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Home components barrel exports
  * Centralized export for all home page components

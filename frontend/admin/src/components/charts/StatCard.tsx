@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import React from 'react';
 import { Card, Statistic, Skeleton, Tooltip, Badge } from 'antd';
 import {

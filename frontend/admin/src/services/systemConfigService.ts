@@ -1,4 +1,3 @@
-// @ts-nocheck
 import {
   SystemConfiguration,
   ConfigurationTemplate,
@@ -6,6 +5,7 @@ import {
   ConfigurationDiff,
   ConfigurationBackup,
   ConfigurationConflict,
+  ConflictResolution,
   ConfigurationApproval,
   ConfigurationAudit,
   ConfigurationImpactAnalysis,
@@ -17,6 +17,20 @@ import {
   ConfigurationTemplateResponse,
 } from '../types/systemConfig';
 import apiClient from './api';
+
+// API Error interfaces
+interface ValidationError {
+  field: string;
+  message: string;
+}
+
+interface ApiErrorResponse {
+  response?: {
+    data?: {
+      validationErrors?: ValidationError[];
+    };
+  };
+}
 
 class SystemConfigService {
   private readonly baseUrl = '/api/admin/system/config';
@@ -56,12 +70,13 @@ class SystemConfigService {
     try {
       const response = await apiClient.post<SystemConfiguration>(`${this.baseUrl}`, config);
       return response.data;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to save configuration:', error);
-      if (error.response?.data?.validationErrors) {
+      const apiError = error as ApiErrorResponse;
+      if (apiError.response?.data?.validationErrors) {
         throw {
           message: 'Validation failed',
-          validationErrors: error.response.data.validationErrors,
+          validationErrors: apiError.response.data.validationErrors,
         };
       }
       throw new Error('Failed to save configuration');
@@ -72,12 +87,13 @@ class SystemConfigService {
     try {
       const response = await apiClient.put<SystemConfiguration>(`${this.baseUrl}/${id}`, config);
       return response.data;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error(`Failed to update configuration ${id}:`, error);
-      if (error.response?.data?.validationErrors) {
+      const apiError = error as ApiErrorResponse;
+      if (apiError.response?.data?.validationErrors) {
         throw {
           message: 'Validation failed',
-          validationErrors: error.response.data.validationErrors,
+          validationErrors: apiError.response.data.validationErrors,
         };
       }
       throw new Error(`Failed to update configuration ${id}`);
@@ -267,7 +283,7 @@ class SystemConfigService {
     }
   }
 
-  async resolveConflict(conflictId: string, resolution: any): Promise<void> {
+  async resolveConflict(conflictId: string, resolution: ConflictResolution): Promise<void> {
     try {
       await apiClient.post(`${this.baseUrl}/conflicts/${conflictId}/resolve`, resolution);
     } catch (error) {
@@ -459,7 +475,7 @@ class SystemConfigService {
   }
 
   // Real-time Updates
-  subscribeToConfigurationChanges(callback: (config: SystemConfiguration) => void): () => void {
+  subscribeToConfigurationChanges(_callback: (config: SystemConfiguration) => void): () => void {
     // This would typically use WebSockets or Server-Sent Events
     // For now, return a no-op unsubscribe function
     return () => {};

@@ -1,13 +1,12 @@
-// @ts-nocheck
 // 基础类型定义
-export interface BaseResponse<T = any> {
+export interface BaseResponse<T = unknown> {
   success: boolean;
   data: T;
   message?: string;
   code?: number;
 }
 
-export interface PaginatedResponse<T = any> extends BaseResponse<T[]> {
+export interface PaginatedResponse<T = unknown> extends BaseResponse<T[]> {
   pagination: {
     current: number;
     pageSize: number;
@@ -22,7 +21,7 @@ export interface QueryParams {
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
   search?: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 // 用户相关类型
@@ -172,7 +171,7 @@ export interface Activity {
   user: User;
   entityType?: string;
   entityId?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   createdAt: string;
 }
 
@@ -196,8 +195,8 @@ export interface AuditLog {
   user: User;
   ipAddress: string;
   userAgent: string;
-  changes?: Record<string, any>;
-  metadata?: Record<string, any>;
+  changes?: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
   createdAt: string;
 }
 
@@ -242,7 +241,7 @@ export interface HealthCheck {
 }
 
 // 表格相关类型
-export interface TableColumn<T = any> {
+export interface TableColumn<T = Record<string, unknown>> {
   key: string;
   title: string;
   dataIndex?: string;
@@ -250,10 +249,10 @@ export interface TableColumn<T = any> {
   fixed?: 'left' | 'right';
   sortable?: boolean;
   filterable?: boolean;
-  render?: (value: any, record: T, index: number) => React.ReactNode;
+  render?: (value: unknown, record: T, index: number) => React.ReactNode;
 }
 
-export interface TableProps<T = any> {
+export interface TableProps<T = Record<string, unknown>> {
   columns: TableColumn<T>[];
   dataSource: T[];
   loading?: boolean;
@@ -267,13 +266,13 @@ export interface TableProps<T = any> {
     selectedRowKeys: string[];
     onChange: (selectedRowKeys: string[], selectedRows: T[]) => void;
   };
-  onRow?: (record: T) => Record<string, any>;
+  onRow?: (record: T) => Record<string, unknown>;
 }
 
 // 路由相关类型
 export interface RouteConfig {
   path: string;
-  component: React.ComponentType<any>;
+  component: React.ComponentType;
   exact?: boolean;
   meta?: {
     title?: string;
@@ -313,7 +312,7 @@ export interface ApiError {
   message: string;
   code?: string;
   status?: number;
-  details?: Record<string, any>;
+  details?: Record<string, unknown>;
 }
 
 export interface LoginRequest {
@@ -336,16 +335,16 @@ export interface FormField {
   type: 'text' | 'email' | 'password' | 'number' | 'select' | 'checkbox' | 'radio' | 'textarea' | 'date' | 'file';
   required?: boolean;
   placeholder?: string;
-  options?: { label: string; value: any }[];
-  validation?: any;
+  options?: { label: string; value: unknown }[];
+  validation?: Record<string, unknown>;
   disabled?: boolean;
   tooltip?: string;
 }
 
 export interface FormProps {
   fields: FormField[];
-  initialValues?: Record<string, any>;
-  onSubmit: (values: Record<string, any>) => void;
+  initialValues?: Record<string, unknown>;
+  onSubmit: (values: Record<string, unknown>) => void;
   loading?: boolean;
   submitText?: string;
   cancelText?: string;
@@ -356,12 +355,12 @@ export interface FormProps {
 export interface ChartConfig {
   type: 'line' | 'bar' | 'pie' | 'scatter' | 'heatmap';
   title?: string;
-  data: any[];
+  data: Record<string, unknown>[];
   xAxis?: string;
   yAxis?: string;
   series?: string[];
   colors?: string[];
-  options?: Record<string, any>;
+  options?: Record<string, unknown>;
 }
 
 // 导出系统配置相关类型

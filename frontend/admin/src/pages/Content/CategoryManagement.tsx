@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React, { useState, useCallback, useMemo } from 'react';
 import {
   Card,
@@ -12,7 +11,6 @@ import {
   Form,
   message,
   Dropdown,
-  Popconfirm,
   Tooltip,
   Badge,
   Select,
@@ -32,18 +30,14 @@ import {
   EditOutlined,
   DeleteOutlined,
   MoreOutlined,
-  SearchOutlined,
   DragOutlined,
   FileTextOutlined,
   FolderOutlined,
   FolderOpenOutlined,
   PictureOutlined,
-  BgColorsOutlined,
+  EyeOutlined,
   SortAscendingOutlined,
   ReloadOutlined,
-  EyeOutlined,
-  EyeInvisibleOutlined,
-  InfoCircleOutlined,
   ExportOutlined,
   ImportOutlined,
   CopyOutlined,
@@ -51,7 +45,6 @@ import {
   ArrowDownOutlined
 } from '@ant-design/icons';
 import type { DataNode } from 'antd/es/tree';
-import type { Color } from 'antd/es/color-picker';
 import dayjs from 'dayjs';
 
 const { Title, Text, Paragraph } = Typography;
@@ -352,6 +345,25 @@ const CategoryManagement: React.FC = () => {
     };
   }, [flatCategories]);
 
+  // Handle category actions
+  const handleEdit = useCallback((category: Category | null = null) => {
+    setEditingCategory(category);
+    setEditModalVisible(true);
+    if (category) {
+      form.setFieldsValue({
+        ...category,
+        parentId: category.parentId || undefined
+      });
+    } else {
+      form.resetFields();
+    }
+  }, [form]);
+
+  const handleViewDetail = useCallback((category: Category) => {
+    setSelectedCategory(category);
+    setDetailDrawerVisible(true);
+  }, []);
+
   // Convert categories to tree data
   const treeData: DataNode[] = useMemo(() => {
     const convertToTree = (cats: Category[]): DataNode[] => {
@@ -397,28 +409,9 @@ const CategoryManagement: React.FC = () => {
       }));
     };
     return convertToTree(categories);
-  }, [categories]);
+  }, [categories, handleEdit, handleViewDetail]);
 
-  // Handle category actions
-  const handleEdit = useCallback((category: Category | null = null) => {
-    setEditingCategory(category);
-    setEditModalVisible(true);
-    if (category) {
-      form.setFieldsValue({
-        ...category,
-        parentId: category.parentId || undefined
-      });
-    } else {
-      form.resetFields();
-    }
-  }, [form]);
-
-  const handleViewDetail = useCallback((category: Category) => {
-    setSelectedCategory(category);
-    setDetailDrawerVisible(true);
-  }, []);
-
-  const handleSave = useCallback(async (values: any) => {
+  const handleSave = useCallback(async (values: Record<string, unknown>) => {
     setLoading(true);
 
     try {

@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * 评论列表组件
  * 支持嵌套回复、虚拟滚动、排序、筛选等功能
@@ -6,8 +5,8 @@
 
 import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { useCommentStore, useComments } from '../../../stores/commentStore';
-import { useCommentSocket } from '../../../services/commentSocket';
-import { CommentSortOrder, CommentStatus } from '../../../types/comment';
+// import { useCommentSocket } from '../../../services/commentSocket';
+import { CommentSortOrder, CommentStatus, Comment } from '../../../types/comment';
 import CommentItem from './CommentItem';
 import CommentSkeleton from './CommentSkeleton';
 import EmptyComments from './EmptyComments';
@@ -26,7 +25,7 @@ interface CommentListProps {
 }
 
 interface FlattenedComment {
-  comment: any;
+  comment: Comment;
   depth: number;
   hasReplies: boolean;
   isLastReply: boolean;
@@ -78,7 +77,7 @@ const CommentList: React.FC<CommentListProps> = ({
       }
       actions.cleanupRealtime();
     };
-  }, [postId, pageSize, sortOrder, statusFilter, autoRefresh, refreshInterval]);
+  }, [postId, pageSize, sortOrder, statusFilter, autoRefresh, refreshInterval, actions]);
 
   // 排序变化处理
   const handleSortChange = useCallback(async (newSortOrder: CommentSortOrder) => {
@@ -118,7 +117,7 @@ const CommentList: React.FC<CommentListProps> = ({
   const flattenedComments = useMemo(() => {
     const result: FlattenedComment[] = [];
 
-    const flatten = (comments: any[], depth = 0, parentExpanded = true) => {
+    const flatten = (comments: Comment[], depth = 0, parentExpanded = true) => {
       comments.forEach((comment, index) => {
         const hasReplies = comment.replies && comment.replies.length > 0;
         const isLastReply = index === comments.length - 1;
@@ -206,7 +205,7 @@ const CommentList: React.FC<CommentListProps> = ({
       {/* 评论列表 */}
       <div className="comment-list-content">
         <div className="space-y-4">
-          {flattenedComments.map((item, index) => (
+          {flattenedComments.map((item, _index) => (
             <CommentItem
               key={item.comment.id}
               comment={item.comment}

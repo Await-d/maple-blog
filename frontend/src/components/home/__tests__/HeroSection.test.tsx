@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * HeroSection组件测试
  * 测试英雄区域组件的渲染、交互和响应式行为
@@ -103,8 +102,11 @@ const renderWithProviders = (ui: React.ReactElement, options = {}) => {
   );
 };
 
+// Mock type for useResponsive hook
+type MockUseResponsive = ReturnType<typeof import('../../../hooks/useResponsive').useResponsive>;
+
 describe('HeroSection', () => {
-  let mockUseResponsive: any;
+  let mockUseResponsive: vi.MockedFunction<() => MockUseResponsive>;
 
   beforeEach(() => {
     mockUseResponsive = vi.fn(() => ({

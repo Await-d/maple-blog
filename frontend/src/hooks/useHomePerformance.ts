@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * 首页性能优化 Hook
  * 提供性能监控、懒加载控制、资源预加载等功能
@@ -11,6 +10,16 @@ import {
   imageOptimization,
   PERFORMANCE_TARGETS
 } from '../utils/homeOptimization';
+
+// 扩展性能接口
+interface PerformanceEntryWithInput extends PerformanceEventTiming {
+  processingStart: number;
+}
+
+interface PerformanceEntryWithLayoutShift extends PerformanceEntry {
+  hadRecentInput?: boolean;
+  value?: number;
+}
 
 // 性能指标类型
 export interface PerformanceMetrics {
@@ -74,7 +83,7 @@ export const useHomePerformance = (options: UseHomePerformanceOptions = {}) => {
       // LCP监控
       const lcpObserver = new PerformanceObserver((list) => {
         const entries = list.getEntries();
-        const lastEntry = entries[entries.length - 1] as any;
+        const lastEntry = entries[entries.length - 1] as PerformanceEntry;
         if (lastEntry) {
           metricsRef.current.lcp = lastEntry.startTime;
           setPerformanceState(prev => ({
@@ -88,8 +97,8 @@ export const useHomePerformance = (options: UseHomePerformanceOptions = {}) => {
 
       // FID监控
       const fidObserver = new PerformanceObserver((list) => {
-        const entries = list.getEntries();
-        entries.forEach((entry: any) => {
+        const entries = list.getEntries() as PerformanceEntryWithInput[];
+        entries.forEach((entry) => {
           const fidValue = entry.processingStart - entry.startTime;
           metricsRef.current.fid = fidValue;
           setPerformanceState(prev => ({
@@ -104,9 +113,10 @@ export const useHomePerformance = (options: UseHomePerformanceOptions = {}) => {
       // CLS监控
       let clsValue = 0;
       const clsObserver = new PerformanceObserver((list) => {
-        for (const entry of list.getEntries() as any[]) {
+        const entries = list.getEntries() as PerformanceEntryWithLayoutShift[];
+        for (const entry of entries) {
           if (!entry.hadRecentInput) {
-            clsValue += entry.value;
+            clsValue += entry.value || 0;
           }
         }
         metricsRef.current.cls = clsValue;
@@ -120,11 +130,11 @@ export const useHomePerformance = (options: UseHomePerformanceOptions = {}) => {
 
       // Navigation Timing监控
       const navigationObserver = new PerformanceObserver((list) => {
-        const entries = list.getEntries();
-        entries.forEach((entry: any) => {
+        const entries = list.getEntries() as PerformanceNavigationTiming[];
+        entries.forEach((entry) => {
           const ttfb = entry.responseStart - entry.requestStart;
-          const loadTime = entry.loadEventEnd - entry.navigationStart;
-          const domContentLoaded = entry.domContentLoadedEventEnd - entry.navigationStart;
+          const loadTime = entry.loadEventEnd - entry.fetchStart;
+          const domContentLoaded = entry.domContentLoadedEventEnd - entry.fetchStart;
 
           metricsRef.current = {
             ...metricsRef.current,
@@ -226,10 +236,8 @@ export const useHomePerformance = (options: UseHomePerformanceOptions = {}) => {
       ...metrics,
       budgetPassed: budgetPassed ? 1 : 0,
       optimizationLevel: optimizationLevel === 'high' ? 3 : optimizationLevel === 'medium' ? 2 : 1,
-      url: window.location.href,
-      timestamp: Date.now(),
-      userAgent: navigator.userAgent
-    } as any);
+      timestamp: Date.now()
+    });
   }, [reportToAnalytics, optimizationLevel, checkPerformanceBudget]);
 
   // 获取性能评分

@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Search API Service
  * 搜索功能相关的API服务

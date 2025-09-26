@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * SearchResults Component
  * 搜索结果展示组件 - 显示搜索结果列表和分页
@@ -7,7 +6,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Search,
-  Filter,
   SortAsc,
   SortDesc,
   Grid,
@@ -48,7 +46,7 @@ export default function SearchResults({
     loading,
     error,
     hasMore,
-    page,
+    page: _page,
     sortBy,
     sortDirection,
     searchTime,
@@ -88,7 +86,7 @@ export default function SearchResults({
   };
 
   // 加载更多结果
-  const handleLoadMore = async () => {
+  const handleLoadMore = useCallback(async () => {
     if (isLoadingMore || !hasMore) return;
 
     setIsLoadingMore(true);
@@ -97,7 +95,7 @@ export default function SearchResults({
     } finally {
       setIsLoadingMore(false);
     }
-  };
+  }, [isLoadingMore, hasMore, loadMore]);
 
   // 无限滚动
   useEffect(() => {
@@ -134,7 +132,7 @@ export default function SearchResults({
             <div className="flex items-center space-x-2">
               <Search className="h-4 w-4" />
               <span>
-                搜索 "<strong className="text-gray-900">{query}</strong>"
+                搜索 &quot;<strong className="text-gray-900">{query}</strong>&quot;
                 找到 <strong className="text-gray-900">{totalCount.toLocaleString()}</strong> 个结果
               </span>
             </div>

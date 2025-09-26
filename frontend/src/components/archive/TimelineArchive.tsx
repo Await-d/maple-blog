@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * TimelineArchive Component
  * 时间轴归档组件 - 按年月展示文章时间线

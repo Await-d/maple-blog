@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * ActiveAuthors component - Display active authors with stats and rankings
  * Features: Author rankings, follower counts, recent activity, social links

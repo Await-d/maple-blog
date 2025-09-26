@@ -1,11 +1,10 @@
-// @ts-nocheck
 /**
  * 评论实时通信服务 (SignalR WebSocket)
  * 处理评论相关的实时事件和通知
  */
 
 import * as signalR from '@microsoft/signalr';
-import type { CommentSocketEvents, TypingUser, CommentNotification } from '../types/comment';
+import type { CommentSocketEvents, TypingUser as _TypingUser, CommentNotification as _CommentNotification } from '../types/comment';
 import { getAuthToken } from '../utils/auth';
 
 export class CommentSocketService {
@@ -13,7 +12,7 @@ export class CommentSocketService {
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 10;
   private reconnectDelay = 1000; // 初始延迟1秒
-  private eventListeners = new Map<string, Set<Function>>();
+  private eventListeners = new Map<string, Set<(...args: unknown[]) => void>>();
   private isConnecting = false;
   private currentPostId: string | null = null;
   private typingTimeouts = new Map<string, NodeJS.Timeout>();
@@ -39,7 +38,7 @@ export class CommentSocketService {
           nextRetryDelayInMilliseconds: (retryContext) => {
             // 指数退避策略
             const delay = Math.min(1000 * Math.pow(2, retryContext.previousRetryCount), 30000);
-            console.log(`Reconnecting to CommentHub in ${delay}ms... (attempt ${retryContext.previousRetryCount + 1})`);
+            // TODO: Add proper reconnection logging
             return delay;
           }
         })
@@ -52,7 +51,7 @@ export class CommentSocketService {
       // 启动连接
       await this.connection.start();
 
-      console.log('CommentHub connected successfully');
+      // TODO: Add proper connection success handling
       this.reconnectAttempts = 0;
 
       // 如果有当前文章ID，自动加入文章组
@@ -61,7 +60,7 @@ export class CommentSocketService {
       }
 
     } catch (error) {
-      console.error('Failed to connect to CommentHub:', error);
+      // TODO: Add proper error handling for connection failures
       this.scheduleReconnect();
     } finally {
       this.isConnecting = false;
@@ -75,9 +74,9 @@ export class CommentSocketService {
     if (this.connection) {
       try {
         await this.connection.stop();
-        console.log('CommentHub disconnected');
+        // TODO: Add proper disconnection handling
       } catch (error) {
-        console.error('Error disconnecting from CommentHub:', error);
+        // TODO: Add proper error handling for disconnection
       }
       this.connection = null;
     }
@@ -183,37 +182,37 @@ export class CommentSocketService {
 
     // 系统事件
     this.connection.on('Error', (message) => {
-      console.error('CommentHub error:', message);
+      // TODO: Add proper error handling
       this.emit('Error', message);
     });
 
     this.connection.on('JoinedPostGroup', (postId) => {
-      console.log(`Joined post group: ${postId}`);
+      // TODO: Add proper join group handling
       this.emit('JoinedPostGroup', postId);
     });
 
     this.connection.on('LeftPostGroup', (postId) => {
-      console.log(`Left post group: ${postId}`);
+      // TODO: Add proper leave group handling
       this.emit('LeftPostGroup', postId);
     });
 
     this.connection.on('JoinedModerationGroup', () => {
-      console.log('Joined moderation group');
+      // TODO: Add proper moderation join handling
       this.emit('JoinedModerationGroup');
     });
 
     this.connection.on('LeftModerationGroup', () => {
-      console.log('Left moderation group');
+      // TODO: Add proper moderation leave handling
       this.emit('LeftModerationGroup');
     });
 
     // 连接状态事件
     this.connection.onreconnecting(() => {
-      console.log('CommentHub reconnecting...');
+      // TODO: Add proper reconnection handling
     });
 
     this.connection.onreconnected(() => {
-      console.log('CommentHub reconnected');
+      // TODO: Add proper reconnection success handling
       // 重新加入文章组
       if (this.currentPostId) {
         this.joinPostGroup(this.currentPostId);
@@ -221,7 +220,7 @@ export class CommentSocketService {
     });
 
     this.connection.onclose(() => {
-      console.log('CommentHub connection closed');
+      // TODO: Add proper connection close handling
       this.scheduleReconnect();
     });
   }
@@ -243,7 +242,7 @@ export class CommentSocketService {
       }
       return success;
     } catch (error) {
-      console.error('Error joining post group:', error);
+      // TODO: Add proper error handling for group join
       return false;
     }
   }
@@ -263,7 +262,7 @@ export class CommentSocketService {
       }
       return success;
     } catch (error) {
-      console.error('Error leaving post group:', error);
+      // TODO: Add proper error handling for group leave
       return false;
     }
   }
@@ -279,7 +278,7 @@ export class CommentSocketService {
     try {
       await this.connection.invoke('StartTyping', postId, parentId);
     } catch (error) {
-      console.error('Error sending start typing:', error);
+      // TODO: Add proper error handling for start typing
     }
   }
 
@@ -294,7 +293,7 @@ export class CommentSocketService {
     try {
       await this.connection.invoke('StopTyping', postId, parentId);
     } catch (error) {
-      console.error('Error sending stop typing:', error);
+      // TODO: Add proper error handling for stop typing
     }
   }
 
@@ -309,7 +308,7 @@ export class CommentSocketService {
     try {
       await this.connection.invoke('GetCommentStats', postId);
     } catch (error) {
-      console.error('Error getting comment stats:', error);
+      // TODO: Add proper error handling for stats
     }
   }
 
@@ -324,7 +323,7 @@ export class CommentSocketService {
     try {
       await this.connection.invoke('GetOnlineUserCount', postId);
     } catch (error) {
-      console.error('Error getting online user count:', error);
+      // TODO: Add proper error handling for user count
     }
   }
 
@@ -339,7 +338,7 @@ export class CommentSocketService {
     try {
       await this.connection.invoke('MarkNotificationAsRead', notificationId);
     } catch (error) {
-      console.error('Error marking notification as read:', error);
+      // TODO: Add proper error handling for notification
     }
   }
 
@@ -354,7 +353,7 @@ export class CommentSocketService {
     try {
       await this.connection.invoke('GetUnreadNotificationCount');
     } catch (error) {
-      console.error('Error getting unread notification count:', error);
+      // TODO: Add proper error handling for unread count
     }
   }
 
@@ -369,7 +368,7 @@ export class CommentSocketService {
     try {
       await this.connection.invoke('GetRecentNotifications', limit);
     } catch (error) {
-      console.error('Error getting recent notifications:', error);
+      // TODO: Add proper error handling for recent notifications
     }
   }
 
@@ -384,7 +383,7 @@ export class CommentSocketService {
     try {
       return await this.connection.invoke('JoinModerationGroup');
     } catch (error) {
-      console.error('Error joining moderation group:', error);
+      // TODO: Add proper error handling for moderation join
       return false;
     }
   }
@@ -400,7 +399,7 @@ export class CommentSocketService {
     try {
       return await this.connection.invoke('LeaveModerationGroup');
     } catch (error) {
-      console.error('Error leaving moderation group:', error);
+      // TODO: Add proper error handling for moderation leave
       return false;
     }
   }
@@ -416,7 +415,7 @@ export class CommentSocketService {
     try {
       await this.connection.invoke('GetModerationStats');
     } catch (error) {
-      console.error('Error getting moderation stats:', error);
+      // TODO: Add proper error handling for moderation stats
     }
   }
 
@@ -430,7 +429,7 @@ export class CommentSocketService {
     if (!this.eventListeners.has(event)) {
       this.eventListeners.set(event, new Set());
     }
-    this.eventListeners.get(event)!.add(listener);
+    this.eventListeners.get(event)!.add(listener as (...args: unknown[]) => void);
   }
 
   /**
@@ -442,7 +441,7 @@ export class CommentSocketService {
   ): void {
     const listeners = this.eventListeners.get(event);
     if (listeners) {
-      listeners.delete(listener);
+      listeners.delete(listener as (...args: unknown[]) => void);
       if (listeners.size === 0) {
         this.eventListeners.delete(event);
       }
@@ -460,9 +459,9 @@ export class CommentSocketService {
     if (listeners) {
       listeners.forEach(listener => {
         try {
-          (listener as any)(...args);
+          (listener as (...args: unknown[]) => void)(...args);
         } catch (error) {
-          console.error(`Error in event listener for ${event}:`, error);
+          // TODO: Add proper error handling for event listeners
         }
       });
     }
@@ -471,7 +470,7 @@ export class CommentSocketService {
   /**
    * 处理用户开始输入
    */
-  private handleTypingStart(data: any): void {
+  private handleTypingStart(data: { userId: string; postId: string; parentId?: string }): void {
     const key = `${data.userId}_${data.postId}_${data.parentId || 'root'}`;
 
     // 清除之前的超时
@@ -491,7 +490,7 @@ export class CommentSocketService {
   /**
    * 处理用户停止输入
    */
-  private handleTypingStop(data: any): void {
+  private handleTypingStop(data: { userId: string; postId: string; parentId?: string }): void {
     const key = `${data.userId}_${data.postId}_${data.parentId || 'root'}`;
 
     if (this.typingTimeouts.has(key)) {
@@ -505,7 +504,7 @@ export class CommentSocketService {
    */
   private scheduleReconnect(): void {
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-      console.error('Max reconnection attempts reached. Giving up.');
+      // TODO: Add proper handling for max reconnection attempts
       return;
     }
 

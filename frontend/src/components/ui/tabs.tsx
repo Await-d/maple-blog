@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React from 'react';
 import { cn } from '../../utils/cn';
 
@@ -34,7 +33,7 @@ export const Tabs: React.FC<TabsProps> = ({
           return React.cloneElement(child, {
             value: currentValue,
             onValueChange: handleValueChange
-          } as any);
+          } as Record<string, unknown>);
         }
         return child;
       })}

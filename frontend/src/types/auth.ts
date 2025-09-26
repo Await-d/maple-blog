@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Authentication related TypeScript type definitions
  * These interfaces match the backend DTOs for type safety

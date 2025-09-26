@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * PopularPosts组件测试
  * 测试热门文章组件的渲染、数据获取、筛选和分页功能
@@ -127,8 +126,11 @@ const renderWithProviders = (ui: React.ReactElement) => {
 const mockFetch = vi.fn();
 global.fetch = mockFetch;
 
+// Mock type for useResponsive hook
+type MockUseResponsive = ReturnType<typeof import('../../../hooks/useResponsive').useResponsive>;
+
 describe('PopularPosts', () => {
-  let mockUseResponsive: any;
+  let mockUseResponsive: vi.MockedFunction<() => MockUseResponsive>;
 
   beforeEach(() => {
     mockUseResponsive = vi.fn(() => ({

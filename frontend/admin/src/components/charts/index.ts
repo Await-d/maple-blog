@@ -1,4 +1,3 @@
-// @ts-nocheck
 // Export all chart components
 export { default as StatCard, StatCardVariants, StatCardFormatters } from './StatCard';
 export type { StatCardProps } from './StatCard';
@@ -143,7 +142,7 @@ export const commonChartOptions = {
 // Utility functions
 export const formatChartData = {
   // Convert raw data to chart format
-  toLineChart: (data: Record<string, number[]>, labels: string[]): any => ({
+  toLineChart: (data: Record<string, number[]>, labels: string[]): { labels: string[]; datasets: Array<{ label: string; data: number[]; borderColor: string; backgroundColor: string }> } => ({
     labels,
     datasets: Object.entries(data).map(([key, values], index) => ({
       label: key,
@@ -153,7 +152,7 @@ export const formatChartData = {
     })),
   }),
 
-  toBarChart: (data: Record<string, number[]>, labels: string[]): any => ({
+  toBarChart: (data: Record<string, number[]>, labels: string[]): { labels: string[]; datasets: Array<{ label: string; data: number[]; backgroundColor: string }> } => ({
     labels,
     datasets: Object.entries(data).map(([key, values], index) => ({
       label: key,
@@ -162,7 +161,7 @@ export const formatChartData = {
     })),
   }),
 
-  toPieChart: (data: Record<string, number>): any => ({
+  toPieChart: (data: Record<string, number>): { labels: string[]; datasets: Array<{ data: number[]; backgroundColor: string[] }> } => ({
     labels: Object.keys(data),
     datasets: [{
       data: Object.values(data),
@@ -195,7 +194,7 @@ export const getResponsiveHeight = (breakpoint: keyof typeof responsiveBreakpoin
 
 // Export utility for chart downloads
 export const downloadChart = (
-  chartRef: React.RefObject<any>,
+  chartRef: React.RefObject<{ saveAsImage?: (options: { name?: string; type?: string }) => void; getDataURL?: () => string }>,
   filename: string,
   format: 'png' | 'jpg' | 'svg' = 'png'
 ) => {

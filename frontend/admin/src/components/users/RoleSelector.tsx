@@ -1,11 +1,9 @@
-// @ts-nocheck
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   Modal,
   Card,
   Checkbox,
   Tree,
-  Divider,
   Space,
   Button,
   Input,
@@ -14,8 +12,6 @@ import {
   Alert,
   Collapse,
   Table,
-  Tooltip,
-  Progress,
   Badge,
   Row,
   Col,
@@ -25,33 +21,20 @@ import {
   Avatar,
   message,
   Empty,
+  Statistic,
 } from 'antd';
 import {
   UserOutlined,
   TeamOutlined,
-  SafetyOutlined,
   CrownOutlined,
-  SettingOutlined,
-  SearchOutlined,
-  InfoCircleOutlined,
   WarningOutlined,
-  CheckCircleOutlined,
-  LockOutlined,
-  UnlockOutlined,
-  BranchesOutlined,
   ApartmentOutlined,
   ShieldOutlined,
-  EyeOutlined,
-  EditOutlined,
-  DeleteOutlined,
-  PlusOutlined,
 } from '@ant-design/icons';
-import type { TreeProps, TransferProps } from 'antd';
-import type { ColumnsType } from 'antd/es/table';
 import { useRoleAssignment, useUserManagementStore } from '@/stores/userManagementStore';
-import type { User, Role, Permission } from '@/types';
+import type { Role, Permission } from '@/types';
 
-const { Title, Text, Paragraph } = Typography;
+const { Text } = Typography;
 const { Search } = Input;
 const { Panel } = Collapse;
 const { TabPane } = Tabs;
@@ -220,14 +203,6 @@ const RoleSelector: React.FC<RoleSelectorProps> = () => {
     }
   }, [visible, user]);
 
-  // Filter roles based on search
-  const filteredRoles = useMemo(() => {
-    if (!searchValue) return mockRoles;
-    return mockRoles.filter(role =>
-      role.name.toLowerCase().includes(searchValue.toLowerCase()) ||
-      role.description.toLowerCase().includes(searchValue.toLowerCase())
-    );
-  }, [mockRoles, searchValue]);
 
   // Get role hierarchy display
   const getRoleHierarchy = () => {

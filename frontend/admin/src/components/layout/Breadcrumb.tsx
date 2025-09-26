@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Breadcrumb as AntBreadcrumb, theme, Typography } from 'antd';

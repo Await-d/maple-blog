@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Sidebar component - Dynamic sidebar with latest posts, popular tags, and statistics
  * Features: Mobile collapsible, personalized content, loading states, sticky positioning
@@ -15,10 +14,8 @@ import {
   TrendingUp,
   Users,
   BookOpen,
-  Star,
   Clock,
   ChevronRight,
-  Bookmark,
   Zap,
 } from 'lucide-react';
 import { Button } from '../ui/Button';
@@ -52,7 +49,7 @@ interface SidebarSection {
 
 export const Sidebar: React.FC<SidebarProps> = ({
   className,
-  position = 'right',
+  position: _position = 'right',
   sticky = true,
 }) => {
   const navigate = useNavigate();
@@ -62,7 +59,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const { setSidebarCollapsed } = useHomeStore();
 
   // Local state
-  const [activeSection, setActiveSection] = useState<string>('latest');
+  const [_activeSection, _setActiveSection] = useState<string>('latest');
 
   // API data
   const { data: latestPosts, isLoading: latestLoading, error: latestError } = useLatestPosts(5);

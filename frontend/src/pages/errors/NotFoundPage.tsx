@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * NotFoundPage - 404错误页面
  * 提供友好的错误提示和导航建议

@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * App - Maple Blog应用程序根组件
  * 定义全局布局、路由和状态管理集成

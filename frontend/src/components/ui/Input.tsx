@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Input Component - Reusable input field with validation and accessibility
  * Supports different types, states, and form integration
@@ -109,7 +108,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
     ref
   ) => {
     const [showPassword, setShowPassword] = useState(false);
-    const [isFocused, setIsFocused] = useState(false);
+    const [_isFocused, setIsFocused] = useState(false);
 
     // Generate unique ID if not provided
     const inputId = id || `input-${Math.random().toString(36).substr(2, 9)}`;

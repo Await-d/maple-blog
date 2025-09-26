@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { render, RenderOptions } from '@testing-library/react';
 import { AllTheProviders } from './test-providers';
 

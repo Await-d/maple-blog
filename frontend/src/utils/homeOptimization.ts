@@ -1,10 +1,19 @@
-// @ts-nocheck
 /**
  * 首页性能优化工具集
  * 实现代码分割、懒加载、预加载、图片优化等性能优化策略
  */
 
 import { lazy } from 'react';
+
+// Performance API type extensions
+interface LayoutShift extends PerformanceEntry {
+  value: number;
+  hadRecentInput: boolean;
+}
+
+interface PerformanceEventTiming extends PerformanceEntry {
+  processingStart: number;
+}
 
 // Core Web Vitals 目标阈值
 export const PERFORMANCE_TARGETS = {
@@ -266,7 +275,7 @@ export const performanceMonitoring = {
       new PerformanceObserver((list) => {
         const entries = list.getEntries() as PerformanceEntry[];
         entries.forEach((entry) => {
-          metrics.fid = (entry as any).processingStart - entry.startTime;
+          metrics.fid = (entry as PerformanceEventTiming).processingStart - entry.startTime;
         });
       }).observe({ entryTypes: ['first-input'] });
 
@@ -274,8 +283,8 @@ export const performanceMonitoring = {
       let clsValue = 0;
       new PerformanceObserver((list) => {
         for (const entry of list.getEntries() as PerformanceEntry[]) {
-          if (!(entry as any).hadRecentInput) {
-            clsValue += (entry as any).value;
+          if (!(entry as LayoutShift).hadRecentInput) {
+            clsValue += (entry as LayoutShift).value;
           }
         }
         metrics.cls = clsValue;
@@ -355,7 +364,6 @@ export const initializePerformanceOptimizations = () => {
       performanceMonitoring.reportPerformanceMetrics({
         ...metrics,
         budgetPassed: budgetCheck.passed ? 1 : 0,
-        url: window.location.href,
         timestamp: Date.now()
       });
     }, 5000);

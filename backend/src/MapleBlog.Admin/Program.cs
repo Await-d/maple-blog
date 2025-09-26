@@ -6,6 +6,7 @@ using Microsoft.IdentityModel.Tokens;
 // using Swashbuckle.AspNetCore.SwaggerGen; // Removed - using Scalar instead
 using Serilog;
 using MapleBlog.Infrastructure.Data;
+using MapleBlog.Domain.Interfaces;
 using MapleBlog.Admin.Extensions;
 using MapleBlog.Admin.Middleware;
 using MapleBlog.Admin.Filters;
@@ -35,6 +36,10 @@ var connectionString = builder.Configuration.GetConnectionString("DefaultConnect
     ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
 
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
+    options.UseSqlite(connectionString));
+
+// 添加博客数据库上下文 - 权限系统需要
+builder.Services.AddDbContext<BlogDbContext>(options =>
     options.UseSqlite(connectionString));
 
 // 添加内存缓存和Redis缓存
@@ -93,6 +98,9 @@ builder.Services.AddAuthorization(options =>
         policy.RequireRole("SuperAdmin"));
 });
 
+// 注册基础仓储服务
+builder.Services.AddScoped<IUserRepository, UserRepository>();
+
 // 注册服务
 builder.Services.AddPermissionServices(); // 权限服务
 builder.Services.AddAuditServices(); // 审计服务
@@ -107,7 +115,7 @@ builder.Services.AddScoped<MapleBlog.Admin.Services.DashboardService>();
 builder.Services.Configure<MapleBlog.Admin.Services.SystemMonitorOptions>(
     builder.Configuration.GetSection("SystemMonitor"));
 builder.Services.AddScoped<MapleBlog.Admin.Services.IHealthCheckService, MapleBlog.Admin.Services.HealthCheckService>();
-builder.Services.AddScoped<MapleBlog.Admin.Services.ISystemMonitorService, MapleBlog.Admin.Services.SystemMonitorService>();
+builder.Services.AddSingleton<MapleBlog.Admin.Services.ISystemMonitorService, MapleBlog.Admin.Services.SystemMonitorService>();
 builder.Services.AddHostedService<MapleBlog.Admin.Services.SystemMonitorService>();
 
 // 添加AutoMapper

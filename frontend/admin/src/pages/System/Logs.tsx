@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React, { useState, useEffect } from 'react';
 import {
   Card,
@@ -15,50 +14,36 @@ import {
   Badge,
   Tag,
   Statistic,
-  Alert,
-  Modal,
-  Table,
   List,
-  Tooltip,
   Dropdown,
   Menu,
   notification,
   Progress,
   Timeline,
   Empty,
+  Modal,
 } from 'antd';
 import {
   FileTextOutlined,
   SearchOutlined,
-  FilterOutlined,
   DownloadOutlined,
   ReloadOutlined,
   SettingOutlined,
   ClearOutlined,
   PlayCircleOutlined,
   PauseCircleOutlined,
-  FullscreenOutlined,
   EyeOutlined,
   WarningOutlined,
   BugOutlined,
   InfoCircleOutlined,
   CloseCircleOutlined,
-  CheckCircleOutlined,
   CloudDownloadOutlined,
   BarChartOutlined,
-  PieChartOutlined,
-  LineChartOutlined,
   DatabaseOutlined,
-  ApiOutlined,
-  SecurityScanOutlined,
-  ThunderboltOutlined,
-  UserOutlined,
-  ClockCircleOutlined,
 } from '@ant-design/icons';
 import LogViewer from '../../components/logs/LogViewer';
 import PieChart from '../../components/charts/PieChart';
 import BarChart from '../../components/charts/BarChart';
-import LineChart from '../../components/charts/LineChart';
 import dayjs from 'dayjs';
 
 const { Title, Text, Paragraph } = Typography;
@@ -99,7 +84,6 @@ const SystemLogs: React.FC = () => {
   
   // Modals
   const [exportModalVisible, setExportModalVisible] = useState(false);
-  const [analyticsModalVisible, setAnalyticsModalVisible] = useState(false);
   const [settingsModalVisible, setSettingsModalVisible] = useState(false);
 
   // Analytics data
@@ -266,7 +250,7 @@ const SystemLogs: React.FC = () => {
   };
 
   // Handle log export
-  const handleLogExport = (entries: any[], format: string) => {
+  const handleLogExport = (entries: unknown[], format: string) => {
     const timestamp = dayjs().format('YYYY-MM-DD_HH-mm-ss');
     let content = '';
     let mimeType = 'text/plain';
@@ -278,7 +262,7 @@ const SystemLogs: React.FC = () => {
         mimeType = 'application/json';
         extension = 'json';
         break;
-      case 'csv':
+      case 'csv': {
         const headers = ['Timestamp', 'Level', 'Source', 'Message', 'User ID', 'Request ID'];
         const csvRows = [
           headers.join(','),
@@ -295,6 +279,7 @@ const SystemLogs: React.FC = () => {
         mimeType = 'text/csv';
         extension = 'csv';
         break;
+      }
       default:
         content = entries.map(entry => 
           `${entry.timestamp} [${entry.level.toUpperCase()}] ${entry.source}: ${entry.message}`

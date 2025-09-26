@@ -1,11 +1,10 @@
-// @ts-nocheck
 /**
  * Blog Posts API Service using TanStack Query
  * Handles all blog post-related API communications with the backend
  */
 
 import { useMutation, useQuery, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
-import { AxiosError, AxiosResponse, AxiosProgressEvent } from 'axios';
+import { AxiosError as _AxiosError, AxiosResponse, AxiosProgressEvent } from 'axios';
 import {
   Post,
   PostListResponse,
@@ -17,14 +16,14 @@ import {
   BulkOperationResult,
   ContentRevision,
   AutoSaveDraft,
-  FileUploadRequest,
+  FileUploadRequest as _FileUploadRequest,
   FileUploadResponse,
   ContentExport,
   ContentImport,
   BlogAnalytics,
   ApiResponse,
   OperationResult,
-  OperationResultWithData,
+  OperationResultWithData as _OperationResultWithData,
   DEFAULT_PAGE_SIZE,
 } from '../../types/blog';
 import { apiClient } from '../api/client';
@@ -283,7 +282,7 @@ export const blogPostsApi = {
     const response = await apiClient.post(API_ENDPOINTS.EXPORT.POSTS, exportConfig, {
       responseType: 'blob',
     });
-    return response.data;
+    return response.data as Blob;
   },
 
   importContent: async (importConfig: ContentImport): Promise<OperationResult> => {
@@ -312,8 +311,8 @@ export const blogPostsApi = {
     return handleApiResponse(response);
   },
 
-  getPostAnalytics: async (postId: string, period: string = 'month'): Promise<any> => {
-    const response = await apiClient.get<ApiResponse<any>>(
+  getPostAnalytics: async (postId: string, period: string = 'month'): Promise<BlogAnalytics> => {
+    const response = await apiClient.get<ApiResponse<BlogAnalytics>>(
       `${API_ENDPOINTS.ANALYTICS.POSTS}/${postId}?period=${period}`
     );
     return handleApiResponse(response);
@@ -440,7 +439,7 @@ export const useBlogPostMutations = () => {
   // Create post mutation
   const createPostMutation = useMutation({
     mutationFn: blogPostsApi.createPost,
-    onMutate: async (newPost) => {
+    onMutate: async (_newPost) => {
       await queryClient.cancelQueries({ queryKey: BLOG_QUERY_KEYS.POSTS });
       blogStore.setLoadingState('savingPost', true);
     },
@@ -498,7 +497,7 @@ export const useBlogPostMutations = () => {
   // Delete post mutation
   const deletePostMutation = useMutation({
     mutationFn: blogPostsApi.deletePost,
-    onMutate: async (postId) => {
+    onMutate: async (_postId) => {
       blogStore.setLoadingState('deletingPost', true);
     },
     onSuccess: (_, postId) => {

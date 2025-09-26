@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * RegisterPage - Registration page with form and layout
  * Provides complete registration experience with navigation and SEO
@@ -142,7 +141,7 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ className }) => {
           <div className="mt-8 text-center">
             <div className="text-sm text-gray-600 space-y-2">
               <p>
-                By creating an account, you're joining a community of passionate writers
+                By creating an account, you&apos;re joining a community of passionate writers
                 and readers from around the world.
               </p>
               <a

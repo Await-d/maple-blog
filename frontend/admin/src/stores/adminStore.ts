@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { create } from 'zustand';
 import { devtools, persist, subscribeWithSelector } from 'zustand/middleware';
 import { immer } from 'zustand/middleware/immer';
@@ -235,7 +234,7 @@ export const useAdminStore = create<AdminState>()(
           },
 
           markAllNotificationsAsRead: () => {
-            set((state) => {
+            set((_state) => {
               // Could add bulk read functionality
               console.log('Marking all notifications as read');
             });

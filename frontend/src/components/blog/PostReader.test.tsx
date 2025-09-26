@@ -1,6 +1,5 @@
-// @ts-nocheck
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '../../../test/utils';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { render, screen, fireEvent, waitFor } from '../../../test/utils';
 import userEvent from '@testing-library/user-event';
 import { PostReader } from './PostReader';
 import { createMockPost } from '../../../test/utils';
@@ -10,7 +9,7 @@ vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual('react-router-dom');
   return {
     ...actual,
-    Link: ({ children, to, ...props }: any) => <a href={to} {...props}>{children}</a>
+    Link: ({ children, to, ...props }: React.ComponentProps<'a'> & { to: string }) => <a href={to} {...props}>{children}</a>
   };
 });
 

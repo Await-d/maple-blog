@@ -1,10 +1,9 @@
-// @ts-nocheck
 import React from 'react';
-import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { BrowserRouter, MemoryRouter } from 'react-router-dom';
-import { vi, describe, it, expect, beforeEach, afterEach, Mock } from 'vitest';
+import { MemoryRouter } from 'react-router-dom';
+import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import '@testing-library/jest-dom';
 
 import Dashboard from '../Dashboard';
@@ -51,7 +50,7 @@ vi.mock('../../hooks/usePermissions', () => ({
 }));
 
 vi.mock('../../components/charts/StatCard', () => ({
-  default: ({ title, value, loading }: any) => (
+  default: ({ title, value, loading }: { title: string; value: string | number; loading: boolean }) => (
     <div data-testid={`stat-card-${title.toLowerCase()}`}>
       {loading ? (
         <span data-testid="stat-loading">Loading...</span>
@@ -64,22 +63,22 @@ vi.mock('../../components/charts/StatCard', () => ({
     </div>
   ),
   StatCardVariants: {
-    UserStats: ({ title, value, loading }: any) => (
+    UserStats: ({ title, value, loading }: { title: string; value: string | number; loading: boolean }) => (
       <div data-testid="user-stats-card">
         {loading ? 'Loading...' : `${title}: ${value}`}
       </div>
     ),
-    ContentStats: ({ title, value, loading }: any) => (
+    ContentStats: ({ title, value, loading }: { title: string; value: string | number; loading: boolean }) => (
       <div data-testid="content-stats-card">
         {loading ? 'Loading...' : `${title}: ${value}`}
       </div>
     ),
-    SystemStats: ({ title, value, loading }: any) => (
+    SystemStats: ({ title, value, loading }: { title: string; value: string | number; loading: boolean }) => (
       <div data-testid="system-stats-card">
         {loading ? 'Loading...' : `${title}: ${value}`}
       </div>
     ),
-    PerformanceStats: ({ title, value, loading }: any) => (
+    PerformanceStats: ({ title, value, loading }: { title: string; value: string | number; loading: boolean }) => (
       <div data-testid="performance-stats-card">
         {loading ? 'Loading...' : `${title}: ${value}`}
       </div>
@@ -93,7 +92,7 @@ vi.mock('../../components/charts/StatCard', () => ({
 }));
 
 vi.mock('../../components/charts/LineChart', () => ({
-  default: ({ title, data, loading, onRefresh }: any) => (
+  default: ({ title, data, loading, onRefresh }: { title: string; data: unknown; loading: boolean; onRefresh: () => void }) => (
     <div data-testid={`line-chart-${title.toLowerCase()}`}>
       {loading ? (
         <span data-testid="chart-loading">Loading chart...</span>
@@ -112,7 +111,7 @@ vi.mock('../../components/charts/LineChart', () => ({
 
 // Mock dayjs
 vi.mock('dayjs', () => {
-  const mockDayjs = (date?: any) => ({
+  const mockDayjs = (_date?: unknown) => ({
     format: (format: string) => {
       if (format === 'YYYY-MM-DD HH:mm:ss') return '2024-01-15 10:30:00';
       return '2024-01-15';

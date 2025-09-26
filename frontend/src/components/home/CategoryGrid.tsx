@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * CategoryGrid component - Display categories in an interactive grid layout
  * Features: Hierarchical categories, icons, post counts, hover effects

@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React from 'react';
 import { Card, Typography, Button, Space } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';

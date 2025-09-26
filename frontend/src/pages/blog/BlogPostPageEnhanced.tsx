@@ -3,7 +3,7 @@
  * Demonstrates the full SEO solution for React 19
  */
 
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useSEO, generateBlogPostStructuredData } from '@/hooks/useSEO';
 

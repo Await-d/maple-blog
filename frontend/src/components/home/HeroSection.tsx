@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * HeroSection component - Main hero section with featured posts carousel
  * Features: Auto-play carousel, parallax effects, responsive design, touch gestures
@@ -77,11 +76,15 @@ const PostSlide: React.FC<PostSlideProps> = ({
   className,
 }) => {
   const formatDate = (dateString: string): string => {
-    return new Date(dateString).toLocaleDateString('zh-CN', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    });
+    try {
+      return new Date(dateString).toLocaleDateString('zh-CN', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      });
+    } catch {
+      return '未知日期';
+    }
   };
 
   return (
@@ -145,24 +148,24 @@ const PostSlide: React.FC<PostSlideProps> = ({
               <div className="flex items-center space-x-2">
                 <User size={16} />
                 <Link
-                  to={`/author/${post.author.userName}`}
+                  to={`/author/${post.author?.userName || 'unknown'}`}
                   className="hover:text-white transition-colors"
                 >
-                  {post.author.displayName || post.author.userName}
+                  {post.author?.displayName || post.author?.userName || '未知作者'}
                 </Link>
               </div>
               <div className="flex items-center space-x-2">
                 <Calendar size={16} />
-                <span>{formatDate(post.publishedAt)}</span>
+                <span>{formatDate(post.publishedAt || '')}</span>
               </div>
               <div className="flex items-center space-x-2">
                 <Eye size={16} />
-                <span>{post.viewCount.toLocaleString()} 次浏览</span>
+                <span>{(post.viewCount || 0).toLocaleString()} 次浏览</span>
               </div>
-              {post.commentCount > 0 && (
+              {(post.commentCount || 0) > 0 && (
                 <div className="flex items-center space-x-2">
                   <MessageCircle size={16} />
-                  <span>{post.commentCount} 评论</span>
+                  <span>{post.commentCount || 0} 评论</span>
                 </div>
               )}
             </div>
@@ -171,7 +174,7 @@ const PostSlide: React.FC<PostSlideProps> = ({
             <div className="flex items-center space-x-4">
               <Button
                 as={Link}
-                to={`/post/${post.slug}`}
+                to={`/post/${post.slug || 'unknown'}`}
                 variant="primary"
                 size="lg"
                 className="bg-white/20 backdrop-blur-sm border-white/30 text-white hover:bg-white/30"
@@ -184,7 +187,7 @@ const PostSlide: React.FC<PostSlideProps> = ({
                 size="lg"
                 className="text-white border-white/30 hover:bg-white/10"
                 onClick={() => {
-                  if (navigator.share) {
+                  if (navigator.share && post.title && post.slug) {
                     navigator.share({
                       title: post.title,
                       url: `/post/${post.slug}`,
@@ -232,11 +235,13 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
   const [touchEnd, setTouchEnd] = useState<number | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // API data
+  // API data with error handling
   const { data: featuredPosts, isLoading, error } = useFeaturedPosts(5);
 
-  const posts = featuredPosts || [];
-  const currentSlide = heroSection.currentSlide;
+  // Ensure posts is always an array and handle edge cases
+  const posts = Array.isArray(featuredPosts) ? featuredPosts : [];
+  const safeCurrentSlide = Math.max(0, Math.min(heroSection.currentSlide, posts.length - 1));
+  const currentSlide = posts.length > 0 ? safeCurrentSlide : 0;
   const autoPlay = heroSection.autoPlay && !accessibility.reduceMotion;
   const isPlaying = heroSection.isPlaying && !accessibility.reduceMotion;
 
@@ -377,26 +382,33 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
     >
       {/* Slides */}
       <div className="relative h-full w-full">
-        {posts.map((post, index) => (
-          <div
-            key={post.id}
-            className={cn(
-              'absolute inset-0 transition-opacity duration-1000 ease-in-out',
-              index === currentSlide ? 'opacity-100 z-10' : 'opacity-0 z-0'
-            )}
-            role="tabpanel"
-            aria-label={`幻灯片 ${index + 1}: ${post.title}`}
-            aria-hidden={index !== currentSlide}
-          >
-            <PostSlide
-              post={post}
-              isActive={index === currentSlide}
-              onReadMore={() => {
-                // Track interaction if needed
-              }}
-            />
-          </div>
-        ))}
+        {posts.map((post, index) => {
+          // Ensure post object has required properties
+          if (!post || !post.id || !post.title) {
+            return null;
+          }
+
+          return (
+            <div
+              key={post.id}
+              className={cn(
+                'absolute inset-0 transition-opacity duration-1000 ease-in-out',
+                index === currentSlide ? 'opacity-100 z-10' : 'opacity-0 z-0'
+              )}
+              role="tabpanel"
+              aria-label={`幻灯片 ${index + 1}: ${post.title}`}
+              aria-hidden={index !== currentSlide}
+            >
+              <PostSlide
+                post={post}
+                isActive={index === currentSlide}
+                onReadMore={() => {
+                  // Track interaction if needed
+                }}
+              />
+            </div>
+          );
+        })}
       </div>
 
       {/* Controls */}

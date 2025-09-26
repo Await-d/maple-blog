@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Navigation component - Main site navigation with responsive design
  * Features: Active link highlighting, category dropdown, mobile-friendly layout
@@ -91,7 +90,7 @@ export const Navigation: React.FC<NavigationProps> = ({
     return location.pathname.startsWith(href);
   };
 
-  const handleItemClick = (href: string) => {
+  const handleItemClick = (_href: string) => {
     if (onNavigate) {
       onNavigate();
     }

@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React, { useState, useCallback, useEffect } from 'react';
 import {
   Form,
@@ -337,7 +336,7 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
   }, [config, form]);
 
   // Handle form value changes
-  const handleFormChange = useCallback((_changedValues: any, allValues: any) => {
+  const handleFormChange = useCallback((_changedValues: Record<string, unknown>, allValues: Record<string, unknown>) => {
     setIsDirty(true);
     onChange?.(allValues);
   }, [onChange]);
@@ -371,7 +370,7 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
       message.success('Configuration saved successfully');
     } catch (error: unknown) {
       console.error('Save error:', error);
-      if ((error as any).errorFields) {
+      if ((error as { errorFields?: unknown[] }).errorFields) {
         message.error('Please fix form validation errors');
       } else {
         message.error('Failed to save configuration');
@@ -424,7 +423,18 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
   }, [form]);
 
   // Render form field
-  const renderField = useCallback((field: any, section: string) => {
+  const renderField = useCallback((field: {
+    key: string;
+    label: string;
+    type: string;
+    tooltip?: string;
+    required?: boolean;
+    validation?: Record<string, unknown>;
+    options?: Array<{ label: string; value: unknown }>;
+    dependsOn?: string;
+    dependsOnValue?: unknown;
+    warning?: string;
+  }, section: string) => {
     const { key, label, type, tooltip, required, validation, options, dependsOn, dependsOnValue, warning, ...fieldProps } = field;
 
     // Check if field should be visible
@@ -485,7 +495,7 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
       case 'select':
         fieldComponent = (
           <Select disabled={readOnly} {...fieldProps}>
-            {options?.map((option: any) => (
+            {options?.map((option: { label: string; value: unknown }) => (
               <Option key={option.value} value={option.value}>
                 {option.label}
               </Option>

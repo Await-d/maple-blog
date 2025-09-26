@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Footer component - Site footer with links, social media, and site information
  * Features: Multi-column layout, responsive design, social links, newsletter signup
@@ -14,8 +13,6 @@ import {
   Rss,
   Heart,
   ArrowUp,
-  MapPin,
-  Phone,
   Send,
   ExternalLink,
 } from 'lucide-react';

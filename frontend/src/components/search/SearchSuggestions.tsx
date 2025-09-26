@@ -1,10 +1,9 @@
-// @ts-nocheck
 /**
  * SearchSuggestions Component
  * 搜索建议组件 - 显示自动完成建议、搜索历史、热门搜索
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Search,
   Clock,
@@ -92,39 +91,8 @@ export default function SearchSuggestions({
     loadEnhancedSuggestions();
   }, [query]);
 
-  // 键盘导航
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      const allItems = getAllSelectableItems();
-
-      switch (e.key) {
-        case 'ArrowDown':
-          e.preventDefault();
-          setSelectedIndex(prev => (prev + 1) % allItems.length);
-          break;
-        case 'ArrowUp':
-          e.preventDefault();
-          setSelectedIndex(prev => (prev - 1 + allItems.length) % allItems.length);
-          break;
-        case 'Enter':
-          e.preventDefault();
-          if (selectedIndex >= 0 && allItems[selectedIndex]) {
-            onSelect(allItems[selectedIndex].text);
-          }
-          break;
-        case 'Escape':
-          e.preventDefault();
-          onClose();
-          break;
-      }
-    };
-
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [selectedIndex, onSelect, onClose]);
-
   // 获取所有可选项
-  const getAllSelectableItems = (): { text: string; type: string }[] => {
+  const getAllSelectableItems = useCallback((): { text: string; type: string }[] => {
     const items: { text: string; type: string }[] = [];
 
     // 添加历史记录
@@ -154,7 +122,38 @@ export default function SearchSuggestions({
     });
 
     return items;
-  };
+  }, [query, history, popularQueries, suggestions, enhancedSuggestions]);
+
+  // 键盘导航
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const allItems = getAllSelectableItems();
+
+      switch (e.key) {
+        case 'ArrowDown':
+          e.preventDefault();
+          setSelectedIndex(prev => (prev + 1) % allItems.length);
+          break;
+        case 'ArrowUp':
+          e.preventDefault();
+          setSelectedIndex(prev => (prev - 1 + allItems.length) % allItems.length);
+          break;
+        case 'Enter':
+          e.preventDefault();
+          if (selectedIndex >= 0 && allItems[selectedIndex]) {
+            onSelect(allItems[selectedIndex].text);
+          }
+          break;
+        case 'Escape':
+          e.preventDefault();
+          onClose();
+          break;
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [selectedIndex, onSelect, onClose, getAllSelectableItems]);
 
   // 构建建议分组
   const buildSuggestionGroups = (): SuggestionGroup[] => {

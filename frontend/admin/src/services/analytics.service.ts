@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { ApiService } from './api';
 import type {
   AnalyticsOverview,
@@ -24,7 +23,22 @@ import type {
   AnalyticsFilter,
   ExportOptions,
   AnalyticsAlert,
-  TimeRange
+  TimeRange,
+  UserCohortData,
+  UserRetentionData,
+  ContentTrendsData,
+  AttributionData,
+  SearchConsoleData,
+  PageRankingsData,
+  PageSpeedData,
+  CoreWebVitalsData,
+  TransactionData,
+  ProductPerformanceData,
+  CustomReportResult,
+  ComparisonResult,
+  ForecastData,
+  AnomalyData,
+  TrendAnalysisData
 } from '@/types/analytics';
 
 class AnalyticsService {
@@ -69,11 +83,11 @@ class AnalyticsService {
     return ApiService.get(`${this.baseUrl}/users/activity`, filter);
   }
 
-  async getUserCohorts(filter?: AnalyticsFilter): Promise<any> {
+  async getUserCohorts(filter?: AnalyticsFilter): Promise<UserCohortData[]> {
     return ApiService.get(`${this.baseUrl}/users/cohorts`, filter);
   }
 
-  async getUserRetention(filter?: AnalyticsFilter): Promise<any> {
+  async getUserRetention(filter?: AnalyticsFilter): Promise<UserRetentionData> {
     return ApiService.get(`${this.baseUrl}/users/retention`, filter);
   }
 
@@ -94,11 +108,11 @@ class AnalyticsService {
     return ApiService.get(`${this.baseUrl}/content/engagement`, filter);
   }
 
-  async getContentTrends(filter?: AnalyticsFilter): Promise<any> {
+  async getContentTrends(filter?: AnalyticsFilter): Promise<ContentTrendsData> {
     return ApiService.get(`${this.baseUrl}/content/trends`, filter);
   }
 
-  async getSocialMetrics(filter?: AnalyticsFilter): Promise<any> {
+  async getSocialMetrics(filter?: AnalyticsFilter): Promise<EngagementMetrics> {
     return ApiService.get(`${this.baseUrl}/content/social`, filter);
   }
 
@@ -111,7 +125,7 @@ class AnalyticsService {
     return ApiService.get(`${this.baseUrl}/conversions/goals`, filter);
   }
 
-  async getAttributionData(filter?: AnalyticsFilter): Promise<any> {
+  async getAttributionData(filter?: AnalyticsFilter): Promise<AttributionData> {
     return ApiService.get(`${this.baseUrl}/conversions/attribution`, filter);
   }
 
@@ -137,11 +151,11 @@ class AnalyticsService {
     return ApiService.get(`${this.baseUrl}/seo/metrics`, filter);
   }
 
-  async getSearchConsoleData(filter?: AnalyticsFilter): Promise<any> {
+  async getSearchConsoleData(filter?: AnalyticsFilter): Promise<SearchConsoleData> {
     return ApiService.get(`${this.baseUrl}/seo/search-console`, filter);
   }
 
-  async getPageRankings(filter?: AnalyticsFilter): Promise<any> {
+  async getPageRankings(filter?: AnalyticsFilter): Promise<PageRankingsData[]> {
     return ApiService.get(`${this.baseUrl}/seo/rankings`, filter);
   }
 
@@ -150,11 +164,11 @@ class AnalyticsService {
     return ApiService.get(`${this.baseUrl}/performance/metrics`, filter);
   }
 
-  async getPageSpeedData(url?: string): Promise<any> {
+  async getPageSpeedData(url?: string): Promise<PageSpeedData> {
     return ApiService.get(`${this.baseUrl}/performance/pagespeed`, { url });
   }
 
-  async getCoreWebVitals(filter?: AnalyticsFilter): Promise<any> {
+  async getCoreWebVitals(filter?: AnalyticsFilter): Promise<CoreWebVitalsData> {
     return ApiService.get(`${this.baseUrl}/performance/web-vitals`, filter);
   }
 
@@ -163,11 +177,11 @@ class AnalyticsService {
     return ApiService.get(`${this.baseUrl}/revenue/metrics`, filter);
   }
 
-  async getTransactionData(filter?: AnalyticsFilter): Promise<any> {
+  async getTransactionData(filter?: AnalyticsFilter): Promise<TransactionData[]> {
     return ApiService.get(`${this.baseUrl}/revenue/transactions`, filter);
   }
 
-  async getProductPerformance(filter?: AnalyticsFilter): Promise<any> {
+  async getProductPerformance(filter?: AnalyticsFilter): Promise<ProductPerformanceData[]> {
     return ApiService.get(`${this.baseUrl}/revenue/products`, filter);
   }
 
@@ -192,7 +206,7 @@ class AnalyticsService {
     return ApiService.delete(`${this.baseUrl}/reports/${reportId}`);
   }
 
-  async runCustomReport(reportId: string, filter?: AnalyticsFilter): Promise<any> {
+  async runCustomReport(reportId: string, filter?: AnalyticsFilter): Promise<CustomReportResult> {
     return ApiService.post(`${this.baseUrl}/reports/${reportId}/run`, filter);
   }
 
@@ -234,7 +248,7 @@ class AnalyticsService {
     range1: { start: string; end: string },
     range2: { start: string; end: string },
     metrics: string[]
-  ): Promise<any> {
+  ): Promise<ComparisonResult> {
     return ApiService.post(`${this.baseUrl}/compare/time`, {
       range1,
       range2,
@@ -246,7 +260,7 @@ class AnalyticsService {
     segments: string[],
     metrics: string[],
     filter?: AnalyticsFilter
-  ): Promise<any> {
+  ): Promise<ComparisonResult> {
     return ApiService.post(`${this.baseUrl}/compare/segments`, {
       segments,
       metrics,
@@ -259,7 +273,7 @@ class AnalyticsService {
     metric: string,
     period: number,
     filter?: AnalyticsFilter
-  ): Promise<any> {
+  ): Promise<ForecastData> {
     return ApiService.post(`${this.baseUrl}/predict/forecast`, {
       metric,
       period,
@@ -271,7 +285,7 @@ class AnalyticsService {
     metrics: string[],
     sensitivity: 'low' | 'medium' | 'high',
     filter?: AnalyticsFilter
-  ): Promise<any> {
+  ): Promise<AnomalyData[]> {
     return ApiService.post(`${this.baseUrl}/predict/anomalies`, {
       metrics,
       sensitivity,
@@ -282,7 +296,7 @@ class AnalyticsService {
   async getTrendAnalysis(
     metric: string,
     filter?: AnalyticsFilter
-  ): Promise<any> {
+  ): Promise<TrendAnalysisData> {
     return ApiService.get(`${this.baseUrl}/predict/trends`, {
       metric,
       ...filter
@@ -311,10 +325,11 @@ class AnalyticsService {
         }).format(value);
       case 'percentage':
         return `${(value * 100).toFixed(2)}%`;
-      case 'duration':
+      case 'duration': {
         const minutes = Math.floor(value / 60);
         const seconds = value % 60;
         return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+      }
       case 'number':
         return new Intl.NumberFormat('zh-CN').format(value);
       default:

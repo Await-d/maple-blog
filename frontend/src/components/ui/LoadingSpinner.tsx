@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * LoadingSpinner - 通用加载动画组件
  * 提供多种尺寸和样式的加载动画

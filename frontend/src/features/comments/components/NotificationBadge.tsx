@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * 通知徽章组件
  * 显示未读通知数量和通知列表
@@ -28,7 +27,7 @@ const NotificationBadge: React.FC<NotificationBadgeProps> = ({
     notifications,
     unreadCount,
     loading,
-    permission,
+    permission: _permission,
     soundEnabled,
     hasUnread,
     markAsRead,

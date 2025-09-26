@@ -3,6 +3,7 @@
  * Provides a context for managing SEO metadata across the application
  */
 
+/* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useSEO } from '@/hooks/useSEO';
 
@@ -30,7 +31,7 @@ interface SEOConfig {
   twitterCreator?: string;
   canonical?: string;
   robots?: string;
-  structuredData?: Record<string, any>;
+  structuredData?: Record<string, unknown>;
 }
 
 const SEOContext = createContext<SEOContextType | undefined>(undefined);
@@ -90,12 +91,12 @@ interface DocumentHeadProps {
 export function DocumentHead({ title, description, keywords }: DocumentHeadProps) {
   const context = useContext(SEOContext);
 
+  // Always call useSEO hook - it will handle the logic internally
+  useSEO({ title, description, keywords });
+
   useEffect(() => {
     if (context) {
       context.updateSEO({ title, description, keywords });
-    } else {
-      // Fallback if not in provider
-      useSEO({ title, description, keywords });
     }
 
     return () => {

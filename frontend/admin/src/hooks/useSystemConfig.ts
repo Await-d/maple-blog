@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { useState, useCallback, useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { message } from 'antd';
@@ -31,10 +30,10 @@ interface UseSystemConfigReturn {
   saveAsTemplate: (name: string, description: string) => Promise<void>;
 
   // Conflict resolution
-  resolveConflict: (conflictId: string, resolution: any) => Promise<void>;
+  resolveConflict: (conflictId: string, resolution: Record<string, unknown>) => Promise<void>;
 
   // Impact analysis
-  analyzeImpact: (config: Partial<SystemConfiguration>) => Promise<any>;
+  analyzeImpact: (config: Partial<SystemConfiguration>) => Promise<Record<string, unknown>>;
 }
 
 export const useSystemConfig = (): UseSystemConfigReturn => {
@@ -70,13 +69,13 @@ export const useSystemConfig = (): UseSystemConfigReturn => {
   // Save configuration mutation
   const saveConfigMutation = useMutation({
     mutationFn: systemConfigService.saveConfiguration,
-    onSuccess: (data) => {
+    onSuccess: (_data) => {
       queryClient.invalidateQueries({ queryKey: ['systemConfigs'] });
       queryClient.invalidateQueries({ queryKey: ['configHistory'] });
       message.success('Configuration saved successfully');
       setValidationErrors([]);
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       console.error('Failed to save configuration:', error);
       if (error.validationErrors) {
         setValidationErrors(error.validationErrors);
@@ -172,7 +171,7 @@ export const useSystemConfig = (): UseSystemConfigReturn => {
 
   // Conflict resolution mutation
   const resolveConflictMutation = useMutation({
-    mutationFn: ({ conflictId, resolution }: { conflictId: string; resolution: any }) =>
+    mutationFn: ({ conflictId, resolution }: { conflictId: string; resolution: Record<string, unknown> }) =>
       systemConfigService.resolveConflict(conflictId, resolution),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['systemConfigs'] });
@@ -225,7 +224,7 @@ export const useSystemConfig = (): UseSystemConfigReturn => {
     await saveTemplateMutation.mutateAsync({ name, description });
   }, [saveTemplateMutation, currentConfig]);
 
-  const resolveConflict = useCallback(async (conflictId: string, resolution: any) => {
+  const resolveConflict = useCallback(async (conflictId: string, resolution: Record<string, unknown>) => {
     await resolveConflictMutation.mutateAsync({ conflictId, resolution });
   }, [resolveConflictMutation]);
 

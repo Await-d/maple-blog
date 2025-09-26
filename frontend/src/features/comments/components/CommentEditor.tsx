@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * 评论编辑器组件
  * 支持纯文本和富文本编辑，Markdown预览
@@ -167,9 +166,7 @@ const CommentEditor = forwardRef<CommentEditorRef, CommentEditorProps>(({
 
         const file = item.getAsFile();
         if (file) {
-          // 这里应该触发图片上传流程
-          console.log('Pasted image file:', file);
-          // 可以通过props传入uploadImage函数处理
+          // TODO: Implement image upload flow - can pass uploadImage function via props
         }
         break;
       }

@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Archive API Service
  * 归档功能相关的API服务
@@ -18,7 +17,6 @@ import {
   PaginatedResponse,
   DateRange,
   ArchiveType,
-  ArchiveGroupBy,
 } from '@/types/search';
 
 class ArchiveApiService {

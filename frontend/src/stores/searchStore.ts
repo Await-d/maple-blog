@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { create } from 'zustand';
 import { persist, subscribeWithSelector } from 'zustand/middleware';
 import { immer } from 'zustand/middleware/immer';
@@ -7,7 +6,6 @@ import {
   ArchiveState,
   SearchRequest,
   SearchResponse,
-  SearchResult,
   SearchHistory,
   AutoCompleteSuggestion,
   SearchFilters,
@@ -16,6 +14,8 @@ import {
   CalendarArchive,
   CategoryTree,
   TagCloud,
+  ContentType,
+  PostStatus,
   DEFAULT_PAGE_SIZE,
   DEFAULT_SORT_OPTION,
   DEFAULT_SEARCH_CONFIG,
@@ -24,9 +24,9 @@ import {
 // 搜索状态接口
 interface SearchStore extends SearchState {
   // 搜索操作
-  setQuery: (query: string) => void;
+  setQuery: (_query: string) => void;
   setFilters: (filters: SearchFilters) => void;
-  updateFilter: (key: keyof SearchFilters, value: any) => void;
+  updateFilter: (key: keyof SearchFilters, value: unknown) => void;
   clearFilters: () => void;
   setSortBy: (sortBy: SortOption, direction?: 'asc' | 'desc') => void;
   setPage: (page: number) => void;
@@ -37,11 +37,11 @@ interface SearchStore extends SearchState {
   retry: () => Promise<void>;
 
   // 自动完成和建议
-  loadAutoComplete: (query: string) => Promise<void>;
+  loadAutoComplete: (_query: string) => Promise<void>;
   clearAutoComplete: () => void;
 
   // 搜索历史
-  addToHistory: (query: string, resultCount: number, filters?: SearchFilters) => void;
+  addToHistory: (_query: string, resultCount: number, filters?: SearchFilters) => void;
   removeFromHistory: (id: string) => void;
   clearHistory: () => void;
 
@@ -60,7 +60,7 @@ interface SearchStore extends SearchState {
 interface ArchiveStore extends ArchiveState {
   // 数据加载
   loadTimelineArchive: (year?: number) => Promise<void>;
-  loadCalendarArchive: (year: number) => Promise<void>;
+  loadCalendarArchive: (_year: number) => Promise<void>;
   loadCategoryTree: () => Promise<void>;
   loadTagCloud: () => Promise<void>;
 
@@ -139,13 +139,32 @@ export const useSearchStore = create<SearchStore>()(
           });
         },
 
-        updateFilter: (key: keyof SearchFilters, value: any) => {
+        updateFilter: (key: keyof SearchFilters, value: unknown) => {
           set((state) => {
             if (value === undefined || value === null ||
                 (Array.isArray(value) && value.length === 0)) {
               delete state.filters[key];
             } else {
-              state.filters[key] = value;
+              // Type-safe assignment for filter values
+              switch (key) {
+                case 'categories':
+                case 'tags':
+                case 'authors':
+                  state.filters[key] = value as string[];
+                  break;
+                case 'dateFrom':
+                case 'dateTo':
+                  state.filters[key] = value as string;
+                  break;
+                case 'contentType':
+                  state.filters[key] = value as ContentType[];
+                  break;
+                case 'status':
+                  state.filters[key] = value as PostStatus[];
+                  break;
+                default:
+                  (state.filters as Record<string, unknown>)[key] = value;
+              }
             }
             state.page = 1; // 重置页码
           });
@@ -301,7 +320,7 @@ export const useSearchStore = create<SearchStore>()(
         // 搜索历史
         addToHistory: (query: string, resultCount: number, filters?: SearchFilters) => {
           set((draft) => {
-            const existingIndex = draft.history.findIndex((h: any) => h.query === query);
+            const existingIndex = draft.history.findIndex((h: SearchHistory) => h.query === query);
             const historyItem: SearchHistory = {
               id: Date.now().toString(),
               query,
@@ -326,7 +345,7 @@ export const useSearchStore = create<SearchStore>()(
 
         removeFromHistory: (id: string) => {
           set((draft) => {
-            draft.history = draft.history.filter((h: any) => h.id !== id);
+            draft.history = draft.history.filter((h: SearchHistory) => h.id !== id);
           });
         },
 
@@ -397,7 +416,7 @@ export const useSearchStore = create<SearchStore>()(
 // 创建归档状态管理
 export const useArchiveStore = create<ArchiveStore>()(
   subscribeWithSelector(
-    immer((set, get) => ({
+    immer((set, _get) => ({
       ...initialArchiveState,
 
       // 数据加载
@@ -560,12 +579,12 @@ async function mockSearchApi(request: SearchRequest): Promise<SearchResponse> {
   };
 }
 
-async function mockAutoCompleteApi(query: string): Promise<AutoCompleteSuggestion[]> {
+async function mockAutoCompleteApi(_query: string): Promise<AutoCompleteSuggestion[]> {
   await new Promise(resolve => setTimeout(resolve, 100));
   return [];
 }
 
-async function mockTimelineArchiveApi(year?: number): Promise<TimelineArchive> {
+async function mockTimelineArchiveApi(_year?: number): Promise<TimelineArchive> {
   await new Promise(resolve => setTimeout(resolve, 300));
   return {
     years: [],

@@ -1,11 +1,10 @@
-// @ts-nocheck
 /**
  * Blog Categories API Service using TanStack Query
  * Handles all category-related API communications with the backend
  */
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AxiosError, AxiosResponse } from 'axios';
+import { AxiosError as _AxiosError, AxiosResponse } from 'axios';
 import {
   Category,
   CategoryListResponse,
@@ -316,7 +315,7 @@ export const useCategoryMutations = () => {
       queryClient.invalidateQueries({ queryKey: CATEGORY_QUERY_KEYS.CATEGORIES });
       queryClient.invalidateQueries({ queryKey: CATEGORY_QUERY_KEYS.CATEGORY_TREE });
     },
-    onError: (error, variables) => {
+    onError: (error, _variables) => {
       blogStore.setError(error instanceof Error ? error.message : 'Failed to reorder categories');
       // Invalidate to revert optimistic update
       queryClient.invalidateQueries({ queryKey: CATEGORY_QUERY_KEYS.CATEGORY_TREE });

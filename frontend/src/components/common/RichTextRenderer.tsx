@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * 富文本渲染器组件
  * 支持Markdown渲染、代码高亮、安全过滤等
@@ -7,6 +6,16 @@
 
 import React from 'react';
 import { marked, Tokens, RendererObject, MarkedExtension } from 'marked';
+import type { Config as DOMPurifyConfig } from 'dompurify';
+
+// Define token types for table rendering
+interface TableRowToken {
+  tokens?: Tokens.Generic[];
+}
+
+interface TaskListToken {
+  checked: boolean;
+}
 import { markedHighlight } from 'marked-highlight';
 import DOMPurify from 'dompurify';
 import hljs from 'highlight.js';
@@ -113,8 +122,8 @@ export default function RichTextRenderer({
 
         // 处理表头
         if (token.header && token.header.length > 0) {
-          const headerRow = token.header.map((cell: any) => {
-            const text = this.parser?.parseInline(cell.tokens as any) || '';
+          const headerRow = token.header.map((cell: { tokens: Tokens.Generic[] }) => {
+            const text = this.parser?.parseInline(cell.tokens) || '';
             return `<th class="px-4 py-2 bg-gray-50 font-semibold text-left">${text}</th>`;
           }).join('');
           header = `<thead><tr>${headerRow}</tr></thead>`;
@@ -122,9 +131,9 @@ export default function RichTextRenderer({
 
         // 处理表体
         if (token.rows && token.rows.length > 0) {
-          const bodyRows = token.rows.map((row: any[]) => {
-            const cells = row.map((cell: any) => {
-              const text = this.parser?.parseInline(cell.tokens as any) || '';
+          const bodyRows = token.rows.map((row: TableRowToken[]) => {
+            const cells = row.map((cell: TableRowToken) => {
+              const text = this.parser?.parseInline((cell.tokens as Tokens.Generic[]) || []) || '';
               return `<td class="px-4 py-2 border-b">${text}</td>`;
             }).join('');
             return `<tr>${cells}</tr>`;
@@ -182,8 +191,8 @@ export default function RichTextRenderer({
               };
             }
           },
-          renderer(token: any): string {
-            return `<input type="checkbox" ${token.checked ? 'checked' : ''} disabled class="task-list-item-checkbox mr-2" /> `;
+          renderer(token: unknown): string {
+            return `<input type="checkbox" ${(token as TaskListToken).checked ? 'checked' : ''} disabled class="task-list-item-checkbox mr-2" /> `;
           }
         }
       ]
@@ -273,7 +282,7 @@ export default function RichTextRenderer({
       };
 
       // 使用DOMPurify清理HTML
-      const cleanHtml = DOMPurify.sanitize(htmlContent, purifyConfig as any);
+      const cleanHtml = DOMPurify.sanitize(htmlContent, purifyConfig as DOMPurifyConfig);
 
       return cleanHtml;
     } catch (error) {

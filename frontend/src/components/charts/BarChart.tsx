@@ -34,7 +34,7 @@ export const BarChart: React.FC<BarChartProps> = ({
     data: ChartDataPoint;
   } | null>(null);
 
-  const { bars, gridLines, maxValue } = useMemo(() => {
+  const { bars, gridLines, maxValue: _maxValue } = useMemo(() => {
     if (!data.length) return { bars: [], gridLines: [], maxValue: 0 };
 
     const values = data.map(d => d.value);

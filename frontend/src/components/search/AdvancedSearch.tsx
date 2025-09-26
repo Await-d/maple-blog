@@ -1,10 +1,9 @@
-// @ts-nocheck
 /**
  * AdvancedSearch Component
  * 高级搜索组件 - 提供多维度筛选和高级搜索选项
  */
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import {
   ChevronDown,
   ChevronUp,
@@ -48,7 +47,7 @@ export default function AdvancedSearch({
     sortBy,
     sortDirection,
     showAdvanced,
-    setFilters,
+    setFilters: _setFilters,
     updateFilter,
     clearFilters,
     setSortBy,
@@ -90,7 +89,7 @@ export default function AdvancedSearch({
   }, [expanded]);
 
   // 处理筛选器变化
-  const handleFilterChange = (key: keyof SearchFilters, value: any) => {
+  const handleFilterChange = (key: keyof SearchFilters, value: unknown) => {
     updateFilter(key, value);
   };
 

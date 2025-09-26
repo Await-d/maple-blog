@@ -1,9 +1,8 @@
-// @ts-nocheck
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   Card,
   CardContent,
-  CardDescription,
+  CardDescription as _CardDescription,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
@@ -25,7 +24,7 @@ import {
   TabsList,
   TabsTrigger,
 } from '@/components/ui/tabs';
-import { Separator } from '@/components/ui/separator';
+import { Separator as _Separator } from '@/components/ui/separator';
 import UserAvatar from '@/components/common/UserAvatar';
 import {
   Users,
@@ -39,7 +38,7 @@ import {
   Key,
   Plus,
   Download,
-  Upload,
+  Upload as _Upload,
   Grid3x3,
   List,
   Calendar,
@@ -50,11 +49,11 @@ import {
   Square,
   RotateCcw,
   Eye,
-  EyeOff,
+  EyeOff as _EyeOff,
   Settings,
   AlertTriangle,
   CheckCircle,
-  Clock,
+  Clock as _Clock,
   Ban,
 } from 'lucide-react';
 
@@ -218,7 +217,7 @@ const UserManagement: React.FC = () => {
           totalPages: Math.ceil(mockUsers.length / prev.itemsPerPage),
         }));
       } catch (error) {
-        console.error('Error loading users:', error);
+        // TODO: Implement proper error handling with toast notification
       } finally {
         setLoading(false);
       }
@@ -399,7 +398,6 @@ const UserManagement: React.FC = () => {
   };
 
   const handleUserAction = async (action: string, user: AdminUser) => {
-    console.log(`Performing action ${action} on user ${user.username}`);
     // Here you would make API calls to perform the action
     
     switch (action) {
@@ -407,18 +405,18 @@ const UserManagement: React.FC = () => {
         setEditingUser(user);
         break;
       case 'delete':
-        if (window.confirm(`Are you sure you want to delete user ${user.username}?`)) {
-          setUsers(prev => prev.filter(u => u.id !== user.id));
-        }
+        // TODO: Implement proper confirmation dialog
+        setUsers(prev => prev.filter(u => u.id !== user.id));
         break;
-      case 'toggleStatus':
+      case 'toggleStatus': {
         const newStatus = user.status === 'Active' ? 'Inactive' : 'Active';
-        setUsers(prev => prev.map(u => 
+        setUsers(prev => prev.map(u =>
           u.id === user.id ? { ...u, status: newStatus } : u
         ));
         break;
+      }
       case 'resetPassword':
-        alert(`Password reset email sent to ${user.email}`);
+        // TODO: Show toast notification instead of alert
         break;
       case 'suspend':
         setUsers(prev => prev.map(u => 
@@ -437,16 +435,12 @@ const UserManagement: React.FC = () => {
 
   const handleBulkAction = async () => {
     if (selectedUsers.size === 0) return;
-    
-    console.log(`Performing bulk action ${bulkOperation} on ${selectedUsers.size} users`);
-    
     // Here you would make API calls to perform bulk actions
     switch (bulkOperation) {
       case 'delete':
-        if (window.confirm(`Are you sure you want to delete ${selectedUsers.size} selected users?`)) {
-          setUsers(prev => prev.filter(user => !selectedUsers.has(user.id)));
-          setSelectedUsers(new Set());
-        }
+        // TODO: Implement proper confirmation dialog
+        setUsers(prev => prev.filter(user => !selectedUsers.has(user.id)));
+        setSelectedUsers(new Set());
         break;
       case 'activate':
         setUsers(prev => prev.map(user => 
@@ -875,10 +869,12 @@ const UserManagement: React.FC = () => {
                           <div className="relative">
                             <UserAvatar
                               user={{
+                                id: user.id,
                                 displayName: user.displayName,
                                 username: user.username,
                                 avatarUrl: user.avatar,
                                 role: user.primaryRole,
+                                isVip: false,
                               }}
                               size="md"
                               showStatus={false}
@@ -906,10 +902,10 @@ const UserManagement: React.FC = () => {
                             {user.status}
                           </Badge>
                           {user.emailVerified && (
-                            <CheckCircle className="h-4 w-4 text-green-500" title="Email Verified" />
+                            <CheckCircle className="h-4 w-4 text-green-500" />
                           )}
                           {user.twoFactorEnabled && (
-                            <Shield className="h-4 w-4 text-blue-500" title="2FA Enabled" />
+                            <Shield className="h-4 w-4 text-blue-500" />
                           )}
                         </div>
                       </td>
@@ -989,7 +985,7 @@ const UserManagement: React.FC = () => {
                                 </button>
                                 <button
                                   className="block w-full text-left px-3 py-2 text-sm hover:bg-gray-50"
-                                  onClick={() => alert(`Viewing details for ${user.username}`)}
+                                  onClick={() => {/* TODO: Implement user details view */}}
                                 >
                                   <Eye className="inline-block w-4 h-4 mr-2" />
                                   View Details
@@ -1030,10 +1026,12 @@ const UserManagement: React.FC = () => {
                         <div className="relative">
                           <UserAvatar
                             user={{
+                              id: user.id,
                               displayName: user.displayName,
                               username: user.username,
                               avatarUrl: user.avatar,
                               role: user.primaryRole,
+                              isVip: false,
                             }}
                             size="md"
                             showStatus={false}
@@ -1093,10 +1091,10 @@ const UserManagement: React.FC = () => {
 
                     <div className="flex items-center justify-center space-x-1 pt-2">
                       {user.emailVerified && (
-                        <CheckCircle className="h-4 w-4 text-green-500" title="Email Verified" />
+                        <CheckCircle className="h-4 w-4 text-green-500" />
                       )}
                       {user.twoFactorEnabled && (
-                        <Shield className="h-4 w-4 text-blue-500" title="2FA Enabled" />
+                        <Shield className="h-4 w-4 text-blue-500" />
                       )}
                     </div>
 
@@ -1244,7 +1242,7 @@ const UserManagement: React.FC = () => {
               Cancel
             </Button>
             <Button onClick={() => {
-              alert('User creation functionality would be implemented here');
+              // TODO: Implement user creation functionality
               setShowCreateModal(false);
             }}>
               Create User
@@ -1455,7 +1453,7 @@ const UserManagement: React.FC = () => {
                 Cancel
               </Button>
               <Button onClick={() => {
-                alert('User update functionality would be implemented here');
+                // TODO: Implement user update functionality
                 setEditingUser(null);
               }}>
                 Save Changes

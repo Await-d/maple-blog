@@ -1,26 +1,23 @@
-// @ts-nocheck
 import React, { useMemo, useCallback, useState, useRef, useEffect } from 'react';
-import { Table, Space, Button, Input, Select, Tooltip, Dropdown, Checkbox, Empty, Spin } from 'antd';
+import { Table, Space, Button, Input, Select, Tooltip, Dropdown, Checkbox, Empty } from 'antd';
 import {
   SearchOutlined,
-  FilterOutlined,
-  ColumnHeightOutlined,
   SettingOutlined,
   DownloadOutlined,
   ReloadOutlined,
   FullscreenOutlined,
   FullscreenExitOutlined,
 } from '@ant-design/icons';
-import type { TableProps, ColumnsType, TableRowSelection } from 'antd/es/table';
+import type { TableProps, ColumnsType, ColumnType } from 'antd/es/table';
 import type { SizeType } from 'antd/es/config-provider/SizeContext';
 import classNames from 'classnames';
 import { useDataTable } from '../../hooks/useDataTable';
 import { VirtualTable } from './VirtualTable';
 import { TableActions } from './TableActions';
-import type { TableColumn, QueryParams } from '../../types';
+import type { TableColumn } from '../../types';
 
 // 扩展的列配置接口
-export interface DataTableColumn<T = any> extends TableColumn<T> {
+export interface DataTableColumn<T = Record<string, unknown>> extends TableColumn<T> {
   searchable?: boolean;
   filterable?: boolean;
   exportable?: boolean;
@@ -28,14 +25,14 @@ export interface DataTableColumn<T = any> extends TableColumn<T> {
   hidden?: boolean;
   pinned?: 'left' | 'right';
   aggregation?: 'sum' | 'avg' | 'count' | 'min' | 'max';
-  cellRenderer?: (value: any, record: T, index: number) => React.ReactNode;
+  cellRenderer?: (value: unknown, record: T, index: number) => React.ReactNode;
   headerRenderer?: () => React.ReactNode;
   filterType?: 'text' | 'select' | 'date' | 'number' | 'range';
-  filterOptions?: Array<{ label: string; value: any }>;
+  filterOptions?: Array<{ label: string; value: unknown }>;
   sortType?: 'string' | 'number' | 'date';
 }
 
-export interface DataTableProps<T = any> {
+export interface DataTableProps<T = Record<string, unknown>> {
   // 基础属性
   columns: DataTableColumn<T>[];
   dataSource: T[];
@@ -89,10 +86,10 @@ export interface DataTableProps<T = any> {
   tableLayout?: 'auto' | 'fixed';
   
   // 事件回调
-  onRow?: (record: T, index?: number) => React.HTMLAttributes<any>;
-  onHeaderRow?: (columns: ColumnsType<T>, index?: number) => React.HTMLAttributes<any>;
+  onRow?: (record: T, index?: number) => React.HTMLAttributes<HTMLElement>;
+  onHeaderRow?: (columns: ColumnsType<T>, index?: number) => React.HTMLAttributes<HTMLElement>;
   onSearch?: (value: string) => void;
-  onFilter?: (filters: Record<string, any>) => void;
+  onFilter?: (filters: Record<string, unknown>) => void;
   onSort?: (field: string, order: 'asc' | 'desc' | null) => void;
   onExport?: (data: T[], columns: DataTableColumn<T>[]) => void;
   onRefresh?: () => void;
@@ -103,7 +100,7 @@ export interface DataTableProps<T = any> {
   footer?: React.ReactNode;
   summary?: (data: readonly T[]) => React.ReactNode;
   expandedRowRender?: (record: T, index: number, indent: number, expanded: boolean) => React.ReactNode;
-  expandIcon?: (props: any) => React.ReactNode;
+  expandIcon?: (props: Record<string, unknown>) => React.ReactNode;
   expandRowByClick?: boolean;
   
   // 性能优化
@@ -118,7 +115,7 @@ export interface DataTableProps<T = any> {
   columnSelector?: boolean;
 }
 
-export const DataTable = <T extends Record<string, any>>(props: DataTableProps<T>) => {
+export const DataTable = <T extends Record<string, unknown>>(props: DataTableProps<T>) => {
   const {
     columns: propColumns,
     dataSource,
@@ -130,8 +127,6 @@ export const DataTable = <T extends Record<string, any>>(props: DataTableProps<T
     searchable = true,
     filterable = true,
     exportable = true,
-    columnsConfigurable = true,
-    resizable = true,
     sortable = true,
     virtual = false,
     virtualThreshold = 1000,
@@ -143,7 +138,6 @@ export const DataTable = <T extends Record<string, any>>(props: DataTableProps<T
     onRow,
     onHeaderRow,
     onSearch,
-    onFilter,
     onSort,
     onExport,
     onRefresh,
@@ -168,7 +162,7 @@ export const DataTable = <T extends Record<string, any>>(props: DataTableProps<T
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [tableSize, setTableSize] = useState<SizeType>(size);
   const [searchValue, setSearchValue] = useState('');
-  const [filters, setFilters] = useState<Record<string, any>>({});
+  const [filters] = useState<Record<string, unknown>>({});
   const [sortConfig, setSortConfig] = useState<{ field: string; order: 'asc' | 'desc' } | null>(null);
   const [columnsConfig, setColumnsConfig] = useState<DataTableColumn<T>[]>(propColumns);
   
@@ -179,12 +173,7 @@ export const DataTable = <T extends Record<string, any>>(props: DataTableProps<T
     processedData,
     visibleColumns,
     selectedRowKeys,
-    searchData,
-    filterData,
-    sortData,
     exportData,
-    toggleColumnVisibility,
-    resetColumns,
     isProcessing,
   } = useDataTable({
     data: dataSource,
@@ -222,15 +211,9 @@ export const DataTable = <T extends Record<string, any>>(props: DataTableProps<T
     onSearch?.(value);
   }, [onSearch]);
 
-  // 处理过滤
-  const handleFilter = useCallback((field: string, value: any) => {
-    const newFilters = { ...filters, [field]: value };
-    setFilters(newFilters);
-    onFilter?.(newFilters);
-  }, [filters, onFilter]);
 
   // 处理排序
-  const handleSort = useCallback((sorter: any) => {
+  const handleSort = useCallback((sorter: { field?: string; order?: 'asc' | 'desc' } | null) => {
     const { field, order } = sorter || {};
     const newSortConfig = field && order ? { field, order } : null;
     setSortConfig(newSortConfig);
@@ -253,7 +236,7 @@ export const DataTable = <T extends Record<string, any>>(props: DataTableProps<T
   // 转换列配置
   const antdColumns: ColumnsType<T> = useMemo(() => {
     return visibleColumns.map((col) => {
-      const antdCol: any = {
+      const antdCol: ColumnType<T> = {
         key: col.key,
         title: col.headerRenderer ? col.headerRenderer() : col.title,
         dataIndex: col.dataIndex || col.key,
@@ -271,12 +254,12 @@ export const DataTable = <T extends Record<string, any>>(props: DataTableProps<T
             text: option.label,
             value: option.value,
           }));
-          antdCol.onFilter = (value: any, record: T) => {
+          antdCol.onFilter = (value: unknown, record: T) => {
             const fieldValue = record[col.dataIndex || col.key];
             return fieldValue === value;
           };
         } else {
-          antdCol.filterDropdown = ({ setSelectedKeys, selectedKeys, confirm, clearFilters }: any) => (
+          antdCol.filterDropdown = ({ setSelectedKeys, selectedKeys, confirm, clearFilters }: { setSelectedKeys: (keys: React.Key[]) => void; selectedKeys: React.Key[]; confirm: () => void; clearFilters: () => void }) => (
             <div style={{ padding: 8 }}>
               <Input
                 placeholder={`Search ${col.title}`}
@@ -304,7 +287,7 @@ export const DataTable = <T extends Record<string, any>>(props: DataTableProps<T
           antdCol.filterIcon = (filtered: boolean) => (
             <SearchOutlined style={{ color: filtered ? '#1890ff' : undefined }} />
           );
-          antdCol.onFilter = (value: any, record: T) => {
+          antdCol.onFilter = (value: unknown, record: T) => {
             const fieldValue = record[col.dataIndex || col.key];
             return fieldValue?.toString().toLowerCase().includes(value.toLowerCase());
           };
@@ -512,7 +495,7 @@ export const DataTable = <T extends Record<string, any>>(props: DataTableProps<T
       </div>
 
       {/* 自定义样式 */}
-      <style jsx>{`
+      <style>{`
         .data-table {
           position: relative;
           background: white;

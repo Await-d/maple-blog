@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * 评论状态管理 (Zustand Store)
  * 管理评论数据、UI状态、实时更新等
@@ -10,7 +9,6 @@ import { immer } from 'zustand/middleware/immer';
 import type {
   Comment,
   CommentQuery,
-  CommentPagedResult,
   CommentStats,
   CommentFormData,
   CommentListConfig,
@@ -18,7 +16,7 @@ import type {
   CommentNotification,
   CommentError
 } from '../types/comment';
-import { CommentSortOrder } from '../types/comment';
+import { CommentSortOrder, CommentReportReason } from '../types/comment';
 import { commentApi } from '../services/commentApi';
 import { commentSocket } from '../services/commentSocket';
 
@@ -159,7 +157,7 @@ export const useCommentStore = create<CommentState>()(
       actions: {
         // 加载评论列表
         loadComments: async (postId: string, queryOptions?: Partial<CommentQuery>) => {
-          const { config, pagination } = get();
+          const { config } = get();
 
           const query: CommentQuery = {
             postId,
@@ -200,12 +198,12 @@ export const useCommentStore = create<CommentState>()(
             // 加载统计信息
             get().actions.loadStats(postId);
 
-          } catch (error: any) {
+          } catch (error: unknown) {
             set(state => {
               state.loadingStates[`comments_${postId}`] = false;
               state.errors.push({
                 type: 'network',
-                message: error.message || '加载评论失败'
+                message: (error instanceof Error ? error.message : String(error as Error)) || '加载评论失败'
               });
             });
           }
@@ -236,12 +234,12 @@ export const useCommentStore = create<CommentState>()(
               state.loadingStates[`tree_${postId}`] = false;
             });
 
-          } catch (error: any) {
+          } catch (error: unknown) {
             set(state => {
               state.loadingStates[`tree_${postId}`] = false;
               state.errors.push({
                 type: 'network',
-                message: error.message || '加载评论树失败'
+                message: (error instanceof Error ? error.message : String(error as Error)) || '加载评论树失败'
               });
             });
           }
@@ -291,12 +289,12 @@ export const useCommentStore = create<CommentState>()(
               };
             });
 
-          } catch (error: any) {
+          } catch (error: unknown) {
             set(state => {
               state.pagination[postId].loading = false;
               state.errors.push({
                 type: 'network',
-                message: error.message || '加载更多评论失败'
+                message: (error instanceof Error ? error.message : String(error as Error)) || '加载更多评论失败'
               });
             });
           }
@@ -360,12 +358,12 @@ export const useCommentStore = create<CommentState>()(
 
             return newComment;
 
-          } catch (error: any) {
+          } catch (error: unknown) {
             set(state => {
               state.loadingStates['creating'] = false;
               state.errors.push({
                 type: 'validation',
-                message: error.message || '发布评论失败'
+                message: (error instanceof Error ? error.message : String(error as Error)) || '发布评论失败'
               });
             });
             return null;
@@ -392,12 +390,12 @@ export const useCommentStore = create<CommentState>()(
               state.loadingStates[`updating_${commentId}`] = false;
             });
 
-          } catch (error: any) {
+          } catch (error: unknown) {
             set(state => {
               state.loadingStates[`updating_${commentId}`] = false;
               state.errors.push({
                 type: 'validation',
-                message: error.message || '更新评论失败'
+                message: (error instanceof Error ? error.message : String(error as Error)) || '更新评论失败'
               });
             });
           }
@@ -442,12 +440,12 @@ export const useCommentStore = create<CommentState>()(
               state.selectedComment = null;
             });
 
-          } catch (error: any) {
+          } catch (error: unknown) {
             set(state => {
               state.loadingStates[`deleting_${commentId}`] = false;
               state.errors.push({
                 type: 'permission',
-                message: error.message || '删除评论失败'
+                message: (error instanceof Error ? error.message : String(error as Error)) || '删除评论失败'
               });
             });
           }
@@ -466,11 +464,11 @@ export const useCommentStore = create<CommentState>()(
               }
             });
 
-          } catch (error: any) {
+          } catch (error: unknown) {
             set(state => {
               state.errors.push({
                 type: 'network',
-                message: error.message || '点赞失败'
+                message: (error instanceof Error ? error.message : String(error as Error)) || '点赞失败'
               });
             });
           }
@@ -489,11 +487,11 @@ export const useCommentStore = create<CommentState>()(
               }
             });
 
-          } catch (error: any) {
+          } catch (error: unknown) {
             set(state => {
               state.errors.push({
                 type: 'network',
-                message: error.message || '取消点赞失败'
+                message: (error instanceof Error ? error.message : String(error as Error)) || '取消点赞失败'
               });
             });
           }
@@ -502,12 +500,12 @@ export const useCommentStore = create<CommentState>()(
         // 举报评论
         reportComment: async (commentId: string, reason: string, description?: string) => {
           try {
-            await commentApi.reportComment(commentId, { reason: reason as any, description });
-          } catch (error: any) {
+            await commentApi.reportComment(commentId, { reason: reason as CommentReportReason, description });
+          } catch (error: unknown) {
             set(state => {
               state.errors.push({
                 type: 'network',
-                message: error.message || '举报失败'
+                message: (error instanceof Error ? error.message : String(error as Error)) || '举报失败'
               });
             });
           }
@@ -630,7 +628,7 @@ export const useCommentStore = create<CommentState>()(
             });
           };
 
-          const handleCommentLiked = ({ commentId, userId }: { commentId: string; userId: string }) => {
+          const handleCommentLiked = ({ commentId, userId: _userId }: { commentId: string; userId: string }) => {
             set(state => {
               const comment = state.comments[commentId];
               if (comment) {
@@ -639,7 +637,7 @@ export const useCommentStore = create<CommentState>()(
             });
           };
 
-          const handleCommentUnliked = ({ commentId, userId }: { commentId: string; userId: string }) => {
+          const handleCommentUnliked = ({ commentId, userId: _userId }: { commentId: string; userId: string }) => {
             set(state => {
               const comment = state.comments[commentId];
               if (comment) {
@@ -648,26 +646,32 @@ export const useCommentStore = create<CommentState>()(
             });
           };
 
-          const handleUserStartedTyping = (typingInfo: any) => {
+          const handleUserStartedTyping = (typingInfo: { userId: string; postId: string; parentId?: string; userName: string }) => {
             if (typingInfo.postId === postId) {
               set(state => {
                 const existing = state.typingUsers.find(
-                  (u: any) => u.userId === typingInfo.userId &&
+                  (u: { userId: string; postId: string; parentId?: string }) => u.userId === typingInfo.userId &&
                        u.postId === typingInfo.postId &&
                        u.parentId === typingInfo.parentId
                 );
                 if (!existing) {
-                  state.typingUsers.push(typingInfo);
+                  state.typingUsers.push({
+                    userId: typingInfo.userId,
+                    postId: typingInfo.postId,
+                    parentId: typingInfo.parentId,
+                    userName: typingInfo.userName,
+                    timestamp: new Date().toISOString(),
+                  });
                 }
               });
             }
           };
 
-          const handleUserStoppedTyping = (typingInfo: any) => {
+          const handleUserStoppedTyping = (typingInfo: { userId: string; postId: string; parentId?: string }) => {
             if (typingInfo.postId === postId) {
               set(state => {
                 state.typingUsers = state.typingUsers.filter(
-                  (u: any) => !(u.userId === typingInfo.userId &&
+                  (u: { userId: string; postId: string; parentId?: string }) => !(u.userId === typingInfo.userId &&
                          u.postId === typingInfo.postId &&
                          u.parentId === typingInfo.parentId)
                 );

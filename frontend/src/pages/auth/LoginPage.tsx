@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * LoginPage - Login page with form and layout
  * Provides complete login experience with navigation and SEO

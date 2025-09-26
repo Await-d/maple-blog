@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * SearchBox Component
  * 智能搜索框组件 - 支持实时搜索建议、历史记录、快捷键
@@ -57,7 +56,7 @@ export default function SearchBox({
   // refs
   const inputRef = useRef<HTMLInputElement>(null);
   const suggestionsRef = useRef<HTMLDivElement>(null);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const _mediaRecorderRef = useRef<MediaRecorder | null>(null);
 
   // 防抖处理搜索建议
   const debouncedQuery = useDebounce(localQuery, DEFAULT_SEARCH_CONFIG.debounceMs);
@@ -218,7 +217,7 @@ export default function SearchBox({
         const transcript = event.results[0][0].transcript;
         setLocalQuery(transcript);
         setQuery(transcript);
-        handleSubmit({ preventDefault: () => {} } as React.FormEvent);
+        handleSubmit({ preventDefault: () => { /* no-op */ } } as React.FormEvent);
       };
 
       recognition.onerror = (event: SpeechRecognitionErrorEvent) => {

@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * useTheme - 主题管理Hook
  * 提供主题切换、持久化和系统主题检测功能

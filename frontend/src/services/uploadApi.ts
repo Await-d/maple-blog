@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * File Upload API Service
  */
@@ -85,7 +84,12 @@ export const uploadApi = {
     maxImageHeight: number;
   }> {
     const response = await apiClient.get('/upload/config');
-    return response.data;
+    return response.data as {
+      maxFileSize: number;
+      allowedTypes: string[];
+      maxImageWidth: number;
+      maxImageHeight: number;
+    };
   },
 };
 

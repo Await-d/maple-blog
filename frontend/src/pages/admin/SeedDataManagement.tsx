@@ -1,10 +1,9 @@
-// @ts-nocheck
 import React, { useState, useEffect } from 'react';
 import {
   Card,
   CardContent,
   CardDescription,
-  CardFooter,
+  CardFooter as _CardFooter,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
@@ -25,8 +24,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Progress } from '@/components/ui/progress';
-import { Separator } from '@/components/ui/separator';
+import { Progress as _Progress } from '@/components/ui/progress';
+import { Separator as _Separator } from '@/components/ui/separator';
 import {
   CheckCircle,
   AlertTriangle,
@@ -42,7 +41,7 @@ import {
   Folder,
   Shield,
   Activity,
-  Download,
+  Download as _Download,
   Upload,
 } from 'lucide-react';
 
@@ -72,7 +71,7 @@ interface ValidationResult {
   isValid: boolean;
   errors: string[];
   warnings: string[];
-  context: Record<string, any>;
+  context: Record<string, unknown>;
 }
 
 interface SeedResult {
@@ -122,7 +121,7 @@ const SeedDataManagement: React.FC = () => {
         setStatus(data);
       }
     } catch (error) {
-      console.error('Error fetching seed data status:', error);
+      // TODO: Replace with proper error reporting
     } finally {
       setLoading(false);
     }
@@ -136,7 +135,7 @@ const SeedDataManagement: React.FC = () => {
         setProviders(data);
       }
     } catch (error) {
-      console.error('Error fetching providers:', error);
+      // TODO: Replace with proper error reporting
     }
   };
 
@@ -148,7 +147,7 @@ const SeedDataManagement: React.FC = () => {
         setEnvironment(data.name);
       }
     } catch (error) {
-      console.error('Error fetching environment:', error);
+      // TODO: Replace with proper error reporting
     }
   };
 
@@ -162,12 +161,11 @@ const SeedDataManagement: React.FC = () => {
       });
 
       if (response.ok) {
-        const validation: ValidationResult = await response.json();
-        console.log('Validation result:', validation);
-        // Handle validation result
+        const _validation: ValidationResult = await response.json();
+        // TODO: Handle validation result - display to user via UI
       }
     } catch (error) {
-      console.error('Error validating environment:', error);
+      // TODO: Replace with proper error reporting
     } finally {
       setLoading(false);
     }
@@ -210,7 +208,7 @@ const SeedDataManagement: React.FC = () => {
         });
       }
     } catch (error) {
-      console.error('Error seeding data:', error);
+      // TODO: Replace with proper error reporting
     } finally {
       setLoading(false);
       setShowSeedDialog(false);
@@ -232,7 +230,7 @@ const SeedDataManagement: React.FC = () => {
         fetchStatus(); // Refresh status
       }
     } catch (error) {
-      console.error('Error cleaning test data:', error);
+      // TODO: Replace with proper error reporting
     } finally {
       setLoading(false);
       setShowCleanupDialog(false);

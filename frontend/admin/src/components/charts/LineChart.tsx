@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import React, { useMemo, useRef, useEffect, useState } from 'react';
 import { Card, Select, Space, Button, Tooltip, Spin } from 'antd';
 import {
@@ -128,7 +129,7 @@ const LineChart: React.FC<LineChartProps> = ({
               color: dataset.backgroundColor || `${colors[index % colors.length]}05`,
             },
           ],
-        } as any,
+        } as { type: 'linear'; colorStops: Array<{ offset: number; color: string }> },
       }}),
     }));
 

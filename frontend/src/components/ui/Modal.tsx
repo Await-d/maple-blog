@@ -1,4 +1,4 @@
-// @ts-nocheck
+/* eslint-disable react-refresh/only-export-components */
 /**
  * Modal Component - Accessible modal dialog with backdrop and animation
  * Supports different sizes and proper focus management
@@ -469,7 +469,7 @@ export const ModalExamples: React.FC = () => {
         isOpen={confirmModal.isOpen}
         onClose={confirmModal.closeModal}
         onConfirm={() => {
-          alert('Confirmed!');
+          // TODO: Replace with proper UI notification
           confirmModal.closeModal();
         }}
         title="Delete Item"

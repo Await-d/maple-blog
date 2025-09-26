@@ -302,7 +302,7 @@ const RealTimeChart: React.FC<RealTimeChartProps> = ({
       default:
         return thresholds.colors.normal;
     }
-  }, [thresholds, checkThresholds, metrics.current]);
+  }, [thresholds, checkThresholds, metrics]);
 
   // Generate chart option
   const chartOption = useMemo((): ChartOption => {
@@ -497,7 +497,7 @@ const RealTimeChart: React.FC<RealTimeChartProps> = ({
         console.error('Failed to parse WebSocket message:', err);
       }
     }
-  }, [lastMessage]);
+  }, [lastMessage, addDataPoint]);
 
   // Add single data point
   const addDataPoint = useCallback((newPoint: RealTimeDataPoint) => {

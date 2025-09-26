@@ -1,10 +1,17 @@
-// @ts-nocheck
 /**
  * 响应式设计Hook
  * 检测设备类型、屏幕尺寸、触摸支持等
  */
 
 import { useState, useEffect, useCallback } from 'react';
+
+// Network Information API types
+interface NavigatorWithConnection extends Navigator {
+  connection?: {
+    effectiveType?: '2g' | '3g' | '4g' | 'slow-2g';
+    saveData?: boolean;
+  };
+}
 
 export interface ResponsiveState {
   // 屏幕尺寸
@@ -224,12 +231,12 @@ export const useResponsive = () => {
     getNetworkOptimizations: () => ({
       // 基于连接类型的优化
       enableImageLazyLoad: true,
-      imageQuality: (navigator as any)?.connection?.effectiveType === '4g' ? 80 : 60,
-      enableVideoPreload: (navigator as any)?.connection?.effectiveType === '4g',
-      prefetchContent: !state.isMobile && (navigator as any)?.connection?.effectiveType === '4g',
+      imageQuality: (navigator as NavigatorWithConnection)?.connection?.effectiveType === '4g' ? 80 : 60,
+      enableVideoPreload: (navigator as NavigatorWithConnection)?.connection?.effectiveType === '4g',
+      prefetchContent: !state.isMobile && (navigator as NavigatorWithConnection)?.connection?.effectiveType === '4g',
 
       // 数据使用优化
-      compressImages: state.isMobile || (navigator as any)?.connection?.saveData,
+      compressImages: state.isMobile || (navigator as NavigatorWithConnection)?.connection?.saveData,
       reducedMotion: window.matchMedia('(prefers-reduced-motion: reduce)').matches,
       preloadCriticalResources: state.isDesktop
     })

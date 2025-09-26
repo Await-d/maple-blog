@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * LoginForm Component
  * Handles user login with validation and error handling
@@ -26,7 +25,7 @@ export interface LoginFormProps {
 export const LoginForm: React.FC<LoginFormProps> = ({
   onSuccess,
   onError,
-  redirectPath = '/',
+  redirectPath: _redirectPath = '/',
   showRegisterLink = true,
   showForgotPasswordLink = true,
   className,
@@ -38,7 +37,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
-    setValue,
+    setValue: _setValue,
     watch,
   } = useForm<LoginFormData>({
     defaultValues: {

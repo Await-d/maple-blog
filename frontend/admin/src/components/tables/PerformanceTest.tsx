@@ -1,5 +1,4 @@
-// @ts-nocheck
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { 
   Card, 
   Button, 
@@ -20,12 +19,9 @@ import {
   ReloadOutlined,
   ThunderboltOutlined,
   CheckCircleOutlined,
-  ExclamationCircleOutlined,
   ClockCircleOutlined
 } from '@ant-design/icons';
 import { DataTable } from './DataTable';
-import { VirtualTable } from './VirtualTable';
-import { useDataTable } from '../../hooks/useDataTable';
 import { TableUtils } from './index';
 
 const { Title, Text, Paragraph } = Typography;
@@ -88,26 +84,26 @@ export const PerformanceTest: React.FC = () => {
   const [currentTest, setCurrentTest] = useState<PerformanceTestConfig | null>(null);
   const [progress, setProgress] = useState(0);
   const [results, setResults] = useState<TestResult[]>([]);
-  const [currentData, setCurrentData] = useState<any[]>([]);
+  const [currentData, setCurrentData] = useState<Record<string, unknown>[]>([]);
   const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
 
   const testStartTime = useRef<number>(0);
   const operationTimes = useRef<{ [key: string]: number }>({});
 
   // 性能监控函数
-  const measurePerformance = useCallback((operationName: string, operation: () => void | Promise<void>) => {
-    return new Promise<number>(async (resolve) => {
-      const start = performance.now();
-      
-      // 强制垃圾回收（如果支持）
-      if (window.gc) {
-        window.gc();
-      }
-      
-      const memoryBefore = (performance as any).memory?.usedJSHeapSize || 0;
-      
-      await operation();
-      
+  const measurePerformance = useCallback(async (operationName: string, operation: () => void | Promise<void>) => {
+    const start = performance.now();
+
+    // 强制垃圾回收（如果支持）
+    if (window.gc) {
+      window.gc();
+    }
+
+    // const memoryBefore = (performance as any).memory?.usedJSHeapSize || 0;
+
+    await operation();
+
+    return new Promise<number>((resolve) => {
       // 等待下一帧确保DOM更新完成
       requestAnimationFrame(() => {
         const end = performance.now();
@@ -122,7 +118,7 @@ export const PerformanceTest: React.FC = () => {
   }, []);
 
   // 执行单个测试操作
-  const executeOperation = useCallback(async (operation: string, data: any[]) => {
+  const executeOperation = useCallback(async (operation: string, data: Record<string, unknown>[]) => {
     switch (operation) {
       case 'render':
         return measurePerformance('Initial Render', () => {
@@ -227,7 +223,7 @@ export const PerformanceTest: React.FC = () => {
     }
     
     const totalTime = performance.now() - testStartTime.current;
-    const memoryUsage = (performance as any).memory?.usedJSHeapSize || 0;
+    const memoryUsage = (performance as { memory?: { usedJSHeapSize?: number } }).memory?.usedJSHeapSize || 0;
     
     // 计算性能得分
     const score = Math.max(0, Math.min(100, 

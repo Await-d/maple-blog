@@ -1,11 +1,9 @@
-// @ts-nocheck
 import React, { useEffect, useState } from 'react';
 import {
   Modal,
   Form,
   Input,
   Select,
-  Switch,
   Upload,
   Avatar,
   Button,
@@ -13,32 +11,26 @@ import {
   Row,
   Col,
   Card,
-  Divider,
   Alert,
   Tooltip,
   message,
-  Progress,
-} from 'antd';
+  Progress} from 'antd';
 import {
   UserOutlined,
   MailOutlined,
   LockOutlined,
-  PlusOutlined,
   CameraOutlined,
   EyeInvisibleOutlined,
   EyeTwoTone,
   InfoCircleOutlined,
   SafetyOutlined,
-  TeamOutlined,
-  UploadOutlined,
-} from '@ant-design/icons';
-import type { UploadProps, UploadFile } from 'antd/es/upload';
+  TeamOutlined} from '@ant-design/icons';
+import type { UploadProps } from 'antd/es/upload';
 import type { RcFile } from 'antd/es/upload/interface';
 import { useUserForm, useUserManagementStore } from '@/stores/userManagementStore';
-import type { User, UserStatus, Role } from '@/types';
+import type { User, Role } from '@/types';
 
 const { Option } = Select;
-const { TextArea } = Input;
 
 interface UserFormProps {}
 
@@ -46,7 +38,7 @@ const UserForm: React.FC<UserFormProps> = () => {
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string>('');
-  const [fileList, setFileList] = useState<UploadFile[]>([]);
+  const [fileList, setFileList] = useState<[]>([]);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [passwordStrength, setPasswordStrength] = useState(0);
 
@@ -61,32 +53,28 @@ const UserForm: React.FC<UserFormProps> = () => {
       description: 'System administrator with full access',
       permissions: [],
       level: 1,
-      isBuiltIn: true,
-    },
+      isBuiltIn: true},
     {
       id: '2',
       name: 'Editor',
       description: 'Content editor with publishing rights',
       permissions: [],
       level: 2,
-      isBuiltIn: true,
-    },
+      isBuiltIn: true},
     {
       id: '3',
       name: 'Author',
       description: 'Content author with writing permissions',
       permissions: [],
       level: 3,
-      isBuiltIn: true,
-    },
+      isBuiltIn: true},
     {
       id: '4',
       name: 'User',
       description: 'Regular user with basic permissions',
       permissions: [],
       level: 4,
-      isBuiltIn: true,
-    },
+      isBuiltIn: true},
   ];
 
   // Reset form when modal opens/closes
@@ -99,8 +87,7 @@ const UserForm: React.FC<UserFormProps> = () => {
           email: data.email,
           displayName: data.displayName,
           status: data.status,
-          roleIds: data.roles?.map(role => role.id) || [],
-        });
+          roleIds: data.roles?.map(role => role.id) || []});
         setAvatarUrl(data.avatar || '');
       } else {
         // Reset form for create mode
@@ -113,7 +100,7 @@ const UserForm: React.FC<UserFormProps> = () => {
   }, [visible, mode, data, form]);
 
   // Handle form submission
-  const handleSubmit = async (values: any) => {
+  const handleSubmit = async (values: Record<string, unknown>) => {
     try {
       setLoading(true);
 
@@ -126,24 +113,21 @@ const UserForm: React.FC<UserFormProps> = () => {
         displayName: values.displayName,
         status: values.status || 'active',
         avatar: avatarUrl,
-        roles: mockRoles.filter(role => values.roleIds?.includes(role.id)) || [],
-      };
+        roles: mockRoles.filter(role => values.roleIds?.includes(role.id)) || []};
 
       if (mode === 'create') {
         const newUser: User = {
           id: `user_${Date.now()}`,
           ...userData,
           createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        } as User;
+          updatedAt: new Date().toISOString()} as User;
         
         addUser(newUser);
         message.success('用户创建成功');
       } else if (mode === 'edit' && data) {
         updateUser(data.id, {
           ...userData,
-          updatedAt: new Date().toISOString(),
-        });
+          updatedAt: new Date().toISOString()});
         message.success('用户更新成功');
       }
 
@@ -175,7 +159,7 @@ const UserForm: React.FC<UserFormProps> = () => {
   };
 
   // Custom upload function (simulate upload)
-  const customUpload = ({ file, onProgress, onSuccess, onError }: any) => {
+  const customUpload = ({ file, onProgress, onSuccess, _onError }: { file: unknown; onProgress: (arg: { percent: number }) => void; onSuccess: (arg: unknown) => void; _onError: (arg: unknown) => void }) => {
     let progress = 0;
     const timer = setInterval(() => {
       progress += 10;
@@ -184,16 +168,14 @@ const UserForm: React.FC<UserFormProps> = () => {
       if (progress >= 100) {
         clearInterval(timer);
         onSuccess({
-          url: URL.createObjectURL(file),
-        });
+          url: URL.createObjectURL(file)});
       }
     }, 100);
 
     return {
       abort() {
         clearInterval(timer);
-      },
-    };
+      }};
   };
 
   // Upload props
@@ -216,8 +198,7 @@ const UserForm: React.FC<UserFormProps> = () => {
       return true;
     },
     customRequest: customUpload,
-    onChange: handleAvatarChange,
-  };
+    onChange: handleAvatarChange};
 
   // Password strength checker
   const checkPasswordStrength = (password: string) => {
@@ -423,8 +404,7 @@ const UserForm: React.FC<UserFormProps> = () => {
                               return Promise.resolve();
                             }
                             return Promise.reject(new Error('两次密码输入不一致'));
-                          },
-                        }),
+                          }}),
                       ]}
                     >
                       <Input.Password

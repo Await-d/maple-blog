@@ -1,7 +1,7 @@
-// @ts-nocheck
+/* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { useAdminStore } from '@/stores/adminStore';
-import type { User, Permission, Role } from '@/types';
+import type { User, Role } from '@/types';
 
 // 权限检查结果类型
 export interface PermissionCheck {
@@ -23,7 +23,7 @@ export enum PermissionLevel {
 export interface ResourcePermission {
   resource: string;
   level: PermissionLevel;
-  conditions?: Record<string, any>;
+  conditions?: Record<string, unknown>;
 }
 
 // 权限上下文状态
@@ -40,7 +40,7 @@ export interface PermissionContextState {
   
   // 高级权限检查
   checkPermission: (permission: string | string[]) => PermissionCheck;
-  checkResourcePermission: (resource: string, level: PermissionLevel, conditions?: Record<string, any>) => boolean;
+  checkResourcePermission: (resource: string, level: PermissionLevel, conditions?: Record<string, unknown>) => boolean;
   
   // 层级权限检查
   hasHierarchicalPermission: (permission: string, resource?: string) => boolean;
@@ -79,7 +79,7 @@ export interface PermissionProviderProps {
 
 // 权限缓存
 const permissionCache = new Map<string, { result: boolean; timestamp: number }>();
-const CACHE_DURATION = 5 * 60 * 1000; // 5分钟缓存
+// const CACHE_DURATION = 5 * 60 * 1000; // 5分钟缓存
 
 // 权限提供者组件
 export const PermissionProvider: React.FC<PermissionProviderProps> = ({
@@ -88,7 +88,7 @@ export const PermissionProvider: React.FC<PermissionProviderProps> = ({
   onPermissionDenied,
   enableDebug = false
 }) => {
-  const { user, permissions, setPermissions } = useAdminStore();
+  const { user, permissions } = useAdminStore();
   const [isLoading, setIsLoading] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
@@ -170,17 +170,9 @@ export const PermissionProvider: React.FC<PermissionProviderProps> = ({
   const checkResourcePermission = useMemo(() => (
     resource: string, 
     level: PermissionLevel, 
-    conditions?: Record<string, any>
+    _conditions?: Record<string, unknown>
   ): boolean => {
     if (!user || !permissions.length) return false;
-
-    // 检查具体资源权限
-    const resourcePermissions = [
-      `${resource}.read`,
-      `${resource}.write`,
-      `${resource}.delete`,
-      `${resource}.admin`
-    ];
 
     // 根据权限级别检查
     switch (level) {
@@ -325,7 +317,7 @@ export const PermissionProvider: React.FC<PermissionProviderProps> = ({
     } finally {
       setIsLoading(false);
     }
-  }, [user, setPermissions]);
+  }, [user]);
 
   const clearPermissionCache = useMemo(() => (): void => {
     permissionCache.clear();

@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * HomePage component - Main landing page with all home components
  * Features: Complete homepage layout with all sections, responsive design, SEO optimization
@@ -21,7 +20,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useHomePageData, useSiteStats } from '../services/home/homeApi';
 import { useIsMobile, useHomePageActions } from '../stores/homeStore';
 import { cn } from '../utils/cn';
-import type { HomePageData } from '../types/home';
+// import type { HomePageData } from '../types/home';
 
 interface HomePageProps {
   className?: string;
@@ -42,7 +41,7 @@ const HomePageSection: React.FC<HomePageSectionProps> = ({ children, className, 
 );
 
 export const HomePage: React.FC<HomePageProps> = ({ className }) => {
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, user: _user } = useAuth();
   const isMobile = useIsMobile();
   const { setLastRefresh } = useHomePageActions();
 
@@ -51,7 +50,7 @@ export const HomePage: React.FC<HomePageProps> = ({ className }) => {
 
   // API data
   const { data: homePageData, isLoading, error } = useHomePageData();
-  const { data: siteStats } = useSiteStats();
+  const { data: _siteStats } = useSiteStats();
 
   // Update last refresh timestamp
   useEffect(() => {

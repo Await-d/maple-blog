@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * TagCloud Component
  * 标签云组件 - 以标签云形式展示所有标签

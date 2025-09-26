@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Environment variables type definitions for Vite
  * This file provides TypeScript support for import.meta.env

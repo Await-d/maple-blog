@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * 评论系统主组件
  * 整合所有评论功能，提供响应式设计和移动端优化
@@ -29,7 +28,7 @@ interface CommentSystemProps {
 
 const CommentSystem: React.FC<CommentSystemProps> = ({
   postId,
-  initialSort = CommentSortOrder.CreatedAtDesc,
+  initialSort: _initialSort = CommentSortOrder.CreatedAtDesc,
   showStats = true,
   showNotifications = true,
   className = '',
@@ -40,7 +39,7 @@ const CommentSystem: React.FC<CommentSystemProps> = ({
 }) => {
   const { isAuthenticated } = useAuth();
   const responsive = useResponsive();
-  const { stats, onlineUserCounts, replyingTo, actions } = useCommentStore();
+  const { stats, onlineUserCounts, replyingTo: _replyingTo, actions } = useCommentStore();
 
   // 移动端表单状态
   const [mobileFormOpen, setMobileFormOpen] = useState(false);
@@ -79,7 +78,7 @@ const CommentSystem: React.FC<CommentSystemProps> = ({
   };
 
   // 处理移动端编辑
-  const handleMobileEdit = (commentId: string, content: string) => {
+  const _handleMobileEdit = (commentId: string, content: string) => {
     setMobileFormConfig({
       parentId: undefined,
       initialContent: content,
@@ -90,12 +89,12 @@ const CommentSystem: React.FC<CommentSystemProps> = ({
   };
 
   // 处理桌面端回复
-  const handleDesktopReply = (commentId?: string) => {
+  const _handleDesktopReply = (commentId?: string) => {
     actions.setReplyingTo(commentId || '');
   };
 
   // 处理桌面端编辑
-  const handleDesktopEdit = (commentId: string) => {
+  const _handleDesktopEdit = (commentId: string) => {
     actions.setEditingComment(commentId);
   };
 

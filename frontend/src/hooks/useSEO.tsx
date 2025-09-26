@@ -24,7 +24,7 @@ interface SEOConfig {
   twitterCreator?: string;
   canonical?: string;
   robots?: string;
-  structuredData?: Record<string, any>;
+  structuredData?: Record<string, unknown>;
 }
 
 const DEFAULT_SEO: SEOConfig = {
@@ -88,7 +88,7 @@ export function useSEO(config: SEOConfig) {
       setMetaTag('article:section', mergedConfig.section, 'property');
 
       // Article tags
-      mergedConfig.tags?.forEach((tag, index) => {
+      mergedConfig.tags?.forEach((tag, _index) => {
         setMetaTag('article:tag', tag, 'property');
       });
     }
@@ -178,7 +178,7 @@ export function generateBlogPostStructuredData(post: {
   image?: string;
   url: string;
   tags?: string[];
-}): Record<string, any> {
+}): Record<string, unknown> {
   return {
     '@context': 'https://schema.org',
     '@type': 'BlogPosting',
@@ -209,7 +209,7 @@ export function generateBlogPostStructuredData(post: {
 }
 
 // Helper function to generate structured data for the website
-export function generateWebsiteStructuredData(): Record<string, any> {
+export function generateWebsiteStructuredData(): Record<string, unknown> {
   return {
     '@context': 'https://schema.org',
     '@type': 'WebSite',
@@ -230,7 +230,7 @@ export function generateWebsiteStructuredData(): Record<string, any> {
 export function generateBreadcrumbStructuredData(breadcrumbs: Array<{
   name: string;
   url: string;
-}>): Record<string, any> {
+}>): Record<string, unknown> {
   return {
     '@context': 'https://schema.org',
     '@type': 'BreadcrumbList',

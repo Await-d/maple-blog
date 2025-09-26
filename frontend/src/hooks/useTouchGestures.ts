@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * 触摸手势Hook - 完整架构重构版本
  * 解决React事件和DOM事件类型不兼容的根本性架构问题
@@ -73,7 +72,9 @@ class EventAdapter {
       nativeEvent: nativeEvent,
       isDefaultPrevented: () => nativeEvent.defaultPrevented,
       isPropagationStopped: () => false,
-      persist: () => {},
+      persist: () => {
+        // No-op: React 17+ removed event pooling, so persist() is not needed
+      },
       getModifierState: (key: string) => {
         switch (key) {
           case 'Alt': return nativeEvent.altKey;
@@ -121,7 +122,9 @@ class EventAdapter {
       nativeEvent: nativeEvent,
       isDefaultPrevented: () => nativeEvent.defaultPrevented,
       isPropagationStopped: () => false,
-      persist: () => {},
+      persist: () => {
+        // No-op: React 17+ removed event pooling, so persist() is not needed
+      },
       getModifierState: (key: string) => {
         switch (key) {
           case 'Alt': return mouseEvent.altKey;

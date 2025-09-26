@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * StatsWidget component - Display site statistics with animated counters
  * Features: Animated counting, charts, growth indicators, responsive design

@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * LoginForm Component - Form for user authentication
  * Integrates with useAuth hook and provides validation
@@ -253,7 +252,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({
         {showRegisterLink && (
           <div className="text-center mt-6">
             <p className="text-sm text-gray-600">
-              Don't have an account?{' '}
+              Don&apos;t have an account?{' '}
               <Link
                 to="/register"
                 className="font-medium text-blue-600 hover:text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded"

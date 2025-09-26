@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Authentication API Service using TanStack Query
  * Handles all authentication-related API communications with the backend

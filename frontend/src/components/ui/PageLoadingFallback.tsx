@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * PageLoadingFallback - 页面级加载后备组件
  * 在页面组件懒加载时显示的加载界面

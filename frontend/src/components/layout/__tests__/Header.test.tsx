@@ -1,11 +1,10 @@
-// @ts-nocheck
 /**
  * Header组件测试
  * 测试网站头部导航的渲染、交互和响应式行为
  */
 
 import React from 'react';
-import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter } from 'react-router-dom';
@@ -120,9 +119,9 @@ const mockAdminUser = {
 };
 
 describe('Header', () => {
-  let mockUseResponsive: any;
-  let mockUseAuth: any;
-  let mockUseHomeStore: any;
+  let mockUseResponsive: ReturnType<typeof vi.fn>;
+  let mockUseAuth: ReturnType<typeof vi.fn>;
+  let mockUseHomeStore: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
     mockUseResponsive = vi.fn(() => ({
@@ -564,7 +563,7 @@ describe('Header', () => {
       renderWithProviders(<Header />);
 
       const logo = screen.getByRole('link', { name: /Maple Blog/i });
-      const blogLink = screen.getByRole('link', { name: /博客/i });
+      const _blogLink = screen.getByRole('link', { name: /博客/i });
 
       // Tab键导航
       logo.focus();
@@ -647,7 +646,7 @@ describe('Header', () => {
 
   describe('性能优化', () => {
     it('应该防止频繁的滚动事件触发', async () => {
-      const scrollHandler = vi.fn();
+      const _scrollHandler = vi.fn();
 
       renderWithProviders(<Header />);
 

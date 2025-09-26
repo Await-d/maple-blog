@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * SearchFilters Component
  * 搜索筛选器组件 - 提供各种筛选选项
@@ -12,7 +11,7 @@ import {
   Hash,
   FileText,
   CheckCircle,
-  Clock,
+  Clock as _Clock,
   Search,
   ChevronDown,
   ChevronUp,
@@ -27,7 +26,7 @@ interface SearchFiltersProps {
     authors: Array<{ name: string; count: number }>;
     years: Array<{ year: number; count: number }>;
   };
-  onChange: (key: keyof SearchFilters, value: any) => void;
+  onChange: (key: keyof SearchFilters, value: unknown) => void;
   className?: string;
 }
 

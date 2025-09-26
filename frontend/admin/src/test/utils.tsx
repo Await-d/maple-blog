@@ -1,4 +1,4 @@
-// @ts-nocheck
+/* eslint-disable react-refresh/only-export-components */
 import React, { ReactElement } from 'react';
 import { render, RenderOptions } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -7,13 +7,13 @@ import { MemoryRouter } from 'react-router-dom';
 import { ConfigProvider } from 'antd';
 import enUS from 'antd/locale/en_US';
 import { PermissionProvider } from '../contexts/PermissionContext';
+import type { User, Activity, SystemMetrics } from '@/types';
+import type { Locale } from 'antd/lib/locale';
 
 // Custom render function that includes all providers
 interface CustomRenderOptions extends Omit<RenderOptions, 'wrapper'> {
   initialEntries?: string[];
-  permissions?: string[];
-  userRole?: string;
-  locale?: any;
+  locale?: Locale;
   queryClient?: QueryClient;
 }
 
@@ -36,8 +36,6 @@ export const renderWithProviders = (
   ui: ReactElement,
   {
     initialEntries = ['/'],
-    permissions = ['read:all', 'write:all'],
-    userRole = 'admin',
     locale = enUS,
     queryClient = createTestQueryClient(),
     ...renderOptions
@@ -59,7 +57,7 @@ export const renderWithProviders = (
 };
 
 // Mock data generators
-export const generateMockUser = (overrides: Partial<any> = {}) => ({
+export const generateMockUser = (overrides: Partial<User> = {}) => ({
   id: '1',
   username: 'test@example.com',
   displayName: 'Test User',
@@ -71,7 +69,7 @@ export const generateMockUser = (overrides: Partial<any> = {}) => ({
   ...overrides,
 });
 
-export const generateMockPost = (overrides: Partial<any> = {}) => ({
+export const generateMockPost = (overrides: Partial<Record<string, unknown>> = {}) => ({
   id: '1',
   title: 'Test Post',
   content: 'This is a test post content',
@@ -90,7 +88,7 @@ export const generateMockPost = (overrides: Partial<any> = {}) => ({
   ...overrides,
 });
 
-export const generateMockComment = (overrides: Partial<any> = {}) => ({
+export const generateMockComment = (overrides: Partial<Record<string, unknown>> = {}) => ({
   id: '1',
   content: 'This is a test comment',
   status: 'approved',
@@ -104,7 +102,7 @@ export const generateMockComment = (overrides: Partial<any> = {}) => ({
   ...overrides,
 });
 
-export const generateMockDashboardStats = (overrides: Partial<any> = {}) => ({
+export const generateMockDashboardStats = (overrides: Partial<Record<string, unknown>> = {}) => ({
   userStats: {
     total: 1000,
     active: 750,
@@ -131,7 +129,7 @@ export const generateMockDashboardStats = (overrides: Partial<any> = {}) => ({
   ...overrides,
 });
 
-export const generateMockSystemMetrics = (overrides: Partial<any> = {}) => ({
+export const generateMockSystemMetrics = (overrides: Partial<SystemMetrics> = {}) => ({
   cpu: {
     usage: 65,
     cores: 8,
@@ -160,7 +158,7 @@ export const generateMockSystemMetrics = (overrides: Partial<any> = {}) => ({
   ...overrides,
 });
 
-export const generateMockHealthCheck = (overrides: Partial<any> = {}) => ({
+export const generateMockHealthCheck = (overrides: Partial<Record<string, unknown>> = {}) => ({
   status: 'healthy' as const,
   timestamp: '2024-01-15T10:30:00Z',
   checks: {
@@ -173,7 +171,7 @@ export const generateMockHealthCheck = (overrides: Partial<any> = {}) => ({
   ...overrides,
 });
 
-export const generateMockActivity = (overrides: Partial<any> = {}) => ({
+export const generateMockActivity = (overrides: Partial<Activity> = {}) => ({
   id: '1',
   type: 'user_login' as const,
   description: 'User logged in',
@@ -210,13 +208,13 @@ export const expectElementToBeAccessible = (element: HTMLElement) => {
 };
 
 // Mock API responses
-export const mockApiResponse = (data: any, delay = 0) => {
+export const mockApiResponse = (data: unknown, delay = 0) => {
   return new Promise(resolve => {
     setTimeout(() => resolve({ data }), delay);
   });
 };
 
-export const mockApiError = (error: any, delay = 0) => {
+export const mockApiError = (error: unknown, delay = 0) => {
   return new Promise((_, reject) => {
     setTimeout(() => reject(error), delay);
   });

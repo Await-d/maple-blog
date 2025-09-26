@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * 空评论状态组件
  * 当没有评论时显示
@@ -13,7 +12,7 @@ interface EmptyCommentsProps {
 }
 
 const EmptyComments: React.FC<EmptyCommentsProps> = ({
-  postId,
+  postId: _postId,
   className = '',
   showCallToAction = true
 }) => {

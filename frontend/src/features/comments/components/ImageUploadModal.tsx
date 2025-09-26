@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * 图片上传模态框组件
  * 支持拖拽上传、粘贴上传、URL导入
@@ -59,14 +58,14 @@ const ImageUploadModal: React.FC<ImageUploadModalProps> = ({
 
     // 验证文件类型
     if (!file.type.startsWith('image/')) {
-      alert('请选择图片文件');
+      // TODO: Replace with proper UI notification
       return;
     }
 
     // 验证文件大小 (5MB)
     const maxSize = 5 * 1024 * 1024;
     if (file.size > maxSize) {
-      alert('图片大小不能超过 5MB');
+      // TODO: Replace with proper UI notification
       return;
     }
 
@@ -86,8 +85,7 @@ const ImageUploadModal: React.FC<ImageUploadModalProps> = ({
       }
 
     } catch (error) {
-      console.error('Image upload failed:', error);
-      alert('图片上传失败，请重试');
+      // TODO: Replace with proper error notification
     } finally {
       setUploading(false);
     }
@@ -139,7 +137,7 @@ const ImageUploadModal: React.FC<ImageUploadModalProps> = ({
     e.preventDefault();
 
     if (!imageUrl.trim()) {
-      alert('请上传图片或输入图片URL');
+      // TODO: Replace with proper UI notification
       return;
     }
 

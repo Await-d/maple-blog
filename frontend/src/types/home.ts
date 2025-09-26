@@ -1,4 +1,3 @@
-// @ts-nocheck
 // Home page data types matching the backend DTOs
 
 /**

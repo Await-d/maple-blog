@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * RegisterForm Component - Form for user registration
  * Integrates with useAuth hook and provides comprehensive validation
@@ -19,7 +18,7 @@ const passwordPatterns = {
   hasUppercase: /[A-Z]/,
   hasLowercase: /[a-z]/,
   hasNumber: /\d/,
-  hasSpecialChar: /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/,
+  hasSpecialChar: /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/,
 };
 
 // Username validation regex
@@ -221,7 +220,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
 
   // Watch password for real-time validation
   const watchedPassword = watch('password', '');
-  const watchedConfirmPassword = watch('confirmPassword', '');
+  const _watchedConfirmPassword = watch('confirmPassword', '');
 
   // Handle form submission
   const onSubmit = async (data: RegisterFormData) => {

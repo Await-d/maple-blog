@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Class name utility function for conditional styling
  * Similar to clsx but simpler implementation

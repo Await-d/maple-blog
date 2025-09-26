@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * 评论操作按钮组件
  * 包含点赞、回复、编辑、删除、举报等操作
@@ -35,8 +34,7 @@ const CommentActions: React.FC<CommentActionsProps> = ({
 
   const handleLike = async () => {
     if (!isAuthenticated) {
-      // 显示登录提示
-      alert('请先登录');
+      // TODO: Replace with proper UI notification for login required
       return;
     }
 
@@ -206,7 +204,7 @@ const CommentActions: React.FC<CommentActionsProps> = ({
             });
           } else {
             navigator.clipboard.writeText(url);
-            alert('链接已复制到剪贴板');
+            // TODO: Replace with proper UI notification for copy success
           }
         }}
         className={`

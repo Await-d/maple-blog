@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import {
   // Card,
@@ -24,7 +23,6 @@ import {
   Alert,
   Badge,
   Drawer,
-  Collapse,
   Slider,
   ColorPicker,
   DatePicker,
@@ -78,12 +76,9 @@ import {
   // CalendarOutlined,
   // UserOutlined,
   // GlobalOutlined,
-  EyeInvisibleOutlined,
   ClockCircleOutlined,
-  CheckCircleOutlined,
   ExclamationCircleOutlined,
-  InfoCircleOutlined,
-  WarningOutlined
+  InfoCircleOutlined
 } from '@ant-design/icons';
 import dayjs, { Dayjs } from 'dayjs';
 
@@ -91,7 +86,6 @@ const { Title, Text, Paragraph } = Typography;
 const { TextArea } = Input;
 const { Option } = Select;
 const { TabPane } = Tabs;
-const { Panel } = Collapse;
 
 // Content editor interfaces
 interface EditorContent {
@@ -355,7 +349,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
     }, settings.autoSaveInterval * 1000);
 
     return () => clearInterval(interval);
-  }, [hasUnsavedChanges, settings.autoSave, settings.autoSaveInterval, autosave, readOnly]);
+  }, [hasUnsavedChanges, settings.autoSave, settings.autoSaveInterval, autosave, readOnly, handleSave]);
 
   // Update content and mark as changed
   const updateContent = useCallback((updates: Partial<EditorContent>) => {
@@ -643,7 +637,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
         form={form}
         layout="vertical"
         initialValues={content}
-        onValuesChange={(_, values) => updateContent(values)}
+        onValuesChange={(_, _values) => updateContent(_values)}
       >
         {/* Header */}
         <div className="border-b bg-white p-4">
@@ -798,7 +792,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
                           beforeUpload={() => false}
                           onChange={(info) => {
                             if (info.file) {
-                              const url = URL.createObjectURL(info.file as any);
+                              const url = URL.createObjectURL(info.file as File);
                               updateContent({ featuredImage: url });
                             }
                           }}
@@ -1126,8 +1120,8 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
             <List.Item
               actions={[
                 <Button
+                  key="restore"
                   type="link"
-                  
                   onClick={() => {
                     updateContent({ content: version.content });
                     setVersionDrawerVisible(false);

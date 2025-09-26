@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { create } from 'zustand';
 import { subscribeWithSelector, persist, createJSONStorage } from 'zustand/middleware';
 import { immer } from 'zustand/middleware/immer';
@@ -164,7 +163,7 @@ const defaultAccessibilitySettings: AccessibilitySettings = {
 export const useHomeStore = create<HomeStore>()(
   subscribeWithSelector(
     persist(
-      immer((set, get) => ({
+      immer((set, _get) => ({
         // Initial state
         ...defaultHomePageState,
         responsive: defaultResponsiveState,
@@ -473,7 +472,10 @@ export const useHomeStore = create<HomeStore>()(
             if (!state.metrics) {
               state.metrics = {} as HomePageMetrics;
             }
-            (state.metrics as any)[metric] = value;
+            // Type-safe metric assignment
+            if (state.metrics && typeof state.metrics === 'object') {
+              (state.metrics as Record<string, unknown>)[metric] = value;
+            }
           }),
 
         // Reset Actions
@@ -528,12 +530,12 @@ export const useHomeStore = create<HomeStore>()(
           },
         }),
         version: 1,
-        migrate: (persistedState: any, version: number) => {
+        migrate: (persistedState: unknown, version: number) => {
           // Handle store migrations if needed
           if (version === 0) {
             // Migrate from version 0 to 1
             return {
-              ...persistedState,
+              ...(persistedState as Record<string, unknown>),
               accessibility: defaultAccessibilitySettings,
             };
           }

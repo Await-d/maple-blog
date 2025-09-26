@@ -1,9 +1,9 @@
-// @ts-nocheck
 /**
  * ProtectedRoute Component - Route protection with role-based access control
  * Handles authentication and authorization for protected pages
  */
 
+/* eslint-disable react-refresh/only-export-components */
 import React, { useEffect, useState } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth, useAuthLoading } from '../../hooks/useAuth';

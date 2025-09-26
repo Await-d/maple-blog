@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * User API Service
  */

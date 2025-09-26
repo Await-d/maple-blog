@@ -1,20 +1,17 @@
-// @ts-nocheck
 import React, { useState, useMemo, useCallback } from 'react';
 import { 
   Card, 
   Space, 
   Button, 
   Select, 
-  Statistic, 
   Row, 
   Col, 
-  Alert, 
   Typography, 
   Tag,
+  Statistic,
   Divider,
   Switch,
-  Slider,
-  message
+  Alert
 } from 'antd';
 import { 
   TableOutlined, 
@@ -25,7 +22,7 @@ import {
 } from '@ant-design/icons';
 import { DataTable } from './DataTable';
 import { useDataTable } from '../../hooks/useDataTable';
-import { TablePresets, BatchActionPresets, PerformancePresets, TableUtils } from './index';
+import { TableUtils } from './index';
 import type { DataTableColumn } from './DataTable';
 
 const { Title, Text, Paragraph } = Typography;
@@ -181,7 +178,7 @@ export const DataTableDemo: React.FC = () => {
       width: 150,
       pinned: 'right',
       exportable: false,
-      render: (_, record) => (
+      render: (_) => (
         <Space >
           <Button  type="link">Edit</Button>
           <Button  type="link">View</Button>
@@ -202,7 +199,7 @@ export const DataTableDemo: React.FC = () => {
   });
 
   // 处理批量操作
-  const handleBatchAction = useCallback(async (action: string, params?: any) => {
+  const handleBatchAction = useCallback(async (action: string, _params?: unknown) => {
     setLoading(true);
     
     try {
@@ -382,7 +379,7 @@ export const DataTableDemo: React.FC = () => {
           columnSelector
           rowSelection={{
             selectedRowKeys,
-            onChange: (keys, rows) => {
+            onChange: (keys, _rows) => {
               setSelectedRowKeys(keys);
             },
             preserveSelectedRowKeys: true,

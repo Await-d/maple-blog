@@ -1,4 +1,4 @@
-// @ts-nocheck
+/* eslint-disable react-refresh/only-export-components */
 import React, { useMemo, useCallback, useState } from 'react';
 import {
   Space,
@@ -6,7 +6,6 @@ import {
   Dropdown,
   Modal,
   message,
-  Popconfirm,
   Tooltip,
   Badge,
   Typography,
@@ -17,22 +16,16 @@ import {
 } from 'antd';
 import {
   DeleteOutlined,
-  EditOutlined,
   ExportOutlined,
   MoreOutlined,
-  BulkUpdateOutlined,
-  SendOutlined,
   CopyOutlined,
   ArchiveBoxOutlined,
   EyeOutlined,
   EyeInvisibleOutlined,
   LockOutlined,
   UnlockOutlined,
-  StarOutlined,
-  StarFilled,
   CheckCircleOutlined,
   CloseCircleOutlined,
-  ExclamationCircleOutlined,
   ReloadOutlined,
 } from '@ant-design/icons';
 import type { MenuProps } from 'antd';
@@ -77,7 +70,7 @@ export interface BatchActionConfig {
   requireInput?: boolean;
   inputPlaceholder?: string;
   inputType?: 'text' | 'textarea' | 'select';
-  inputOptions?: Array<{ label: string; value: any }>;
+  inputOptions?: Array<{ label: string; value: unknown }>;
   visible?: boolean;
 }
 
@@ -94,7 +87,7 @@ export interface TableActionsProps {
   
   // 事件回调
   onClearSelection?: () => void;
-  onBatchAction?: (action: string, params?: any) => Promise<void> | void;
+  onBatchAction?: (action: string, params?: unknown) => Promise<void> | void;
   onRefresh?: () => void;
   
   // 自定义渲染
@@ -192,7 +185,7 @@ export const TableActions: React.FC<TableActionsProps> = ({
 }) => {
   const [modalVisible, setModalVisible] = useState(false);
   const [currentAction, setCurrentAction] = useState<BatchActionConfig | null>(null);
-  const [inputValue, setInputValue] = useState<any>('');
+  const [inputValue, setInputValue] = useState<string>('');
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   // 合并批量操作配置
@@ -210,7 +203,7 @@ export const TableActions: React.FC<TableActionsProps> = ({
   }, [allBatchActions]);
 
   // 处理批量操作
-  const handleBatchAction = useCallback(async (actionConfig: BatchActionConfig, params?: any) => {
+  const handleBatchAction = useCallback(async (actionConfig: BatchActionConfig, params?: unknown) => {
     if (disabled || loading) return;
 
     const { key, needConfirm, requireInput } = actionConfig;
@@ -422,7 +415,7 @@ export const TableActions: React.FC<TableActionsProps> = ({
         {renderInput()}
       </Modal>
 
-      <style jsx>{`
+      <style>{`
         .table-actions {
           background: #fafafa;
           border: 1px solid #d9d9d9;
@@ -518,10 +511,10 @@ export const TableActions: React.FC<TableActionsProps> = ({
 };
 
 // 高阶组件：为表格添加批量操作功能
-export const withTableActions = <T extends Record<string, any>>(
-  TableComponent: React.ComponentType<any>
+export const withTableActions = <T extends Record<string, unknown>>(
+  TableComponent: React.ComponentType<{ rowSelection?: unknown } & Record<string, unknown>>
 ) => {
-  return React.forwardRef<any, any>((props, ref) => {
+  return React.forwardRef<HTMLDivElement, { rowSelection?: unknown } & Record<string, unknown>>((props, ref) => {
     const { rowSelection, ...restProps } = props;
     const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
 

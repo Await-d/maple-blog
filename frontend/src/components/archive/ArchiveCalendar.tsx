@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * ArchiveCalendar Component
  * 归档日历组件 - 以日历形式展示文章发布分布

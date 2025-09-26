@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * SEO优化组件
  * 实现动态meta标签、结构化数据、OpenGraph和Twitter Cards支持

@@ -149,7 +149,7 @@ public class SystemMonitorOptions
 /// </summary>
 public class SystemMonitorService : ISystemMonitorService, IHostedService
 {
-    private readonly ApplicationDbContext _context;
+    private readonly IServiceProvider _serviceProvider;
     private readonly IMemoryCache _memoryCache;
     private readonly IDistributedCache? _distributedCache;
     private readonly IHealthCheckService _healthCheckService;
@@ -170,7 +170,7 @@ public class SystemMonitorService : ISystemMonitorService, IHostedService
     private const string CACHE_KEY_ALERTS = CACHE_KEY_PREFIX + "Alerts";
 
     public SystemMonitorService(
-        ApplicationDbContext context,
+        IServiceProvider serviceProvider,
         IMemoryCache memoryCache,
         IHealthCheckService healthCheckService,
         ILogger<SystemMonitorService> logger,
@@ -178,7 +178,7 @@ public class SystemMonitorService : ISystemMonitorService, IHostedService
         IDistributedCache? distributedCache = null,
         IConnectionMultiplexer? redis = null)
     {
-        _context = context;
+        _serviceProvider = serviceProvider;
         _memoryCache = memoryCache;
         _distributedCache = distributedCache;
         _healthCheckService = healthCheckService;
@@ -761,8 +761,11 @@ public class SystemMonitorService : ISystemMonitorService, IHostedService
         try
         {
             // 执行简单查询测试性能
+            using var scope = _serviceProvider.CreateScope();
+            var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            
             var stopwatch = Stopwatch.StartNew();
-            await _context.Database.ExecuteSqlRawAsync("SELECT 1", cancellationToken);
+            await context.Database.ExecuteSqlRawAsync("SELECT 1", cancellationToken);
             stopwatch.Stop();
 
             return new QueryPerformanceDto
@@ -795,7 +798,10 @@ public class SystemMonitorService : ISystemMonitorService, IHostedService
             long databaseSize = 0;
 
             // 对于SQLite，获取文件大小
-            var connectionString = _context.Database.GetConnectionString();
+            using var scope = _serviceProvider.CreateScope();
+            var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            
+            var connectionString = context.Database.GetConnectionString();
             if (!string.IsNullOrEmpty(connectionString))
             {
                 var dbPath = ExtractDatabasePath(connectionString);
@@ -806,8 +812,8 @@ public class SystemMonitorService : ISystemMonitorService, IHostedService
             }
 
             // 获取表统计（简化实现）
-            var postCount = await _context.Set<MapleBlog.Domain.Entities.Post>().CountAsync(cancellationToken);
-            var userCount = await _context.Set<MapleBlog.Domain.Entities.User>().CountAsync(cancellationToken);
+            var postCount = await context.Set<MapleBlog.Domain.Entities.Post>().CountAsync(cancellationToken);
+            var userCount = await context.Set<MapleBlog.Domain.Entities.User>().CountAsync(cancellationToken);
 
             tableStats.Add(new TableStatsDto
             {
@@ -955,8 +961,11 @@ public class SystemMonitorService : ISystemMonitorService, IHostedService
         try
         {
             // 获取过去30分钟内活跃的用户
+            using var scope = _serviceProvider.CreateScope();
+            var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            
             var thirtyMinutesAgo = DateTime.UtcNow.AddMinutes(-30);
-            return await _context.Set<MapleBlog.Domain.Entities.User>()
+            return await context.Set<MapleBlog.Domain.Entities.User>()
                 .Where(u => u.LastLoginDate > thirtyMinutesAgo)
                 .CountAsync(cancellationToken);
         }

@@ -6,10 +6,24 @@ import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import classNames from 'classnames';
 
+// ECharts option interface - simplified version for common chart types
+interface EChartsOption {
+  xAxis?: Record<string, unknown>;
+  yAxis?: Record<string, unknown>;
+  series?: Record<string, unknown>[];
+  title?: Record<string, unknown>;
+  legend?: Record<string, unknown>;
+  tooltip?: Record<string, unknown>;
+  grid?: Record<string, unknown>;
+  dataZoom?: Record<string, unknown>[];
+  animation?: boolean;
+  [key: string]: unknown;
+}
+
 export interface ChartConfig extends Omit<ChartWrapperProps, 'option'> {
   id: string;
   title: string;
-  option: any;
+  option: EChartsOption;
   span: number; // Grid span (1-24)
   order: number;
   visible: boolean;
@@ -24,7 +38,7 @@ export interface MultiChartProps {
   refreshable?: boolean;
   exportable?: boolean;
   onChartsChange?: (charts: ChartConfig[]) => void;
-  onChartUpdate?: (chartId: string, option: any) => void;
+  onChartUpdate?: (chartId: string, option: EChartsOption) => void;
   onRefreshAll?: () => void;
   layout?: 'grid' | 'masonry';
   theme?: 'light' | 'dark';
@@ -50,14 +64,14 @@ const DraggableChart: React.FC<{
   const ref = useRef<HTMLDivElement>(null);
   const chartRef = useRef<ChartWrapperRef>(null);
 
-  const [{ handlerId }, drop] = useDrop<DragItem, void, { handlerId: any }>({
+  const [{ handlerId }, drop] = useDrop<DragItem, void, { handlerId: string | symbol | null }>({
     accept: 'chart',
     collect(monitor) {
       return {
         handlerId: monitor.getHandlerId(),
       };
     },
-    hover(item: DragItem, monitor: any) {
+    hover(item: DragItem, monitor: import('react-dnd').DropTargetMonitor) {
       if (!ref.current) return;
 
       const dragIndex = item.index;
@@ -196,7 +210,7 @@ const ChartEditor: React.FC<{
 
   const handleThemeChange = (value: string) => {
     if (editingChart) {
-      setEditingChart({ ...editingChart, theme: value as any });
+      setEditingChart({ ...editingChart, theme: value as 'light' | 'dark' });
     }
   };
 
@@ -404,7 +418,7 @@ const MultiChart: React.FC<MultiChartProps> = ({
       order: charts.length,
       visible: true,
       height: 400,
-      theme: theme as any,
+      theme: theme as 'light' | 'dark',
       refreshable: true,
       exportable: true,
       animation: true

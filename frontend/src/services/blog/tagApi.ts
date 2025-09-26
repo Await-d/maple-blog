@@ -1,11 +1,10 @@
-// @ts-nocheck
 /**
  * Blog Tags API Service using TanStack Query
  * Handles all tag-related API communications with the backend
  */
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AxiosError, AxiosResponse } from 'axios';
+import { AxiosError as _AxiosError, AxiosResponse } from 'axios';
 import {
   Tag,
   TagListResponse,
@@ -388,7 +387,7 @@ export const useTagMutations = () => {
   // Get or create tag mutation (for auto-tagging)
   const getOrCreateTagMutation = useMutation({
     mutationFn: tagsApi.getOrCreateTag,
-    onSuccess: (tag, tagName) => {
+    onSuccess: (tag, _tagName) => {
       // Only add to store if it's a new tag (has recent createdAt)
       const isNewTag = new Date(tag.createdAt) > new Date(Date.now() - 5000);
       if (isNewTag) {
@@ -488,16 +487,15 @@ export const useTagUtils = () => {
 };
 
 // Hook for tag input/autocomplete functionality
-export const useTagInput = () => {
+export const useTagInput = (query: string = '') => {
   const { useTagSuggestions } = useTagQueries();
   const { processTagInput } = useTagUtils();
 
-  const getTagSuggestionsForInput = (query: string) => {
-    return useTagSuggestions(query);
-  };
+  // Call the hook at the top level
+  const suggestions = useTagSuggestions(query);
 
   return {
-    getTagSuggestionsForInput,
+    suggestions,
     processTagInput,
   };
 };

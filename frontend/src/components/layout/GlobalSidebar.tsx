@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * GlobalSidebar - 全局侧边栏组件
  * 提供导航、快速访问和工具链接

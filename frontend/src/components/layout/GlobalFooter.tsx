@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * GlobalFooter - 全局页脚组件包装器
  * 对现有Footer组件的重新导出和适配

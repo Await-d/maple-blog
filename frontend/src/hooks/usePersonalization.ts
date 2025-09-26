@@ -1,11 +1,10 @@
-// @ts-nocheck
 /**
  * usePersonalization hook - Handle personalized content recommendations
  * Features: User behavior tracking, preference learning, recommendation algorithms
  */
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery as _useQuery, useMutation as _useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from './useAuth';
 import { usePersonalizationActions, usePersonalization as usePersonalizationStore } from '../stores/homeStore';
 import {
@@ -91,8 +90,8 @@ export const usePersonalization = (): UsePersonalizationReturn => {
       // Clear error on successful interaction
       setError(null);
     },
-    onError: (error: any) => {
-      setError(error.message || 'Failed to record interaction');
+    onError: (error: unknown) => {
+      setError(error instanceof Error ? error.message : 'Failed to record interaction');
     },
   });
 
@@ -141,12 +140,12 @@ export const usePersonalization = (): UsePersonalizationReturn => {
   const analytics = useMemo(() => {
     const now = new Date();
     const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-    const recentInteractions = interactionHistory.filter(
+    const _recentInteractions = interactionHistory.filter(
       interaction => new Date(interaction.timestamp) > weekAgo
     );
 
     // Calculate reading streak (consecutive days with interactions)
-    const today = new Date().toDateString();
+    const _today = new Date().toDateString();
     let streak = 0;
     const currentDate = new Date();
 
@@ -167,7 +166,7 @@ export const usePersonalization = (): UsePersonalizationReturn => {
 
     // Calculate favorite categories from interactions
     const categoryInteractions: Record<string, number> = {};
-    interactionHistory.forEach(interaction => {
+    interactionHistory.forEach(_interaction => {
       // This would need category mapping from post data
       // For now, we'll use a mock implementation
     });
@@ -275,7 +274,7 @@ export const usePersonalization = (): UsePersonalizationReturn => {
     queryClient.removeQueries({
       queryKey: HOME_QUERY_KEYS.recommendations(user?.id || '', 10),
     });
-  }, [personalizationActions, user, queryClient]);
+  }, [setInteractionHistory, setFeedbackHistory, setError, user, queryClient]);
 
   const addInterest = useCallback((
     type: 'category' | 'tag' | 'author',
@@ -311,7 +310,7 @@ export const usePersonalization = (): UsePersonalizationReturn => {
     }
   }, [personalizationActions]);
 
-  const setReadingGoals = useCallback((goals: {
+  const setReadingGoals = useCallback((_goals: {
     postsPerWeek?: number;
     categoriesOfInterest?: number;
   }) => {
@@ -373,8 +372,8 @@ export const useAutoTrackViews = (posts: PostSummary[]) => {
               const unobserve = () => {
                 const duration = Math.round((Date.now() - startTime) / 1000);
                 if (duration > 3) { // Only track if viewed for more than 3 seconds
-                  // Note: recordInteraction not available in actions store
-                  console.log('Would record interaction:', postId, 'view', duration);
+                  // TODO: Record interaction when store action is available
+                  // Would record interaction: postId, 'view', duration
                 }
               };
 

@@ -1,4 +1,3 @@
-// @ts-nocheck
 // Web Speech API types for TypeScript
 interface SpeechRecognitionEvent extends Event {
   results: SpeechRecognitionResultList;
@@ -48,22 +47,22 @@ interface SpeechRecognition extends EventTarget {
   abort(): void;
   addEventListener(
     type: 'audiostart' | 'audioend' | 'end' | 'error' | 'nomatch' | 'result' | 'soundstart' | 'soundend' | 'speechstart' | 'speechend' | 'start',
-    listener: (this: SpeechRecognition, ev: Event) => any,
+    listener: (this: SpeechRecognition, ev: Event) => void,
     options?: boolean | AddEventListenerOptions
   ): void;
   addEventListener(
     type: 'result',
-    listener: (this: SpeechRecognition, ev: SpeechRecognitionEvent) => any,
+    listener: (this: SpeechRecognition, ev: SpeechRecognitionEvent) => void,
     options?: boolean | AddEventListenerOptions
   ): void;
   addEventListener(
     type: 'error',
-    listener: (this: SpeechRecognition, ev: SpeechRecognitionErrorEvent) => any,
+    listener: (this: SpeechRecognition, ev: SpeechRecognitionErrorEvent) => void,
     options?: boolean | AddEventListenerOptions
   ): void;
-  onresult: ((this: SpeechRecognition, ev: SpeechRecognitionEvent) => any) | null;
-  onerror: ((this: SpeechRecognition, ev: SpeechRecognitionErrorEvent) => any) | null;
-  onend: ((this: SpeechRecognition, ev: Event) => any) | null;
+  onresult: ((this: SpeechRecognition, ev: SpeechRecognitionEvent) => void) | null;
+  onerror: ((this: SpeechRecognition, ev: SpeechRecognitionErrorEvent) => void) | null;
+  onend: ((this: SpeechRecognition, ev: Event) => void) | null;
 }
 
 interface SpeechGrammarList {

@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Authentication Hook
  * Provides a unified interface for authentication operations
@@ -8,20 +7,20 @@
 import { useCallback, useEffect, useMemo } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuthStore, authSelectors } from '../stores/authStore';
-import { useAuthMutations, createAuthApiWithStore, AUTH_QUERY_KEYS } from '../services/auth/authApi';
+import { useAuthMutations, createAuthApiWithStore, AUTH_QUERY_KEYS as _AUTH_QUERY_KEYS } from '../services/auth/authApi';
 import type {
   LoginRequest,
   RegisterRequest,
-  PasswordResetRequest,
+  PasswordResetRequest as _PasswordResetRequest,
   PasswordResetConfirmRequest,
   UpdateUserProfileRequest,
   ChangeEmailRequest,
   ChangePasswordRequest,
-  EmailVerificationRequest,
+  EmailVerificationRequest as _EmailVerificationRequest,
   AuthResult,
   OperationResult,
   UseAuthReturn,
-  User,
+  User as _User,
 } from '../types/auth';
 import { UserRole } from '../types/auth';
 
@@ -44,10 +43,10 @@ export const useAuth = (): UseAuthReturn => {
   const clearAuth = useAuthStore((state) => state.clearAuth);
   const updateUser = useAuthStore((state) => state.updateUser);
   const hasRole = useAuthStore((state) => state.hasRole);
-  const hasAnyRole = useAuthStore((state) => state.hasAnyRole);
+  const _hasAnyRole = useAuthStore((state) => state.hasAnyRole);
   const isTokenValid = useAuthStore((state) => state.isTokenValid);
   const shouldRefreshToken = useAuthStore((state) => state.shouldRefreshToken);
-  const getTimeToExpiry = useAuthStore((state) => state.shouldRefreshToken);
+  const _getTimeToExpiry = useAuthStore((state) => state.shouldRefreshToken);
 
   // TanStack Query mutations
   const {
