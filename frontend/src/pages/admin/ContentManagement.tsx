@@ -1,9 +1,10 @@
 /**
  * ContentManagement - 内容管理页面
  * 提供文章和评论的全面管理功能，包括审核、编辑、删除等操作
+ * 完全去除模拟数据，使用真实API集成
  */
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import {
   Card,
   CardContent,
@@ -31,6 +32,19 @@ import {
 } from '@/components/ui/tabs';
 import UserAvatar from '@/components/common/UserAvatar';
 import { Helmet } from '@/components/common/DocumentHead';
+import { ToastProvider } from '../../components/admin/ToastNotifications';
+// Real API Integration
+import {
+  useAdminPostQueries,
+  useAdminCommentQueries,
+  useAdminMutations,
+  AdminPost,
+  AdminComment,
+  PostFilters,
+  CommentFilters,
+  handleAdminApiError,
+} from '../../services/admin/adminApi';
+import { useNotifications } from '../../services/admin/notificationService';
 import {
   FileText,
   MessageSquare,
@@ -64,201 +78,37 @@ import {
   ExternalLink,
 } from 'lucide-react';
 
-// Data Types
-interface AdminPost {
-  id: string;
-  title: string;
-  slug: string;
-  content: string;
-  excerpt: string;
-  status: 'Draft' | 'Published' | 'Archived';
-  featured: boolean;
-  author: {
-    id: string;
-    name: string;
-    avatar?: string;
-  };
-  category: {
-    id: string;
-    name: string;
-  };
-  tags: Array<{
-    id: string;
-    name: string;
-  }>;
-  publishDate: string;
-  lastModified: string;
-  viewCount: number;
-  commentCount: number;
-  seoScore: number;
-}
-
-interface AdminComment {
-  id: string;
-  content: string;
-  status: 'Pending' | 'Approved' | 'Rejected' | 'Spam';
-  author: {
-    id: string;
-    name: string;
-    email: string;
-    avatar?: string;
-  };
-  post: {
-    id: string;
-    title: string;
-    slug: string;
-  };
-  parentId?: string;
-  createdDate: string;
-  ipAddress: string;
-  userAgent: string;
-}
-
-interface ContentFilters {
-  search: string;
-  status: string;
-  author: string;
-  category: string;
-  dateFrom: string;
-  dateTo: string;
+// Enhanced Filter Types with Pagination
+interface ContentFilters extends PostFilters {
   featured?: boolean;
   tag?: string;
 }
 
-interface CommentFilters {
-  search: string;
-  status: string;
-  author: string;
-  post: string;
-  dateFrom: string;
-  dateTo: string;
+interface AdminCommentFilters extends CommentFilters {
+  post?: string;
 }
 
-// Generate mock data
-const generateMockPosts = (): AdminPost[] => {
-  const statuses: AdminPost['status'][] = ['Draft', 'Published', 'Archived'];
-  const categories = [
-    { id: '1', name: 'Technology' },
-    { id: '2', name: 'Design' },
-    { id: '3', name: 'Development' },
-    { id: '4', name: 'Business' },
-    { id: '5', name: 'Lifestyle' },
-  ];
-  const authors = [
-    { id: '1', name: 'John Doe', avatar: 'https://i.pravatar.cc/100?img=1' },
-    { id: '2', name: 'Jane Smith', avatar: 'https://i.pravatar.cc/100?img=2' },
-    { id: '3', name: 'Mike Johnson', avatar: 'https://i.pravatar.cc/100?img=3' },
-    { id: '4', name: 'Sarah Wilson', avatar: 'https://i.pravatar.cc/100?img=4' },
-    { id: '5', name: 'Tom Brown', avatar: 'https://i.pravatar.cc/100?img=5' },
-  ];
-  const tags = [
-    { id: '1', name: 'React' },
-    { id: '2', name: 'JavaScript' },
-    { id: '3', name: 'TypeScript' },
-    { id: '4', name: 'CSS' },
-    { id: '5', name: 'Node.js' },
-    { id: '6', name: 'Design System' },
-    { id: '7', name: 'UI/UX' },
-    { id: '8', name: 'Backend' },
-    { id: '9', name: 'Frontend' },
-    { id: '10', name: 'Full Stack' },
-  ];
-
-  return Array.from({ length: 45 }, (_, index) => {
-    const author = authors[Math.floor(Math.random() * authors.length)];
-    const category = categories[Math.floor(Math.random() * categories.length)];
-    const status = statuses[Math.floor(Math.random() * statuses.length)];
-    const publishDate = new Date(2023 + Math.floor(Math.random() * 2), Math.floor(Math.random() * 12), Math.floor(Math.random() * 28));
-    const lastModified = new Date(publishDate.getTime() + Math.random() * 30 * 24 * 60 * 60 * 1000);
-    const postTags = tags.sort(() => 0.5 - Math.random()).slice(0, Math.floor(Math.random() * 4) + 1);
-    
-    return {
-      id: `post-${index + 1}`,
-      title: `Sample Blog Post ${index + 1}: Understanding Modern Web Development`,
-      slug: `sample-blog-post-${index + 1}`,
-      content: 'This is a comprehensive blog post about modern web development practices. It covers various topics including React, TypeScript, and modern development workflows. The content is rich and informative, providing valuable insights for developers at all levels.',
-      excerpt: 'A brief overview of modern web development practices and technologies that every developer should know.',
-      status,
-      featured: Math.random() > 0.8,
-      author,
-      category,
-      tags: postTags,
-      publishDate: publishDate.toISOString(),
-      lastModified: lastModified.toISOString(),
-      viewCount: Math.floor(Math.random() * 5000) + 100,
-      commentCount: Math.floor(Math.random() * 50),
-      seoScore: Math.floor(Math.random() * 40) + 60,
-    };
-  });
-};
-
-const generateMockComments = (posts: AdminPost[]): AdminComment[] => {
-  const statuses: AdminComment['status'][] = ['Pending', 'Approved', 'Rejected', 'Spam'];
-  const commentAuthors = [
-    { id: '1', name: 'Alice Johnson', email: 'alice@example.com', avatar: 'https://i.pravatar.cc/100?img=10' },
-    { id: '2', name: 'Bob Smith', email: 'bob@example.com', avatar: 'https://i.pravatar.cc/100?img=11' },
-    { id: '3', name: 'Carol White', email: 'carol@example.com', avatar: 'https://i.pravatar.cc/100?img=12' },
-    { id: '4', name: 'David Brown', email: 'david@example.com', avatar: 'https://i.pravatar.cc/100?img=13' },
-    { id: '5', name: 'Emma Davis', email: 'emma@example.com', avatar: 'https://i.pravatar.cc/100?img=14' },
-  ];
-
-  const commentTexts = [
-    'Great article! Really helped me understand the concept better.',
-    'Thanks for sharing this. Very informative and well-written.',
-    'I have a question about the implementation details.',
-    'This is exactly what I was looking for. Thank you!',
-    'Could you please elaborate more on this topic?',
-    'Excellent explanation. Keep up the good work!',
-    'I disagree with some of the points mentioned here.',
-    'This tutorial saved me hours of debugging. Much appreciated!',
-    'Very detailed and comprehensive guide. Bookmarked!',
-    'Looking forward to more content like this.',
-  ];
-
-  return Array.from({ length: 128 }, (_, index) => {
-    const author = commentAuthors[Math.floor(Math.random() * commentAuthors.length)];
-    const post = posts[Math.floor(Math.random() * posts.length)];
-    const status = statuses[Math.floor(Math.random() * statuses.length)];
-    const createdDate = new Date(Date.now() - Math.random() * 90 * 24 * 60 * 60 * 1000);
-    const content = commentTexts[Math.floor(Math.random() * commentTexts.length)];
-    
-    return {
-      id: `comment-${index + 1}`,
-      content,
-      status,
-      author,
-      post: {
-        id: post.id,
-        title: post.title,
-        slug: post.slug,
-      },
-      parentId: Math.random() > 0.8 ? `comment-${Math.floor(Math.random() * index) + 1}` : undefined,
-      createdDate: createdDate.toISOString(),
-      ipAddress: `${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}`,
-      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-    };
-  });
-};
+// Pagination Constants
+const DEFAULT_PAGE_SIZE = 20;
+const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
 
 const ContentManagement: React.FC = () => {
+  // Real API Integration - No Mock Data
+  const notifications = useNotifications();
+
   // State management
-  const [posts, setPosts] = useState<AdminPost[]>([]);
-  const [comments, setComments] = useState<AdminComment[]>([]);
-  const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('posts');
   const [selectedPosts, setSelectedPosts] = useState<Set<string>>(new Set());
   const [selectedComments, setSelectedComments] = useState<Set<string>>(new Set());
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [showBulkModal, setShowBulkModal] = useState(false);
-  const [showConfirmModal, setShowConfirmModal] = useState(false);
-  const [confirmActionState, setConfirmActionState] = useState<() => void>(() => {
-    /* Default empty action */
-  });
-  const [confirmMessage, setConfirmMessage] = useState('');
+  const [showReplyModal, setShowReplyModal] = useState(false);
+  const [replyContent, setReplyContent] = useState('');
+  const [replyingToComment, setReplyingToComment] = useState<AdminComment | null>(null);
   const [previewPost, setPreviewPost] = useState<AdminPost | null>(null);
   const [viewMode, setViewMode] = useState<'table' | 'card'>('table');
 
-  // Filters
+  // Filters with Pagination
   const [postFilters, setPostFilters] = useState<ContentFilters>({
     search: '',
     status: '',
@@ -268,150 +118,141 @@ const ContentManagement: React.FC = () => {
     dateTo: '',
     featured: undefined,
     tag: '',
+    page: 1,
+    pageSize: DEFAULT_PAGE_SIZE,
+    sortBy: 'publishDate',
+    sortOrder: 'desc',
   });
 
-  const [commentFilters, setCommentFilters] = useState<CommentFilters>({
+  const [commentFilters, setCommentFilters] = useState<AdminCommentFilters>({
     search: '',
     status: '',
     author: '',
     post: '',
     dateFrom: '',
     dateTo: '',
+    page: 1,
+    pageSize: DEFAULT_PAGE_SIZE,
+    sortBy: 'createdDate',
+    sortOrder: 'desc',
   });
 
   const [showFilters, setShowFilters] = useState(false);
   const [bulkAction, setBulkAction] = useState('');
 
-  // Load data
-  useEffect(() => {
-    const loadData = async () => {
-      setLoading(true);
-      try {
-        await new Promise(resolve => setTimeout(resolve, 800));
-        const mockPosts = generateMockPosts();
-        const mockComments = generateMockComments(mockPosts);
-        setPosts(mockPosts);
-        setComments(mockComments);
-      } catch (error) {
-        console.error('Error loading content:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
+  // Real API Queries - Replace Mock Data
+  const postQueries = useAdminPostQueries();
+  const commentQueries = useAdminCommentQueries();
+  const mutations = useAdminMutations();
 
-    loadData();
+  // Fetch Posts with Real API
+  const {
+    data: postsResponse,
+    isLoading: postsLoading,
+    error: postsError,
+    refetch: refetchPosts
+  } = postQueries.usePostsList(postFilters);
+
+  // Fetch Comments with Real API
+  const {
+    data: commentsResponse,
+    isLoading: commentsLoading,
+    error: commentsError,
+    refetch: refetchComments
+  } = commentQueries.useCommentsList(commentFilters);
+
+  // Fetch Statistics with Real API
+  const {
+    data: postStats
+  } = postQueries.usePostStatistics();
+
+  const {
+    data: commentStats
+  } = commentQueries.useCommentStatistics();
+
+  // Extract data from responses
+  const posts = postsResponse?.posts || [];
+  const comments = commentsResponse?.comments || [];
+  const loading = postsLoading || commentsLoading;
+
+  // Error Handling
+  React.useEffect(() => {
+    if (postsError) {
+      notifications.error(
+        'Failed to load posts',
+        handleAdminApiError(postsError)
+      );
+    }
+  }, [postsError, notifications]);
+
+  React.useEffect(() => {
+    if (commentsError) {
+      notifications.error(
+        'Failed to load comments',
+        handleAdminApiError(commentsError)
+      );
+    }
+  }, [commentsError, notifications]);
+
+  // Server-side filtering and pagination
+  const filteredPosts = posts; // Already filtered on server
+  const filteredComments = comments; // Already filtered on server
+
+  // Pagination handlers
+  const handlePostPageChange = useCallback((page: number) => {
+    setPostFilters(prev => ({ ...prev, page }));
+    setSelectedPosts(new Set()); // Clear selection on page change
   }, []);
 
-  // Filter posts
-  const filteredPosts = useMemo(() => {
-    let result = [...posts];
+  const handleCommentPageChange = useCallback((page: number) => {
+    setCommentFilters(prev => ({ ...prev, page }));
+    setSelectedComments(new Set()); // Clear selection on page change
+  }, []);
 
-    if (postFilters.search) {
-      const search = postFilters.search.toLowerCase();
-      result = result.filter(post => 
-        post.title.toLowerCase().includes(search) ||
-        post.author.name.toLowerCase().includes(search) ||
-        post.category.name.toLowerCase().includes(search) ||
-        post.tags.some(tag => tag.name.toLowerCase().includes(search))
-      );
-    }
+  const handlePostPageSizeChange = useCallback((pageSize: number) => {
+    setPostFilters(prev => ({ ...prev, pageSize, page: 1 }));
+    setSelectedPosts(new Set());
+  }, []);
 
-    if (postFilters.status) {
-      result = result.filter(post => post.status === postFilters.status);
-    }
+  const handleCommentPageSizeChange = useCallback((pageSize: number) => {
+    setCommentFilters(prev => ({ ...prev, pageSize, page: 1 }));
+    setSelectedComments(new Set());
+  }, []);
 
-    if (postFilters.author) {
-      result = result.filter(post => post.author.name.includes(postFilters.author));
-    }
-
-    if (postFilters.category) {
-      result = result.filter(post => post.category.name === postFilters.category);
-    }
-
-    if (postFilters.featured !== undefined) {
-      result = result.filter(post => post.featured === postFilters.featured);
-    }
-
-    if (postFilters.dateFrom) {
-      const fromDate = new Date(postFilters.dateFrom);
-      result = result.filter(post => new Date(post.publishDate) >= fromDate);
-    }
-
-    if (postFilters.dateTo) {
-      const toDate = new Date(postFilters.dateTo);
-      result = result.filter(post => new Date(post.publishDate) <= toDate);
-    }
-
-    return result;
-  }, [posts, postFilters]);
-
-  // Filter comments
-  const filteredComments = useMemo(() => {
-    let result = [...comments];
-
-    if (commentFilters.search) {
-      const search = commentFilters.search.toLowerCase();
-      result = result.filter(comment =>
-        comment.content.toLowerCase().includes(search) ||
-        comment.author.name.toLowerCase().includes(search) ||
-        comment.post.title.toLowerCase().includes(search)
-      );
-    }
-
-    if (commentFilters.status) {
-      result = result.filter(comment => comment.status === commentFilters.status);
-    }
-
-    if (commentFilters.author) {
-      result = result.filter(comment => comment.author.name.includes(commentFilters.author));
-    }
-
-    if (commentFilters.post) {
-      result = result.filter(comment => comment.post.title.includes(commentFilters.post));
-    }
-
-    if (commentFilters.dateFrom) {
-      const fromDate = new Date(commentFilters.dateFrom);
-      result = result.filter(comment => new Date(comment.createdDate) >= fromDate);
-    }
-
-    if (commentFilters.dateTo) {
-      const toDate = new Date(commentFilters.dateTo);
-      result = result.filter(comment => new Date(comment.createdDate) <= toDate);
-    }
-
-    return result;
-  }, [comments, commentFilters]);
-
-  // Statistics
-  const postStats = useMemo(() => {
-    return {
-      total: posts.length,
-      published: posts.filter(p => p.status === 'Published').length,
-      drafts: posts.filter(p => p.status === 'Draft').length,
-      archived: posts.filter(p => p.status === 'Archived').length,
-      featured: posts.filter(p => p.featured).length,
-      totalViews: posts.reduce((sum, post) => sum + post.viewCount, 0),
-      totalComments: posts.reduce((sum, post) => sum + post.commentCount, 0),
+  // Real-time statistics from API
+  const realPostStats = useMemo(() => {
+    return postStats || {
+      total: 0,
+      published: 0,
+      drafts: 0,
+      archived: 0,
+      featured: 0,
+      totalViews: 0,
+      totalComments: 0,
+      avgSeoScore: 0,
     };
-  }, [posts]);
+  }, [postStats]);
 
-  const commentStats = useMemo(() => {
-    return {
-      total: comments.length,
-      approved: comments.filter(c => c.status === 'Approved').length,
-      pending: comments.filter(c => c.status === 'Pending').length,
-      rejected: comments.filter(c => c.status === 'Rejected').length,
-      spam: comments.filter(c => c.status === 'Spam').length,
+  const realCommentStats = useMemo(() => {
+    return commentStats || {
+      total: 0,
+      approved: 0,
+      pending: 0,
+      rejected: 0,
+      spam: 0,
+      todayCount: 0,
+      weeklyGrowth: 0,
     };
-  }, [comments]);
+  }, [commentStats]);
 
-  // Confirmation helper
-  const showConfirm = (message: string, action: () => void) => {
-    setConfirmMessage(message);
-    setConfirmActionState(() => action);
-    setShowConfirmModal(true);
-  };
+  // Confirmation helper using notification service
+  const showConfirm = useCallback((message: string, onConfirm: () => void) => {
+    notifications.showConfirmation(
+      'Confirm Action',
+      message,
+      onConfirm
+    );
+  }, [notifications]);
 
   // Utility functions
   const getStatusColor = (status: string, type: 'post' | 'comment' = 'post') => {
@@ -455,157 +296,199 @@ const ContentManagement: React.FC = () => {
     });
   };
 
-  // Action handlers
-  const handlePostAction = async (action: string, post: AdminPost) => {
-    // In production, this would make API calls
+  // Real Post Action Handlers - No Mock Operations
+  const handlePostAction = useCallback(async (action: string, post: AdminPost) => {
+    try {
+      switch (action) {
+        case 'toggleStatus':
+          await mutations.togglePostStatusMutation.mutateAsync(post.id);
+          notifications.success('Post status updated successfully');
+          break;
 
-    switch (action) {
-      case 'toggleStatus': {
-        const newStatus = post.status === 'Published' ? 'Draft' : 'Published';
-        setPosts(prev => prev.map(p =>
-          p.id === post.id ? { ...p, status: newStatus } : p
-        ));
-        break;
-      }
-      case 'toggleFeatured':
-        setPosts(prev => prev.map(p =>
-          p.id === post.id ? { ...p, featured: !p.featured } : p
-        ));
-        break;
-      case 'archive':
-        setPosts(prev => prev.map(p =>
-          p.id === post.id ? { ...p, status: 'Archived' as AdminPost['status'] } : p
-        ));
-        break;
-      case 'delete':
-        showConfirm(
-          `Are you sure you want to delete "${post.title}"?`,
-          () => setPosts(prev => prev.filter(p => p.id !== post.id))
-        );
-        break;
-      case 'preview':
-        setPreviewPost(post);
-        setShowPreviewModal(true);
-        break;
-      case 'edit':
-        // In production, this would navigate to the editor
-        window.location.href = `/admin/posts/${post.id}/edit`;
-        break;
-      default:
-        break;
-    }
-  };
-
-  const handleCommentAction = async (action: string, comment: AdminComment) => {
-    // In production, this would make API calls
-
-    switch (action) {
-      case 'approve':
-        setComments(prev => prev.map(c =>
-          c.id === comment.id ? { ...c, status: 'Approved' as AdminComment['status'] } : c
-        ));
-        break;
-      case 'reject':
-        setComments(prev => prev.map(c =>
-          c.id === comment.id ? { ...c, status: 'Rejected' as AdminComment['status'] } : c
-        ));
-        break;
-      case 'spam':
-        setComments(prev => prev.map(c =>
-          c.id === comment.id ? { ...c, status: 'Spam' as AdminComment['status'] } : c
-        ));
-        break;
-      case 'delete':
-        showConfirm(
-          'Are you sure you want to delete this comment?',
-          () => setComments(prev => prev.filter(c => c.id !== comment.id))
-        );
-        break;
-      case 'reply':
-        // In production, this would open a reply form
-        setComments(prev => [...prev, {
-          id: `reply-${Date.now()}`,
-          content: 'Admin response to comment...',
-          status: 'Approved' as AdminComment['status'],
-          author: { id: 'admin', name: 'Admin', email: 'admin@example.com' },
-          post: comment.post,
-          parentId: comment.id,
-          createdDate: new Date().toISOString(),
-          ipAddress: '127.0.0.1',
-          userAgent: 'Admin Panel',
-        }]);
-        break;
-      default:
-        break;
-    }
-  };
-
-  const handleBulkAction = async () => {
-    const selectedItems = activeTab === 'posts' ? selectedPosts : selectedComments;
-    if (selectedItems.size === 0) return;
-
-    // In production, this would make API calls
-    
-    if (activeTab === 'posts') {
-      switch (bulkAction) {
-        case 'delete':
-          showConfirm(
-            `Delete ${selectedItems.size} selected posts?`,
-            () => {
-              setPosts(prev => prev.filter(post => !selectedItems.has(post.id)));
-              setSelectedPosts(new Set());
-            }
+        case 'toggleFeatured':
+          await mutations.togglePostFeaturedMutation.mutateAsync(post.id);
+          notifications.success(
+            post.featured ? 'Post removed from featured' : 'Post featured successfully'
           );
           break;
-        case 'publish':
-          setPosts(prev => prev.map(post => 
-            selectedItems.has(post.id) ? { ...post, status: 'Published' as AdminPost['status'] } : post
-          ));
-          setSelectedPosts(new Set());
-          break;
+
         case 'archive':
-          setPosts(prev => prev.map(post => 
-            selectedItems.has(post.id) ? { ...post, status: 'Archived' as AdminPost['status'] } : post
-          ));
-          setSelectedPosts(new Set());
+          await mutations.archivePostMutation.mutateAsync(post.id);
+          notifications.success('Post archived successfully');
           break;
-        case 'feature':
-          setPosts(prev => prev.map(post => 
-            selectedItems.has(post.id) ? { ...post, featured: true } : post
-          ));
-          setSelectedPosts(new Set());
-          break;
-      }
-    } else {
-      switch (bulkAction) {
-        case 'approve':
-          setComments(prev => prev.map(comment => 
-            selectedItems.has(comment.id) ? { ...comment, status: 'Approved' as AdminComment['status'] } : comment
-          ));
-          setSelectedComments(new Set());
-          break;
-        case 'reject':
-          setComments(prev => prev.map(comment => 
-            selectedItems.has(comment.id) ? { ...comment, status: 'Rejected' as AdminComment['status'] } : comment
-          ));
-          setSelectedComments(new Set());
-          break;
+
         case 'delete':
           showConfirm(
-            `Delete ${selectedItems.size} selected comments?`,
-            () => {
-              setComments(prev => prev.filter(comment => !selectedItems.has(comment.id)));
-              setSelectedComments(new Set());
+            `Are you sure you want to delete "${post.title}"? This action cannot be undone.`,
+            async () => {
+              try {
+                await mutations.deletePostMutation.mutateAsync(post.id);
+                notifications.success('Post deleted successfully');
+                setSelectedPosts(prev => {
+                  const newSet = new Set(prev);
+                  newSet.delete(post.id);
+                  return newSet;
+                });
+              } catch (error) {
+                notifications.error('Failed to delete post', handleAdminApiError(error));
+              }
             }
           );
           break;
-      }
-    }
-    
-    setShowBulkModal(false);
-  };
 
-  const clearFilters = () => {
+        case 'preview':
+          setPreviewPost(post);
+          setShowPreviewModal(true);
+          break;
+
+        case 'edit':
+          // Navigate to edit page
+          window.location.href = `/admin/posts/${post.id}/edit`;
+          break;
+
+        default:
+          notifications.warning('Unknown action', `Action "${action}" is not supported`);
+          break;
+      }
+    } catch (error) {
+      notifications.error(
+        `Failed to ${action} post`,
+        handleAdminApiError(error)
+      );
+    }
+  }, [mutations, notifications, showConfirm]);
+
+  // Real Comment Action Handlers - No Mock Operations
+  const handleCommentAction = useCallback(async (action: string, comment: AdminComment) => {
+    try {
+      switch (action) {
+        case 'approve':
+          await mutations.approveCommentMutation.mutateAsync(comment.id);
+          notifications.success('Comment approved successfully');
+          break;
+
+        case 'reject':
+          await mutations.rejectCommentMutation.mutateAsync(comment.id);
+          notifications.success('Comment rejected successfully');
+          break;
+
+        case 'spam':
+          await mutations.markCommentAsSpamMutation.mutateAsync(comment.id);
+          notifications.success('Comment marked as spam');
+          break;
+
+        case 'delete':
+          showConfirm(
+            'Are you sure you want to delete this comment? This action cannot be undone.',
+            async () => {
+              try {
+                await mutations.deleteCommentMutation.mutateAsync(comment.id);
+                notifications.success('Comment deleted successfully');
+                setSelectedComments(prev => {
+                  const newSet = new Set(prev);
+                  newSet.delete(comment.id);
+                  return newSet;
+                });
+              } catch (error) {
+                notifications.error('Failed to delete comment', handleAdminApiError(error));
+              }
+            }
+          );
+          break;
+
+        case 'reply':
+          // Open reply dialog
+          setReplyingToComment(comment);
+          setReplyContent('');
+          setShowReplyModal(true);
+          break;
+
+        default:
+          notifications.warning('Unknown action', `Action "${action}" is not supported`);
+          break;
+      }
+    } catch (error) {
+      notifications.error(
+        `Failed to ${action} comment`,
+        handleAdminApiError(error)
+      );
+    }
+  }, [mutations, notifications, showConfirm]);
+
+  // Real Bulk Action Handler - No Mock Operations
+  const handleBulkAction = useCallback(async () => {
+    const selectedItems = activeTab === 'posts' ? selectedPosts : selectedComments;
+    if (selectedItems.size === 0) {
+      notifications.warning('No items selected', 'Please select items to perform bulk actions');
+      return;
+    }
+
+    const itemIds = Array.from(selectedItems);
+    const itemCount = itemIds.length;
+
+    try {
+      if (activeTab === 'posts') {
+        const operation = {
+          action: bulkAction as 'publish' | 'archive' | 'delete' | 'feature' | 'unfeature',
+          postIds: itemIds,
+        };
+
+        if (bulkAction === 'delete') {
+          showConfirm(
+            `Delete ${itemCount} selected posts? This action cannot be undone.`,
+            async () => {
+              try {
+                const result = await mutations.bulkPostOperationMutation.mutateAsync(operation);
+                notifications.showBulkOperationResult('post deletion', result);
+                setSelectedPosts(new Set());
+              } catch (error) {
+                notifications.error('Bulk delete failed', handleAdminApiError(error));
+              }
+            }
+          );
+        } else {
+          const result = await mutations.bulkPostOperationMutation.mutateAsync(operation);
+          notifications.showBulkOperationResult(`post ${bulkAction}`, result);
+          setSelectedPosts(new Set());
+        }
+      } else {
+        const operation = {
+          action: bulkAction as 'approve' | 'reject' | 'spam' | 'delete',
+          commentIds: itemIds,
+        };
+
+        if (bulkAction === 'delete') {
+          showConfirm(
+            `Delete ${itemCount} selected comments? This action cannot be undone.`,
+            async () => {
+              try {
+                const result = await mutations.bulkCommentOperationMutation.mutateAsync(operation);
+                notifications.showBulkOperationResult('comment deletion', result);
+                setSelectedComments(new Set());
+              } catch (error) {
+                notifications.error('Bulk delete failed', handleAdminApiError(error));
+              }
+            }
+          );
+        } else {
+          const result = await mutations.bulkCommentOperationMutation.mutateAsync(operation);
+          notifications.showBulkOperationResult(`comment ${bulkAction}`, result);
+          setSelectedComments(new Set());
+        }
+      }
+    } catch (error) {
+      notifications.error(
+        `Bulk ${bulkAction} failed`,
+        handleAdminApiError(error)
+      );
+    }
+
+    setShowBulkModal(false);
+    setBulkAction('');
+  }, [activeTab, selectedPosts, selectedComments, bulkAction, mutations, notifications, showConfirm]);
+
+  // Clear Filters Handler
+  const clearFilters = useCallback(() => {
     if (activeTab === 'posts') {
       setPostFilters({
         search: '',
@@ -616,6 +499,10 @@ const ContentManagement: React.FC = () => {
         dateTo: '',
         featured: undefined,
         tag: '',
+        page: 1,
+        pageSize: DEFAULT_PAGE_SIZE,
+        sortBy: 'publishDate',
+        sortOrder: 'desc',
       });
     } else {
       setCommentFilters({
@@ -625,9 +512,25 @@ const ContentManagement: React.FC = () => {
         post: '',
         dateFrom: '',
         dateTo: '',
+        page: 1,
+        pageSize: DEFAULT_PAGE_SIZE,
+        sortBy: 'createdDate',
+        sortOrder: 'desc',
       });
     }
-  };
+    notifications.info('Filters cleared');
+  }, [activeTab, notifications]);
+
+  // Refresh Data Handler
+  const _handleRefreshData = useCallback(() => {
+    if (activeTab === 'posts') {
+      refetchPosts();
+      notifications.info('Posts refreshed');
+    } else {
+      refetchComments();
+      notifications.info('Comments refreshed');
+    }
+  }, [activeTab, refetchPosts, refetchComments, notifications]);
 
   if (loading) {
     return (
@@ -641,7 +544,7 @@ const ContentManagement: React.FC = () => {
   }
 
   return (
-    <>
+    <ToastProvider>
       <Helmet>
         <title>内容管理 - Maple Blog</title>
         <meta name="description" content="管理博客文章和评论，包括审核、编辑、删除等功能。" />
@@ -680,9 +583,9 @@ const ContentManagement: React.FC = () => {
               <FileText className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{postStats.total}</div>
+              <div className="text-2xl font-bold">{realPostStats.total}</div>
               <p className="text-xs text-muted-foreground">
-                {postStats.published} published, {postStats.drafts} drafts
+                {realPostStats.published} published, {realPostStats.drafts} drafts
               </p>
             </CardContent>
           </Card>
@@ -693,9 +596,9 @@ const ContentManagement: React.FC = () => {
               <MessageSquare className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{commentStats.total}</div>
+              <div className="text-2xl font-bold">{realCommentStats.total}</div>
               <p className="text-xs text-muted-foreground">
-                {commentStats.pending} pending review
+                {realCommentStats.pending} pending review
               </p>
             </CardContent>
           </Card>
@@ -706,7 +609,7 @@ const ContentManagement: React.FC = () => {
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{postStats.totalViews.toLocaleString()}</div>
+              <div className="text-2xl font-bold">{realPostStats.totalViews.toLocaleString()}</div>
               <p className="text-xs text-muted-foreground">
                 Across all published posts
               </p>
@@ -720,7 +623,7 @@ const ContentManagement: React.FC = () => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {((commentStats.total / postStats.published || 0) * 100).toFixed(1)}%
+                {((realCommentStats.total / realPostStats.published || 0) * 100).toFixed(1)}%
               </div>
               <p className="text-xs text-muted-foreground">
                 Comments per published post
@@ -774,10 +677,10 @@ const ContentManagement: React.FC = () => {
             <Tabs value={activeTab} onValueChange={setActiveTab}>
               <TabsList>
                 <TabsTrigger value="posts">
-                  Posts ({postStats.total})
+                  Posts ({realPostStats.total})
                 </TabsTrigger>
                 <TabsTrigger value="comments">
-                  Comments ({commentStats.total})
+                  Comments ({realCommentStats.total})
                 </TabsTrigger>
               </TabsList>
 
@@ -893,7 +796,19 @@ const ContentManagement: React.FC = () => {
                   {(postFilters.search || commentFilters.search) && (
                     <div className="mt-4 p-3 bg-blue-50 rounded-lg">
                       <p className="text-sm text-blue-700">
-                        Showing {activeTab === 'posts' ? filteredPosts.length : filteredComments.length} of {activeTab === 'posts' ? posts.length : comments.length} {activeTab}
+                        {activeTab === 'posts' ? (
+                          postsResponse ? (
+                            <>Showing {postsResponse.posts.length} of {postsResponse.total} posts on page {postsResponse.page}</>
+                          ) : (
+                            'Loading posts...'
+                          )
+                        ) : (
+                          commentsResponse ? (
+                            <>Showing {commentsResponse.comments.length} of {commentsResponse.total} comments on page {commentsResponse.page}</>
+                          ) : (
+                            'Loading comments...'
+                          )
+                        )}
                         {activeTab === 'posts' && postFilters.search && ` matching "${postFilters.search}"`}
                         {activeTab === 'comments' && commentFilters.search && ` matching "${commentFilters.search}"`}
                       </p>
@@ -1724,6 +1639,66 @@ const ContentManagement: React.FC = () => {
           </DialogContent>
         </Dialog>
 
+        {/* Reply to Comment Modal */}
+        <Dialog open={showReplyModal} onOpenChange={setShowReplyModal}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Reply to Comment</DialogTitle>
+              <DialogDescription>
+                Write a reply to {replyingToComment?.author.name}&apos;s comment
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              {replyingToComment && (
+                <div className="p-3 bg-gray-50 rounded-lg border">
+                  <p className="text-sm text-gray-600 mb-2">
+                    <strong>{replyingToComment.author.name}:</strong>
+                  </p>
+                  <p className="text-sm">{replyingToComment.content}</p>
+                </div>
+              )}
+              <div>
+                <label className="block text-sm font-medium mb-2">Your Reply</label>
+                <textarea
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  rows={4}
+                  value={replyContent}
+                  onChange={(e) => setReplyContent(e.target.value)}
+                  placeholder="Enter your reply..."
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowReplyModal(false)}>
+                Cancel
+              </Button>
+              <Button
+                onClick={async () => {
+                  if (!replyingToComment || !replyContent.trim()) {
+                    notifications.warning('Please enter a reply');
+                    return;
+                  }
+                  try {
+                    await mutations.replyToCommentMutation.mutateAsync({
+                      id: replyingToComment.id,
+                      content: replyContent.trim()
+                    });
+                    notifications.success('Reply sent successfully');
+                    setShowReplyModal(false);
+                    setReplyContent('');
+                    setReplyingToComment(null);
+                  } catch (error) {
+                    notifications.error('Failed to send reply', handleAdminApiError(error));
+                  }
+                }}
+                disabled={!replyContent.trim() || mutations.replyToCommentMutation.isPending}
+              >
+                {mutations.replyToCommentMutation.isPending ? 'Sending...' : 'Send Reply'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
         {/* Bulk Actions Modal */}
         <Dialog open={showBulkModal} onOpenChange={setShowBulkModal}>
           <DialogContent>
@@ -1774,44 +1749,104 @@ const ContentManagement: React.FC = () => {
               <Button variant="outline" onClick={() => setShowBulkModal(false)}>
                 Cancel
               </Button>
-              <Button 
+              <Button
                 variant={bulkAction === 'delete' ? 'destructive' : 'default'}
                 onClick={handleBulkAction}
-                disabled={!bulkAction}
+                disabled={!bulkAction || mutations.bulkPostOperationMutation.isPending || mutations.bulkCommentOperationMutation.isPending}
               >
-                Confirm Action
+                {mutations.bulkPostOperationMutation.isPending || mutations.bulkCommentOperationMutation.isPending
+                  ? 'Processing...'
+                  : 'Confirm Action'
+                }
               </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
 
-        {/* Confirmation Modal */}
-        <Dialog open={showConfirmModal} onOpenChange={setShowConfirmModal}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Confirm Action</DialogTitle>
-              <DialogDescription>
-                {confirmMessage}
-              </DialogDescription>
-            </DialogHeader>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setShowConfirmModal(false)}>
-                Cancel
-              </Button>
-              <Button
-                variant="destructive"
-                onClick={() => {
-                  confirmActionState();
-                  setShowConfirmModal(false);
-                }}
-              >
-                Confirm
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        {/* Pagination Controls */}
+        {(postsResponse?.totalPages || 0) > 1 && activeTab === 'posts' && (
+          <Card className="mt-4">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <span className="text-sm text-gray-600">
+                    Page {postsResponse?.page} of {postsResponse?.totalPages}
+                  </span>
+                  <select
+                    className="px-2 py-1 border rounded text-sm"
+                    value={postFilters.pageSize}
+                    onChange={(e) => handlePostPageSizeChange(Number(e.target.value))}
+                  >
+                    {PAGE_SIZE_OPTIONS.map(size => (
+                      <option key={size} value={size}>{size} per page</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={!postsResponse?.hasPreviousPage || loading}
+                    onClick={() => handlePostPageChange((postFilters.page || 1) - 1)}
+                  >
+                    Previous
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={!postsResponse?.hasNextPage || loading}
+                    onClick={() => handlePostPageChange((postFilters.page || 1) + 1)}
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {(commentsResponse?.totalPages || 0) > 1 && activeTab === 'comments' && (
+          <Card className="mt-4">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <span className="text-sm text-gray-600">
+                    Page {commentsResponse?.page} of {commentsResponse?.totalPages}
+                  </span>
+                  <select
+                    className="px-2 py-1 border rounded text-sm"
+                    value={commentFilters.pageSize}
+                    onChange={(e) => handleCommentPageSizeChange(Number(e.target.value))}
+                  >
+                    {PAGE_SIZE_OPTIONS.map(size => (
+                      <option key={size} value={size}>{size} per page</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={!commentsResponse?.hasPreviousPage || loading}
+                    onClick={() => handleCommentPageChange((commentFilters.page || 1) - 1)}
+                  >
+                    Previous
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={!commentsResponse?.hasNextPage || loading}
+                    onClick={() => handleCommentPageChange((commentFilters.page || 1) + 1)}
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
-    </>
+    </ToastProvider>
   );
 };
 

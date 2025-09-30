@@ -81,7 +81,9 @@ export class ClientCacheManager {
 
     // 从持久化存储加载缓存
     if (this.config.enablePersistence) {
-      this.loadFromStorage();
+      this.loadFromStorage().catch(error => {
+        console.warn('Failed to load cache from storage:', error);
+      });
     }
 
     // 启动清理定时器
@@ -218,7 +220,7 @@ export class ClientCacheManager {
     let cleanedCount = 0;
     let cleanedSize = 0;
 
-    for (const [key, entry] of this.cache.entries()) {
+    for (const [key, entry] of Array.from(this.cache.entries())) {
       if (this.isExpired(entry)) {
         cleanedSize += entry.size;
         this.cache.delete(key);
@@ -241,7 +243,15 @@ export class ClientCacheManager {
           this.set(key, data, ttl);
         }
       } catch (error) {
-        console.warn(`Failed to preload cache entry: ${key}`, error);
+        const logger = await import('./logger').then(m => m.createLogger('CachePreloader'));
+        logger.warn('Failed to preload cache entry', 'cache_preload_error', {
+          cache_key: key,
+          error_message: (error as Error).message,
+          stack_trace: (error as Error).stack
+        }, error as Error);
+        
+        // Continue with other preload operations even if one fails
+        // This ensures partial failures don't break the entire preload process
       }
     });
 
@@ -267,6 +277,33 @@ export class ClientCacheManager {
 
   private isExpired(entry: CacheEntry): boolean {
     return Date.now() - entry.timestamp > entry.ttl;
+  }
+
+  private async logCacheMetrics(operation: string, key: string, duration: number, metadata: Record<string, string | number | boolean | null> = {}) {
+    try {
+      const logger = await import('./logger').then(m => m.createLogger('ClientCacheManager'));
+      logger.debug('Cache operation completed', operation, {
+        cache_key: key,
+        operation_duration_ms: duration,
+        total_entries: this.stats.totalEntries,
+        total_size_mb: (this.stats.totalSize / 1024 / 1024).toFixed(2),
+        hit_rate: (this.stats.hitRate * 100).toFixed(1),
+        ...metadata
+      });
+
+      // Track performance metrics for analytics
+      const analytics = await import('./analyticsTracking').then(m => m.analytics);
+      analytics.track('cache_operation', {
+        operation,
+        duration,
+        cache_size: this.stats.totalEntries,
+        hit_rate: this.stats.hitRate,
+        ...metadata
+      });
+    } catch (error) {
+      // Silently fail logging to prevent cache operations from breaking
+      // due to logging issues
+    }
   }
 
   private evictEntries(neededSize: number): void {
@@ -338,7 +375,7 @@ export class ClientCacheManager {
     }
   }
 
-  private loadFromStorage(): void {
+  private async loadFromStorage(): Promise<void> {
     if (!this.storageAvailable) return;
 
     try {
@@ -369,16 +406,31 @@ export class ClientCacheManager {
         this.stats = { ...this.stats, ...storedStats };
       }
     } catch (error) {
-      console.warn('Failed to load cache from storage:', error);
+      const logger = await import('./logger').then(m => m.createLogger('ClientCacheManager'));
+      logger.warn('Failed to load cache from storage', 'cache_load_error', {
+        storage_available: this.storageAvailable,
+        local_storage_length: localStorage?.length || 0,
+        error_message: (error as Error).message,
+        recovery_action: 'starting_with_empty_cache'
+      }, error as Error);
+      
+      // Clear potentially corrupted storage and start fresh
+      try {
+        this.clearStorage();
+      } catch (clearError) {
+        logger.error('Failed to clear corrupted storage', 'cache_clear_error', {
+          error_message: (clearError as Error).message
+        }, clearError as Error);
+      }
     }
   }
 
-  private saveToStorage(): void {
+  private async saveToStorage(): Promise<void> {
     if (!this.storageAvailable) return;
 
     try {
       // 保存缓存条目
-      for (const [key, entry] of this.cache.entries()) {
+      for (const [key, entry] of Array.from(this.cache.entries())) {
         const storageKey = `${CACHE_PREFIX}${key}`;
         localStorage.setItem(storageKey, JSON.stringify(entry));
       }
@@ -386,13 +438,32 @@ export class ClientCacheManager {
       // 保存统计信息
       localStorage.setItem(STATS_KEY, JSON.stringify(this.stats));
     } catch (error) {
-      console.warn('Failed to save cache to storage:', error);
+      const logger = await import('./logger').then(m => m.createLogger('ClientCacheManager'));
+      logger.warn('Failed to save cache to storage', 'cache_save_error', {
+        storage_available: this.storageAvailable,
+        cache_entries: this.cache.size,
+        total_cache_size: this.stats.totalSize,
+        error_message: (error as Error).message,
+        recovery_action: 'attempting_cleanup'
+      }, error as Error);
+      
       // 如果存储空间不足，尝试清理一些条目
-      this.cleanup();
+      try {
+        this.cleanup();
+        // Try saving again after cleanup
+        const statsItem = localStorage.getItem(STATS_KEY);
+        if (statsItem) {
+          localStorage.setItem(STATS_KEY, JSON.stringify(this.stats));
+        }
+      } catch (cleanupError) {
+        logger.error('Failed to recover from storage error through cleanup', 'cache_recovery_error', {
+          cleanup_error: (cleanupError as Error).message
+        }, cleanupError as Error);
+      }
     }
   }
 
-  private clearStorage(): void {
+  private async clearStorage(): Promise<void> {
     if (!this.storageAvailable) return;
 
     try {
@@ -408,7 +479,16 @@ export class ClientCacheManager {
       keysToRemove.forEach(key => localStorage.removeItem(key));
       localStorage.removeItem(STATS_KEY);
     } catch (error) {
-      console.warn('Failed to clear storage:', error);
+      const logger = await import('./logger').then(m => m.createLogger('ClientCacheManager'));
+      logger.warn('Failed to clear storage', 'storage_clear_error', {
+        storage_available: this.storageAvailable,
+        attempted_keys_count: 0, // Would need to count in actual implementation
+        error_message: (error as Error).message,
+        fallback_action: 'continuing_without_clear'
+      }, error as Error);
+      
+      // Continue operation even if storage clear fails
+      // This prevents a storage error from completely breaking cache functionality
     }
   }
 
@@ -421,7 +501,7 @@ export class ClientCacheManager {
     }, this.config.cleanupInterval);
   }
 
-  private handleStorageChange(event: StorageEvent): void {
+  private async handleStorageChange(event: StorageEvent): Promise<void> {
     // 处理其他标签页的存储变化
     if (event.key?.startsWith(CACHE_PREFIX)) {
       // 重新加载受影响的缓存条目
@@ -431,7 +511,16 @@ export class ClientCacheManager {
           const entry = JSON.parse(event.newValue) as CacheEntry;
           this.cache.set(cacheKey, entry);
         } catch (error) {
-          console.warn('Failed to sync cache entry from storage:', error);
+          const logger = await import('./logger').then(m => m.createLogger('ClientCacheManager'));
+          logger.warn('Failed to sync cache entry from storage', 'cache_sync_error', {
+            cache_key: cacheKey,
+            event_key: event.key,
+            has_new_value: !!event.newValue,
+            error_message: (error as Error).message
+          }, error as Error);
+          
+          // Remove the potentially corrupted entry to prevent further issues
+          this.cache.delete(cacheKey);
         }
       } else {
         this.cache.delete(cacheKey);

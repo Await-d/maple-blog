@@ -40,7 +40,7 @@ interface SuggestionGroup {
   color: string;
 }
 
-export default function SearchSuggestions({
+function SearchSuggestions({
   query,
   suggestions,
   history,
@@ -405,3 +405,7 @@ export default function SearchSuggestions({
     </div>
   );
 }
+
+// Export both named and default exports
+export { SearchSuggestions };
+export default SearchSuggestions;

@@ -11,31 +11,7 @@ import {
   StarIcon
 } from '@heroicons/react/24/outline';
 import { HeartIcon as HeartSolidIcon, StarIcon as StarSolidIcon } from '@heroicons/react/24/solid';
-
-interface Post {
-  id: string
-  title: string
-  slug: string
-  summary?: string
-  content: string
-  status: string
-  authorId: string
-  authorName: string
-  categoryId?: string
-  categoryName?: string
-  tags: string[]
-  createdAt: string
-  updatedAt: string
-  publishedAt?: string
-  viewCount: number
-  likeCount: number
-  commentCount: number
-  readingTime?: number
-  wordCount?: number
-  allowComments: boolean
-  isFeatured: boolean
-  isSticky: boolean
-}
+import type { Post } from '@/types/blog';
 
 interface PostListProps {
   posts: Post[]
@@ -49,6 +25,12 @@ interface PostListProps {
   showActions?: boolean
   onLike?: (postId: string) => void
   onBookmark?: (postId: string) => void
+  onPostClick?: (post: Post) => void
+  onRetry?: () => void
+  currentPage?: number
+  totalPages?: number
+  onPageChange?: (page: number) => void
+  emptyStateMessage?: string
   className?: string
   'data-testid'?: string
 }
@@ -199,12 +181,12 @@ const PostCard: React.FC<{
         </h2>
 
         {/* Summary */}
-        {post.summary && (
+        {post.excerpt && (
           <p
             className="text-gray-600 mb-4 line-clamp-3"
-            data-testid={`post-summary-${post.id}`}
+            data-testid={`post-excerpt-${post.id}`}
           >
-            {post.summary}
+            {post.excerpt}
           </p>
         )}
 
@@ -235,14 +217,14 @@ const PostCard: React.FC<{
           {(showCategory || showTags) && (
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-4">
-                {showCategory && post.categoryName && (
+                {showCategory && post.category && (
                   <Link
-                    to={`/categories/${post.categoryId}`}
+                    to={`/categories/${post.category.slug}`}
                     className="flex items-center text-sm text-blue-600 hover:text-blue-800"
                     data-testid={`post-category-${post.id}`}
                   >
                     <FolderIcon className="w-4 h-4 mr-1" />
-                    {post.categoryName}
+                    {post.category.name}
                   </Link>
                 )}
                 {showTags && post.tags.length > 0 && (
@@ -257,7 +239,7 @@ const PostCard: React.FC<{
                           key={index}
                           className="inline-block bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded"
                         >
-                          {tag}
+                          {typeof tag === 'string' ? tag : tag.name}
                         </span>
                       ))}
                       {post.tags.length > 3 && (

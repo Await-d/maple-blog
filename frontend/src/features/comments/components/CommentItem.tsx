@@ -12,6 +12,9 @@ import CommentActions from './CommentActions';
 import CommentForm from './CommentForm';
 import RichTextRenderer from '../../../components/common/RichTextRenderer';
 import StatusBadge from './StatusBadge';
+import { toastService } from '../../../services/toastService';
+import { errorReporter } from '../../../services/errorReporting';
+import { DeleteConfirmation } from '../../../components/common/ConfirmationDialog';
 
 interface CommentItemProps {
   comment: Comment;
@@ -54,6 +57,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
   const [isDeleting, setIsDeleting] = useState(false);
   const [showFullContent, setShowFullContent] = useState(false);
   const [reportDialogOpen, setReportDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
   // 计算缩进样式
   const indentStyle = useMemo(() => {
@@ -78,14 +82,27 @@ const CommentItem: React.FC<CommentItemProps> = ({
     : comment.content;
 
   // 删除处理
-  const handleDelete = async () => {
-    // TODO: Replace with proper confirmation modal
-    // For now, proceeding with deletion (should be handled by parent component)
+  const handleDeleteClick = () => {
+    setDeleteDialogOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
     setIsDeleting(true);
+    setDeleteDialogOpen(false);
+    const loadingToastId = toastService.loading('正在删除评论…', {
+      groupId: `comment-${comment.id}`,
+    });
     try {
       await onDelete(comment.id);
+      toastService.completeLoading(loadingToastId, '评论已删除');
     } catch (error) {
-      // TODO: Replace with proper error notification
+      toastService.failLoading(loadingToastId, '删除评论失败，请稍后重试');
+      errorReporter.captureError(error as Error, {
+        component: 'CommentItem',
+        action: 'deleteComment',
+        handled: true,
+        extra: { commentId: comment.id },
+      });
     } finally {
       setIsDeleting(false);
     }
@@ -100,7 +117,13 @@ const CommentItem: React.FC<CommentItemProps> = ({
         await onLike(comment.id);
       }
     } catch (error) {
-      // TODO: Replace with proper error notification
+      toastService.error('操作失败，请稍后重试');
+      errorReporter.captureError(error as Error, {
+        component: 'CommentItem',
+        action: 'toggleLike',
+        handled: true,
+        extra: { commentId: comment.id, isLiked: comment.isLiked },
+      });
     }
   };
 
@@ -222,7 +245,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
               comment={comment}
               onReply={() => onReply(comment.id)}
               onEdit={() => onEdit(comment.id)}
-              onDelete={handleDelete}
+              onDelete={handleDeleteClick}
               onLike={handleLikeToggle}
               onReport={() => setReportDialogOpen(true)}
               compact={true}
@@ -268,7 +291,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
               comment={comment}
               onReply={() => onReply(comment.id)}
               onEdit={() => onEdit(comment.id)}
-              onDelete={handleDelete}
+              onDelete={handleDeleteClick}
               onLike={handleLikeToggle}
               onReport={() => setReportDialogOpen(true)}
               compact={false}
@@ -333,6 +356,17 @@ const CommentItem: React.FC<CommentItemProps> = ({
           />
         )}
       </div>
+
+      {/* 删除确认对话框 */}
+      <DeleteConfirmation
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        itemName={`${comment.author?.displayName || comment.author?.username}的评论`}
+        itemType="评论"
+        onConfirm={handleConfirmDelete}
+        loading={isDeleting}
+        additionalWarning={comment.replyCount > 0 ? `此评论有 ${comment.replyCount} 条回复，删除后将同时删除所有回复。` : undefined}
+      />
 
       {/* 举报对话框 */}
       {reportDialogOpen && (

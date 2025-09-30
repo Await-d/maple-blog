@@ -4,6 +4,7 @@
  */
 
 import React, { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import { UserProfile } from '@/types/auth';
 import { Button } from '@/components/ui/Button';
@@ -14,6 +15,9 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Badge } from '@/components/ui/badge';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { cn } from '@/utils/cn';
+import { toastService } from '@/services/toastService';
+import { errorReporter } from '@/services/errorReporting';
+import { userApi, UpdateProfileRequest, UpdatePreferencesRequest } from '@/services/userApi';
 
 // Form validation types
 interface ValidationErrors {
@@ -23,73 +27,36 @@ interface ValidationErrors {
 // Tab types for better type safety
 type ProfileTab = 'personal' | 'settings' | 'activity' | 'security';
 
-// Mock data for demonstration (replace with actual API calls)
-const mockUserProfile: UserProfile = {
-  id: '1',
-  username: 'johndoe',
-  email: 'john.doe@example.com',
-  displayName: 'John Doe',
-  bio: 'Full-stack developer passionate about React and .NET. Love writing about tech trends and sharing knowledge with the community.',
-  avatar: '/api/placeholder/150/150',
-  location: 'San Francisco, CA',
-  website: 'https://johndoe.dev',
-  socialLinks: {
-    twitter: 'johndoe',
-    github: 'johndoe',
-    linkedin: 'john-doe-dev'
-  },
-  birthday: '1990-05-15',
-  timezone: 'America/Los_Angeles',
-  preferences: {
-    language: 'en',
-    theme: 'auto',
-    emailNotifications: true,
-    marketingEmails: false,
-    profileVisibility: 'public',
-    showEmail: false
-  },
-  stats: {
-    postsCount: 42,
-    commentsCount: 156,
-    joinDate: '2022-03-15',
-    lastLoginDate: '2024-01-15T10:30:00Z',
-    totalViews: 15420
-  },
-  security: {
-    twoFactorEnabled: false,
-    lastPasswordChange: '2023-12-01',
-    activeSessions: 3,
-    loginHistory: [
-      {
-        date: '2024-01-15T10:30:00Z',
-        ip: '192.168.1.100',
-        device: 'Chrome on macOS',
-        location: 'San Francisco, CA'
-      },
-      {
-        date: '2024-01-14T15:20:00Z',
-        ip: '192.168.1.101',
-        device: 'Safari on iPhone',
-        location: 'San Francisco, CA'
-      },
-      {
-        date: '2024-01-12T09:15:00Z',
-        ip: '10.0.0.50',
-        device: 'Chrome on Windows',
-        location: 'New York, NY'
-      }
-    ]
-  }
-};
+const USER_PROFILE_QUERY_KEY = ['user', 'profile'] as const;
 
 /**
  * Personal Information Tab Component
  */
-const PersonalInfoTab: React.FC<{
+interface PersonalInfoTabProps {
   profile: UserProfile;
-  onUpdate: (data: Partial<UserProfile>) => void;
-  loading: boolean;
-}> = ({ profile, onUpdate, loading }) => {
+  onSubmit: (data: UpdateProfileRequest) => Promise<void>;
+  onAvatarUpload: (file: File) => Promise<string>;
+  isSubmitting: boolean;
+  isUploadingAvatar: boolean;
+}
+
+const getInitials = (displayName?: string, username?: string) => {
+  const source = displayName || username || 'U';
+  return source
+    .split(/\s+/)
+    .filter(Boolean)
+    .map(part => part[0]!.toUpperCase())
+    .slice(0, 2)
+    .join('');
+};
+
+const PersonalInfoTab: React.FC<PersonalInfoTabProps> = ({
+  profile,
+  onSubmit,
+  onAvatarUpload,
+  isSubmitting,
+  isUploadingAvatar,
+}) => {
   const [formData, setFormData] = useState({
     displayName: profile.displayName,
     bio: profile.bio || '',
@@ -104,6 +71,8 @@ const PersonalInfoTab: React.FC<{
 
   const [errors, setErrors] = useState<ValidationErrors>({});
   const [avatarPreview, setAvatarPreview] = useState<string>(profile.avatar || '');
+  const [avatarError, setAvatarError] = useState<string | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [isDirty, setIsDirty] = useState(false);
 
   const handleInputChange = (field: string, value: string) => {
@@ -115,21 +84,38 @@ const PersonalInfoTab: React.FC<{
     }
   };
 
-  const handleAvatarUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (file) {
-      if (file.size > 5 * 1024 * 1024) {
-        setErrors(prev => ({ ...prev, avatar: ['File size must be less than 5MB'] }));
-        return;
-      }
-      
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const result = e.target?.result as string;
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      setAvatarError('File size must be less than 5MB');
+      return;
+    }
+
+    setAvatarError(null);
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const result = e.target?.result as string;
+      if (result) {
         setAvatarPreview(result);
-        setIsDirty(true);
-      };
-      reader.readAsDataURL(file);
+      }
+    };
+    reader.readAsDataURL(file);
+
+    try {
+      const uploadedUrl = await onAvatarUpload(file);
+      setAvatarPreview(uploadedUrl);
+      setIsDirty(true);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to upload avatar';
+      setAvatarError(message);
+      errorReporter.captureError(error instanceof Error ? error : new Error(String(error)), {
+        component: 'UserProfilePage.PersonalInfoTab',
+        action: 'uploadAvatar',
+        handled: true,
+      });
     }
   };
 
@@ -152,26 +138,37 @@ const PersonalInfoTab: React.FC<{
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!validateForm()) return;
 
-    const updatedData: Partial<UserProfile> = {
+    const updatedData: UpdateProfileRequest = {
       displayName: formData.displayName,
       bio: formData.bio,
       location: formData.location,
       website: formData.website,
       birthday: formData.birthday,
       timezone: formData.timezone,
-      avatar: avatarPreview,
       socialLinks: {
         twitter: formData.twitter,
         github: formData.github,
-        linkedin: formData.linkedin
-      }
+        linkedin: formData.linkedin,
+      },
     };
 
-    onUpdate(updatedData);
-    setIsDirty(false);
+    setSubmitError(null);
+
+    try {
+      await onSubmit(updatedData);
+      setIsDirty(false);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to update profile';
+      setSubmitError(message);
+      errorReporter.captureError(error instanceof Error ? error : new Error(String(error)), {
+        component: 'UserProfilePage.PersonalInfoTab',
+        action: 'updateProfile',
+        handled: true,
+      });
+    }
   };
 
   return (
@@ -187,11 +184,17 @@ const PersonalInfoTab: React.FC<{
         <CardContent>
           <div className="flex items-center space-x-6">
             <div className="relative">
-              <img
-                src={avatarPreview || '/api/placeholder/80/80'}
-                alt="Avatar preview"
-                className="w-20 h-20 rounded-full object-cover border-2 border-gray-200"
-              />
+              {avatarPreview || profile.avatar ? (
+                <img
+                  src={avatarPreview || profile.avatar || ''}
+                  alt={profile.displayName ? `${profile.displayName}的头像预览` : '头像预览'}
+                  className="w-20 h-20 rounded-full object-cover border-2 border-gray-200"
+                />
+              ) : (
+                <div className="w-20 h-20 rounded-full border-2 border-gray-200 bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center text-white text-xl font-semibold">
+                  {getInitials(profile.displayName, profile.username)}
+                </div>
+              )}
               <div className="absolute inset-0 rounded-full bg-black bg-opacity-0 hover:bg-opacity-20 transition-all cursor-pointer flex items-center justify-center">
                 <span className="text-white opacity-0 hover:opacity-100 text-xs">Change</span>
               </div>
@@ -206,7 +209,13 @@ const PersonalInfoTab: React.FC<{
                   id="avatar-upload"
                 />
                 <label htmlFor="avatar-upload">
-                  <Button variant="outline" as="span" className="cursor-pointer">
+                  <Button
+                    variant="outline"
+                    as="span"
+                    className="cursor-pointer"
+                    disabled={isUploadingAvatar}
+                    loading={isUploadingAvatar}
+                  >
                     Choose Photo
                   </Button>
                 </label>
@@ -214,8 +223,8 @@ const PersonalInfoTab: React.FC<{
               <p className="text-sm text-gray-500">
                 JPG, PNG, GIF up to 5MB
               </p>
-              {errors.avatar && (
-                <p className="text-sm text-red-600">{errors.avatar[0]}</p>
+              {avatarError && (
+                <p className="text-sm text-red-600">{avatarError}</p>
               )}
             </div>
           </div>
@@ -348,11 +357,14 @@ const PersonalInfoTab: React.FC<{
       </Card>
 
       {/* Save Button */}
-      <div className="flex justify-end">
+      <div className="flex flex-col items-end space-y-2">
+        {submitError && (
+          <p className="text-sm text-red-600">{submitError}</p>
+        )}
         <Button
           onClick={handleSave}
-          disabled={!isDirty || loading}
-          loading={loading}
+          disabled={!isDirty || isSubmitting}
+          loading={isSubmitting}
         >
           Save Changes
         </Button>
@@ -364,11 +376,25 @@ const PersonalInfoTab: React.FC<{
 /**
  * Account Settings Tab Component
  */
-const AccountSettingsTab: React.FC<{
+interface AccountSettingsTabProps {
   profile: UserProfile;
-  onUpdate: (data: Partial<UserProfile>) => void;
-  loading: boolean;
-}> = ({ profile, onUpdate, loading: _loading }) => {
+  onUpdatePreferences: (preferences: UpdatePreferencesRequest) => Promise<void>;
+  updatingPreferences: boolean;
+  onChangePassword: (payload: { currentPassword: string; newPassword: string }) => Promise<void>;
+  changingPassword: boolean;
+  onDeleteAccount: (password: string) => Promise<void>;
+  deletingAccount: boolean;
+}
+
+const AccountSettingsTab: React.FC<AccountSettingsTabProps> = ({
+  profile,
+  onUpdatePreferences,
+  updatingPreferences,
+  onChangePassword,
+  changingPassword,
+  onDeleteAccount,
+  deletingAccount,
+}) => {
   const [preferences, setPreferences] = useState(profile.preferences);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
@@ -378,14 +404,43 @@ const AccountSettingsTab: React.FC<{
     confirmPassword: ''
   });
   const [passwordErrors, setPasswordErrors] = useState<ValidationErrors>({});
+  const [passwordSubmitError, setPasswordSubmitError] = useState<string | null>(null);
+  const [deletePassword, setDeletePassword] = useState('');
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [preferenceError, setPreferenceError] = useState<string | null>(null);
 
-  const handlePreferenceChange = (key: keyof typeof preferences, value: boolean | string) => {
+  React.useEffect(() => {
+    setPreferences(profile.preferences);
+  }, [profile.preferences]);
+
+  const handlePreferenceChange = async (
+    key: keyof typeof preferences,
+    value: boolean | string
+  ) => {
+    if (updatingPreferences) return;
+
     const updated = { ...preferences, [key]: value };
     setPreferences(updated);
-    onUpdate({ preferences: updated });
+    setPreferenceError(null);
+
+    try {
+      await onUpdatePreferences({ [key]: value } as UpdatePreferencesRequest);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to update preference';
+      setPreferenceError(message);
+      setPreferences(profile.preferences);
+      errorReporter.captureError(error instanceof Error ? error : new Error(String(error)), {
+        component: 'UserProfilePage.AccountSettingsTab',
+        action: 'updatePreference',
+        handled: true,
+        extra: { key, value },
+      });
+    }
   };
 
-  const handlePasswordChange = () => {
+  const handlePasswordChange = async () => {
+    if (changingPassword) return;
+
     const errors: ValidationErrors = {};
 
     if (!passwordData.currentPassword) {
@@ -404,15 +459,62 @@ const AccountSettingsTab: React.FC<{
 
     setPasswordErrors(errors);
 
-    if (Object.keys(errors).length === 0) {
-      // Handle password change API call here
+    if (Object.keys(errors).length > 0) {
+      return;
+    }
+
+    setPasswordSubmitError(null);
+
+    try {
+      await onChangePassword({
+        currentPassword: passwordData.currentPassword,
+        newPassword: passwordData.newPassword,
+      });
       setShowChangePassword(false);
       setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to update password';
+      setPasswordSubmitError(message);
+      errorReporter.captureError(error instanceof Error ? error : new Error(String(error)), {
+        component: 'UserProfilePage.AccountSettingsTab',
+        action: 'changePassword',
+        handled: true,
+      });
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (deletingAccount) return;
+
+    if (!deletePassword.trim()) {
+      setDeleteError('Password is required to delete your account');
+      return;
+    }
+
+    setDeleteError(null);
+
+    try {
+      await onDeleteAccount(deletePassword.trim());
+      setShowDeleteConfirm(false);
+      setDeletePassword('');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to delete account';
+      setDeleteError(message);
+      errorReporter.captureError(error instanceof Error ? error : new Error(String(error)), {
+        component: 'UserProfilePage.AccountSettingsTab',
+        action: 'deleteAccount',
+        handled: true,
+      });
     }
   };
 
   return (
     <div className="space-y-8">
+      {preferenceError && (
+        <div className="rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+          {preferenceError}
+        </div>
+      )}
       {/* Email & Notifications */}
       <Card>
         <CardHeader>
@@ -433,6 +535,7 @@ const AccountSettingsTab: React.FC<{
                 checked={preferences.emailNotifications}
                 onChange={(e) => handlePreferenceChange('emailNotifications', e.target.checked)}
                 className="sr-only peer"
+                disabled={updatingPreferences}
               />
               <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
             </label>
@@ -449,6 +552,7 @@ const AccountSettingsTab: React.FC<{
                 checked={preferences.marketingEmails}
                 onChange={(e) => handlePreferenceChange('marketingEmails', e.target.checked)}
                 className="sr-only peer"
+                disabled={updatingPreferences}
               />
               <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
             </label>
@@ -473,6 +577,7 @@ const AccountSettingsTab: React.FC<{
               value={preferences.profileVisibility}
               onChange={(e) => handlePreferenceChange('profileVisibility', e.target.value as 'public' | 'private')}
               className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              disabled={updatingPreferences}
             >
               <option value="public">Public - Anyone can view your profile</option>
               <option value="private">Private - Only you can view your profile</option>
@@ -490,6 +595,7 @@ const AccountSettingsTab: React.FC<{
                 checked={preferences.showEmail}
                 onChange={(e) => handlePreferenceChange('showEmail', e.target.checked)}
                 className="sr-only peer"
+                disabled={updatingPreferences}
               />
               <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
             </label>
@@ -528,6 +634,7 @@ const AccountSettingsTab: React.FC<{
                     checked={preferences.theme === theme}
                     onChange={(e) => handlePreferenceChange('theme', e.target.value as 'light' | 'dark' | 'auto')}
                     className="sr-only"
+                    disabled={updatingPreferences}
                   />
                   <div className="mb-2">
                     {theme === 'light' && '☀️'}
@@ -548,6 +655,7 @@ const AccountSettingsTab: React.FC<{
               value={preferences.language}
               onChange={(e) => handlePreferenceChange('language', e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              disabled={updatingPreferences}
             >
               <option value="en">English</option>
               <option value="zh">中文</option>
@@ -628,6 +736,9 @@ const AccountSettingsTab: React.FC<{
               errorMessage={passwordErrors.confirmPassword?.[0]}
               showPasswordToggle
             />
+            {passwordSubmitError && (
+              <p className="text-sm text-red-600">{passwordSubmitError}</p>
+            )}
           </div>
           <DialogFooter>
             <Button
@@ -636,7 +747,11 @@ const AccountSettingsTab: React.FC<{
             >
               Cancel
             </Button>
-            <Button onClick={handlePasswordChange}>
+            <Button
+              onClick={handlePasswordChange}
+              loading={changingPassword}
+              disabled={changingPassword}
+            >
               Update Password
             </Button>
           </DialogFooter>
@@ -652,24 +767,40 @@ const AccountSettingsTab: React.FC<{
               This action cannot be undone. This will permanently delete your account and remove all your data from our servers.
             </DialogDescription>
           </DialogHeader>
-          <div className="bg-red-50 border border-red-200 rounded-md p-4">
-            <p className="text-sm text-red-800">
-              <strong>Warning:</strong> All your posts, comments, and personal data will be permanently deleted.
-            </p>
+          <div className="space-y-4">
+            <div className="bg-red-50 border border-red-200 rounded-md p-4">
+              <p className="text-sm text-red-800">
+                <strong>Warning:</strong> All your posts, comments, and personal data will be permanently deleted.
+              </p>
+            </div>
+            <Input
+              label="Confirm with Password"
+              type="password"
+              value={deletePassword}
+              onChange={(e) => setDeletePassword(e.target.value)}
+              placeholder="Enter your password"
+              showPasswordToggle
+            />
+            {deleteError && (
+              <p className="text-sm text-red-600">{deleteError}</p>
+            )}
           </div>
           <DialogFooter>
             <Button
               variant="outline"
-              onClick={() => setShowDeleteConfirm(false)}
+              onClick={() => {
+                setShowDeleteConfirm(false);
+                setDeletePassword('');
+                setDeleteError(null);
+              }}
             >
               Cancel
             </Button>
             <Button
               variant="destructive"
-              onClick={() => {
-                // Handle account deletion
-                setShowDeleteConfirm(false);
-              }}
+              onClick={() => void handleDeleteAccount()}
+              loading={deletingAccount}
+              disabled={deletingAccount}
             >
               Delete Account
             </Button>
@@ -686,19 +817,6 @@ const AccountSettingsTab: React.FC<{
 const ActivityStatsTab: React.FC<{ profile: UserProfile }> = ({ profile }) => {
   const { stats } = profile;
   
-  const activityData = [
-    { date: '2024-01-15', activity: 'Published "Understanding React 19 Features"', type: 'post' },
-    { date: '2024-01-14', activity: 'Commented on "Modern CSS Techniques"', type: 'comment' },
-    { date: '2024-01-13', activity: 'Updated profile information', type: 'profile' },
-    { date: '2024-01-12', activity: 'Published "TypeScript Best Practices"', type: 'post' },
-    { date: '2024-01-10', activity: 'Liked 5 posts', type: 'interaction' }
-  ];
-
-  const contributionData = Array.from({ length: 365 }, (_, i) => ({
-    date: new Date(Date.now() - i * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-    count: Math.floor(Math.random() * 5)
-  }));
-
   return (
     <div className="space-y-8">
       {/* Statistics Overview */}
@@ -771,35 +889,9 @@ const ActivityStatsTab: React.FC<{ profile: UserProfile }> = ({ profile }) => {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
-            <div className="grid grid-cols-53 gap-1 min-w-max">
-              {contributionData.slice(0, 371).map((day, index) => (
-                <div
-                  key={index}
-                  className={cn(
-                    'w-3 h-3 rounded-sm',
-                    day.count === 0 && 'bg-gray-100',
-                    day.count === 1 && 'bg-green-200',
-                    day.count === 2 && 'bg-green-300',
-                    day.count === 3 && 'bg-green-400',
-                    day.count >= 4 && 'bg-green-500'
-                  )}
-                  title={`${day.date}: ${day.count} contributions`}
-                />
-              ))}
-            </div>
-          </div>
-          <div className="flex items-center justify-between mt-4 text-sm text-gray-500">
-            <span>Less</span>
-            <div className="flex items-center space-x-1">
-              <div className="w-3 h-3 bg-gray-100 rounded-sm" />
-              <div className="w-3 h-3 bg-green-200 rounded-sm" />
-              <div className="w-3 h-3 bg-green-300 rounded-sm" />
-              <div className="w-3 h-3 bg-green-400 rounded-sm" />
-              <div className="w-3 h-3 bg-green-500 rounded-sm" />
-            </div>
-            <span>More</span>
-          </div>
+          <p className="text-sm text-gray-600">
+            详细活动热图尚未接入后端数据，稍后将在服务端统计完成后展示。
+          </p>
         </CardContent>
       </Card>
 
@@ -812,22 +904,9 @@ const ActivityStatsTab: React.FC<{ profile: UserProfile }> = ({ profile }) => {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            {activityData.map((item, index) => (
-              <div key={index} className="flex items-start space-x-4 p-4 border rounded-lg">
-                <div className="flex-shrink-0">
-                  {item.type === 'post' && <span className="text-blue-500">📝</span>}
-                  {item.type === 'comment' && <span className="text-green-500">💬</span>}
-                  {item.type === 'profile' && <span className="text-purple-500">👤</span>}
-                  {item.type === 'interaction' && <span className="text-orange-500">❤️</span>}
-                </div>
-                <div className="flex-1">
-                  <p className="text-sm text-gray-900">{item.activity}</p>
-                  <p className="text-xs text-gray-500">{new Date(item.date).toLocaleDateString()}</p>
-                </div>
-              </div>
-            ))}
-          </div>
+          <p className="text-sm text-gray-600">
+            暂无可展示的最近活动记录。
+          </p>
         </CardContent>
       </Card>
 
@@ -1086,34 +1165,149 @@ const SecurityTab: React.FC<{ profile: UserProfile }> = ({ profile }) => {
  */
 const UserProfilePage: React.FC = () => {
   const { isAuthenticated, loading: authLoading } = useAuth();
-  const [profile, setProfile] = useState<UserProfile>(mockUserProfile);
-  const [loading, setLoading] = useState(false);
+  const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<ProfileTab>('personal');
   const [saveSuccess, setSaveSuccess] = useState(false);
 
-  // Handle profile updates
-  const handleProfileUpdate = async (updatedData: Partial<UserProfile>) => {
-    setLoading(true);
-    try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      setProfile(prevProfile => ({
-        ...prevProfile,
-        ...updatedData
-      }));
-      
+  const {
+    data: profile,
+    isLoading: profileLoading,
+    error: profileError,
+  } = useQuery({
+    queryKey: USER_PROFILE_QUERY_KEY,
+    queryFn: userApi.getCurrentUser,
+    enabled: isAuthenticated,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const updateProfileMutation = useMutation({
+    mutationFn: (payload: UpdateProfileRequest) => userApi.updateProfile(payload),
+    onSuccess: (updatedProfile) => {
+      queryClient.setQueryData(USER_PROFILE_QUERY_KEY, updatedProfile);
       setSaveSuccess(true);
+      toastService.success('个人资料已更新');
       setTimeout(() => setSaveSuccess(false), 3000);
-    } catch (error) {
-      console.error('Failed to update profile:', error);
-    } finally {
-      setLoading(false);
-    }
+    },
+    onError: (error) => {
+      const message = error instanceof Error ? error.message : '更新资料失败，请稍后再试';
+      toastService.error(message);
+      errorReporter.captureError(error instanceof Error ? error : new Error(String(error)), {
+        component: 'UserProfilePage',
+        action: 'updateProfile',
+        handled: true,
+      });
+    },
+  });
+
+  const updatePreferencesMutation = useMutation({
+    mutationFn: async (preferences: UpdatePreferencesRequest) => {
+      if (!profile) {
+        throw new Error('Profile not found');
+      }
+      await userApi.updatePreferences({
+        ...profile.preferences,
+        ...preferences,
+      });
+      return preferences;
+    },
+    onSuccess: (preferences) => {
+      queryClient.setQueryData<UserProfile | undefined>(USER_PROFILE_QUERY_KEY, (previous) =>
+        previous
+          ? {
+              ...previous,
+              preferences: {
+                ...previous.preferences,
+                ...preferences,
+                updatedAt: new Date().toISOString(),
+              },
+            }
+          : previous
+      );
+      toastService.success('偏好设置已保存');
+    },
+    onError: (error) => {
+      const message = error instanceof Error ? error.message : '更新偏好失败，请稍后再试';
+      toastService.error(message);
+      errorReporter.captureError(error instanceof Error ? error : new Error(String(error)), {
+        component: 'UserProfilePage',
+        action: 'updatePreferences',
+        handled: true,
+      });
+    },
+  });
+
+  const uploadAvatarMutation = useMutation({
+    mutationFn: userApi.updateAvatar,
+    onSuccess: ({ avatarUrl }) => {
+      queryClient.setQueryData<UserProfile | undefined>(USER_PROFILE_QUERY_KEY, (previous) =>
+        previous ? { ...previous, avatar: avatarUrl } : previous
+      );
+      toastService.success('头像已更新');
+    },
+    onError: (error) => {
+      const message = error instanceof Error ? error.message : '上传头像失败，请稍后再试';
+      toastService.error(message);
+      errorReporter.captureError(error instanceof Error ? error : new Error(String(error)), {
+        component: 'UserProfilePage',
+        action: 'uploadAvatar',
+        handled: true,
+      });
+    },
+  });
+
+  const changePasswordMutation = useMutation({
+    mutationFn: ({ currentPassword, newPassword }: { currentPassword: string; newPassword: string }) =>
+      userApi.changePassword(currentPassword, newPassword),
+    onSuccess: () => {
+      toastService.success('密码已更新');
+    },
+    onError: (error) => {
+      const message = error instanceof Error ? error.message : '更新密码失败，请稍后再试';
+      toastService.error(message);
+      errorReporter.captureError(error instanceof Error ? error : new Error(String(error)), {
+        component: 'UserProfilePage',
+        action: 'changePassword',
+        handled: true,
+      });
+    },
+  });
+
+  const deleteAccountMutation = useMutation({
+    mutationFn: (password: string) => userApi.deleteAccount(password),
+    onSuccess: () => {
+      toastService.success('账户已删除');
+      window.location.href = '/';
+    },
+    onError: (error) => {
+      const message = error instanceof Error ? error.message : '删除账户失败，请稍后再试';
+      toastService.error(message);
+      errorReporter.captureError(error instanceof Error ? error : new Error(String(error)), {
+        component: 'UserProfilePage',
+        action: 'deleteAccount',
+        handled: true,
+      });
+    },
+  });
+
+  const handleProfileUpdate = async (data: UpdateProfileRequest) => {
+    await updateProfileMutation.mutateAsync(data);
   };
 
-  // Show loading state while authenticating
-  if (authLoading) {
+  const handleAvatarUpload = async (file: File) => {
+    const result = await uploadAvatarMutation.mutateAsync(file);
+    return result.avatarUrl;
+  };
+
+  const handlePreferenceUpdate = async (preferences: UpdatePreferencesRequest) => {
+    await updatePreferencesMutation.mutateAsync(preferences);
+  };
+
+  const handlePasswordChange = (payload: { currentPassword: string; newPassword: string }) =>
+    changePasswordMutation.mutateAsync(payload);
+
+  const handleAccountDeletion = (password: string) => deleteAccountMutation.mutateAsync(password);
+
+  if (authLoading || profileLoading) {
     return (
       <div className="flex justify-center items-center min-h-96">
         <LoadingSpinner />
@@ -1121,64 +1315,80 @@ const UserProfilePage: React.FC = () => {
     );
   }
 
-  // Redirect if not authenticated
   if (!isAuthenticated) {
     window.location.href = '/login?redirect=/profile';
     return null;
   }
 
+  if (profileError || !profile) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-96 space-y-4">
+        <h2 className="text-lg font-semibold text-gray-900">无法加载个人资料</h2>
+        <p className="text-sm text-gray-600">请稍后再试或联系管理员。</p>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
-      {/* Header */}
       <div className="mb-8">
         <div className="flex items-center space-x-4 mb-4">
-          <img
-            src={profile.avatar || '/api/placeholder/64/64'}
-            alt={profile.displayName}
-            className="w-16 h-16 rounded-full object-cover border-2 border-gray-200"
-          />
+          {profile.avatar ? (
+            <img
+              src={profile.avatar}
+              alt={profile.displayName}
+              className="w-16 h-16 rounded-full object-cover border-2 border-gray-200"
+              loading="lazy"
+            />
+          ) : (
+            <div className="w-16 h-16 rounded-full border-2 border-gray-200 bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center text-white text-2xl font-semibold">
+              {getInitials(profile.displayName, profile.username)}
+            </div>
+          )}
           <div>
             <h1 className="text-3xl font-bold text-gray-900">{profile.displayName}</h1>
             <p className="text-gray-600">@{profile.username}</p>
-            {profile.bio && (
-              <p className="text-gray-700 mt-1">{profile.bio}</p>
-            )}
+            {profile.bio && <p className="text-gray-700 mt-1">{profile.bio}</p>}
           </div>
         </div>
 
-        {/* Success Message */}
         {saveSuccess && (
           <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg">
             <div className="flex items-center">
               <span className="text-green-500 mr-2">✅</span>
-              <span className="text-green-800">Profile updated successfully!</span>
+              <span className="text-green-800">个人资料已更新</span>
             </div>
           </div>
         )}
       </div>
 
-      {/* Tabs */}
       <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as ProfileTab)}>
         <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="personal">Personal Info</TabsTrigger>
-          <TabsTrigger value="settings">Account Settings</TabsTrigger>
-          <TabsTrigger value="activity">Activity & Stats</TabsTrigger>
-          <TabsTrigger value="security">Security</TabsTrigger>
+          <TabsTrigger value="personal">个人信息</TabsTrigger>
+          <TabsTrigger value="settings">账户设置</TabsTrigger>
+          <TabsTrigger value="activity">活动统计</TabsTrigger>
+          <TabsTrigger value="security">安全</TabsTrigger>
         </TabsList>
 
         <TabsContent value="personal">
           <PersonalInfoTab
             profile={profile}
-            onUpdate={handleProfileUpdate}
-            loading={loading}
+            onSubmit={handleProfileUpdate}
+            onAvatarUpload={handleAvatarUpload}
+            isSubmitting={updateProfileMutation.isPending}
+            isUploadingAvatar={uploadAvatarMutation.isPending}
           />
         </TabsContent>
 
         <TabsContent value="settings">
           <AccountSettingsTab
             profile={profile}
-            onUpdate={handleProfileUpdate}
-            loading={loading}
+            onUpdatePreferences={handlePreferenceUpdate}
+            updatingPreferences={updatePreferencesMutation.isPending}
+            onChangePassword={handlePasswordChange}
+            changingPassword={changePasswordMutation.isPending}
+            onDeleteAccount={handleAccountDeletion}
+            deletingAccount={deleteAccountMutation.isPending}
           />
         </TabsContent>
 

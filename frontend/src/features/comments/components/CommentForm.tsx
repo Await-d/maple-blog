@@ -14,6 +14,9 @@ import CommentEditor from './CommentEditor';
 import MentionSuggestions from './MentionSuggestions';
 import ImageUploadModal from './ImageUploadModal';
 import EmojiPicker from './EmojiPicker';
+import { uploadApi } from '../../../services/uploadApi';
+import { toastService } from '../../../services/toastService';
+import { errorReporter } from '../../../services/errorReporting';
 
 interface CommentFormProps {
   postId: string;
@@ -161,6 +164,34 @@ const CommentForm: React.FC<CommentFormProps> = ({
     setShowImageUpload(false);
     editorRef.current?.focus();
   }, [formData.content]);
+
+  const handleInlineImageUpload = useCallback(async (file: File) => {
+    const toastId = toastService.loading('图片上传中…', {
+      groupId: `comment-inline-upload-${postId}`,
+    });
+
+    try {
+      const result = await uploadApi.uploadImage(file);
+      handleImageInsert(
+        result.url,
+        result.filename ? result.filename.replace(/\.[^/.]+$/, '') : undefined
+      );
+      toastService.completeLoading(toastId, '图片上传成功');
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      toastService.failLoading(toastId, err.message || '图片上传失败，请稍后重试');
+      errorReporter.captureError(err, {
+        component: 'CommentForm',
+        action: 'inlineImageUpload',
+        handled: true,
+        extra: {
+          postId,
+          parentId,
+          fileName: file.name,
+        },
+      });
+    }
+  }, [handleImageInsert, parentId, postId]);
 
   // 表单提交
   const handleSubmit = async (e: React.FormEvent) => {
@@ -386,6 +417,7 @@ const CommentForm: React.FC<CommentFormProps> = ({
             isPreviewMode={isPreviewMode}
             compact={compact}
             config={config}
+            onImagePaste={config.allowImageUpload ? handleInlineImageUpload : undefined}
           />
 
           {/* @提及建议 */}

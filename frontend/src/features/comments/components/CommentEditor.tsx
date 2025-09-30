@@ -17,6 +17,7 @@ interface CommentEditorProps {
   config: CommentEditorConfig;
   className?: string;
   disabled?: boolean;
+  onImagePaste?: (file: File) => Promise<void>;
 }
 
 export interface CommentEditorRef {
@@ -36,7 +37,8 @@ const CommentEditor = forwardRef<CommentEditorRef, CommentEditorProps>(({
   compact = false,
   config,
   className = '',
-  disabled = false
+  disabled = false,
+  onImagePaste
 }, ref) => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -155,8 +157,8 @@ const CommentEditor = forwardRef<CommentEditorRef, CommentEditorProps>(({
   }, [content, onChange, config.allowMarkdown]);
 
   // 处理粘贴事件
-  const handlePaste = useCallback((e: React.ClipboardEvent<HTMLTextAreaElement>) => {
-    if (!config.allowImageUpload) return;
+  const handlePaste = useCallback(async (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    if (!config.allowImageUpload || !onImagePaste) return;
 
     const items = e.clipboardData.items;
     for (let i = 0; i < items.length; i++) {
@@ -166,12 +168,16 @@ const CommentEditor = forwardRef<CommentEditorRef, CommentEditorProps>(({
 
         const file = item.getAsFile();
         if (file) {
-          // TODO: Implement image upload flow - can pass uploadImage function via props
+          try {
+            await onImagePaste(file);
+          } catch (error) {
+            // 交由上传回调处理错误
+          }
         }
         break;
       }
     }
-  }, [config.allowImageUpload]);
+  }, [config.allowImageUpload, onImagePaste]);
 
   // 自动调整高度
   const handleTextareaRef = useCallback((element: HTMLTextAreaElement | null) => {

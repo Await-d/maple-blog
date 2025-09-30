@@ -145,6 +145,13 @@ export enum CommentNotificationType {
 }
 
 // SignalR 事件类型
+export type CommentConnectionStatus =
+  | { status: 'connecting' }
+  | { status: 'connected' }
+  | { status: 'reconnecting'; attempt: number }
+  | { status: 'disconnected'; reason?: string }
+  | { status: 'failed'; attempts: number; reason?: string };
+
 export interface CommentSocketEvents {
   CommentCreated: (comment: Comment) => void;
   CommentUpdated: (comment: Comment) => void;
@@ -171,6 +178,7 @@ export interface CommentSocketEvents {
   LeftPostGroup: (postId: string) => void;
   JoinedModerationGroup: () => void;
   LeftModerationGroup: () => void;
+  ConnectionStatusChanged: (status: CommentConnectionStatus) => void;
 }
 
 export interface TypingUser {

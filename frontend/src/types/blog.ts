@@ -28,6 +28,7 @@ export interface Post {
   scheduledAt?: string;
   author: User;
   authorId: string;
+  authorName: string; // For display purposes
   category?: Category;
   categoryId?: string;
   tags: Tag[];
@@ -35,8 +36,11 @@ export interface Post {
   likeCount: number;
   commentCount: number;
   readTimeMinutes: number;
+  readingTime: number; // Alias for readTimeMinutes for compatibility
   isSticky: boolean;
   isFeatured: boolean;
+  isLiked?: boolean; // User-specific like status
+  isBookmarked?: boolean; // User-specific bookmark status
   allowComments: boolean;
   metaTitle?: string;
   metaDescription?: string;
@@ -46,6 +50,33 @@ export interface Post {
   lastModifiedBy?: User;
   lastModifiedById?: string;
   version: number;
+  relatedPosts?: PostSummary[]; // Related posts for recommendations
+}
+
+// Post summary interface for lists and related posts
+export interface PostSummary {
+  id: string;
+  title: string;
+  excerpt: string;
+  slug: string;
+  status: PostStatus;
+  featuredImage?: string;
+  publishedAt?: string;
+  author: User;
+  authorId: string;
+  authorName: string;
+  category?: Category;
+  categoryId?: string;
+  tags: Tag[];
+  viewCount: number;
+  likeCount: number;
+  commentCount: number;
+  readTimeMinutes: number;
+  readingTime: number;
+  isSticky: boolean;
+  isFeatured: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
 // Category interface matching backend CategoryDto
@@ -664,6 +695,11 @@ export const MAX_EXCERPT_LENGTH = 500;
 export const MIN_CONTENT_LENGTH = 50;
 export const MAX_TAG_COUNT = 10;
 export const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+// Export aliases for compatibility with imports that expect different names
+export type BlogPost = Post;
+export type BlogCategory = Category;
+export type BlogTag = Tag;
 
 export default {
   PostStatus,

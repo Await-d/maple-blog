@@ -22,7 +22,7 @@ interface SearchBoxProps {
   variant?: 'default' | 'compact' | 'hero';
 }
 
-export default function SearchBox({
+function SearchBox({
   placeholder = '搜索文章、分类、标签...',
   className = '',
   showFilters = false,
@@ -370,5 +370,9 @@ export default function SearchBox({
     </div>
   );
 }
+
+// Export both named and default exports
+export { SearchBox };
+export default SearchBox;
 
 // 为 TypeScript 添加 SpeechRecognition 类型声明

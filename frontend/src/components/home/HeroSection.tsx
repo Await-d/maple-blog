@@ -240,10 +240,10 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
 
   // Ensure posts is always an array and handle edge cases
   const posts = Array.isArray(featuredPosts) ? featuredPosts : [];
-  const safeCurrentSlide = Math.max(0, Math.min(heroSection.currentSlide, posts.length - 1));
+  const safeCurrentSlide = Math.max(0, Math.min(heroSection?.currentSlide || 0, posts.length - 1));
   const currentSlide = posts.length > 0 ? safeCurrentSlide : 0;
-  const autoPlay = heroSection.autoPlay && !accessibility.reduceMotion;
-  const isPlaying = heroSection.isPlaying && !accessibility.reduceMotion;
+  const autoPlay = (heroSection?.autoPlay || false) && !accessibility.reduceMotion;
+  const isPlaying = (heroSection?.isPlaying || false) && !accessibility.reduceMotion;
 
   // Auto-play functionality
   useEffect(() => {

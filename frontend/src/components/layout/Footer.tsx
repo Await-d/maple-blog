@@ -19,6 +19,9 @@ import {
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { useSiteStats } from '../../services/home/homeApi';
+import { newsletterApi } from '../../services/newsletterApi';
+import { toastService } from '../../services/toastService';
+import { errorReporter } from '../../services/errorReporting';
 import { cn } from '../../utils/cn';
 
 interface FooterProps {
@@ -52,6 +55,7 @@ export const Footer: React.FC<FooterProps> = ({
   const [newsletterEmail, setNewsletterEmail] = useState('');
   const [isSubscribing, setIsSubscribing] = useState(false);
   const [subscribeSuccess, setSubscribeSuccess] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // Footer navigation sections
   const footerSections: FooterSection[] = [
@@ -123,17 +127,55 @@ export const Footer: React.FC<FooterProps> = ({
 
   const handleNewsletterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newsletterEmail.trim()) return;
+    const email = newsletterEmail.trim();
+
+    if (!email) {
+      toastService.warning('请输入邮箱地址');
+      setErrorMessage('请输入邮箱地址');
+      return;
+    }
+
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailPattern.test(email)) {
+      const message = '请输入有效的邮箱地址';
+      toastService.warning(message);
+      setErrorMessage(message);
+      return;
+    }
 
     setIsSubscribing(true);
+    setErrorMessage(null);
+    const loadingToastId = toastService.loading('正在订阅 Maple Blog 通讯…');
+
     try {
-      // TODO: Implement newsletter subscription API
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Mock API call
+      const result = await newsletterApi.subscribe({
+        email,
+        source: 'footer',
+      });
+
+      const successMessage =
+        result.message ||
+        (result.status === 'pending'
+          ? '订阅请求已提交，请查收邮箱完成确认。'
+          : '订阅成功，感谢关注 Maple Blog！');
+
+      toastService.completeLoading(loadingToastId, successMessage);
       setSubscribeSuccess(true);
       setNewsletterEmail('');
-      setTimeout(() => setSubscribeSuccess(false), 3000);
+      setTimeout(() => setSubscribeSuccess(false), 4000);
     } catch (error) {
-      console.error('Newsletter subscription failed:', error);
+      const fallbackMessage = '订阅失败，请稍后重试。';
+      const message = error instanceof Error && error.message ? error.message : fallbackMessage;
+
+      toastService.failLoading(loadingToastId, message);
+      setErrorMessage(message);
+
+      errorReporter.captureError(error as Error, {
+        component: 'Footer',
+        action: 'newsletterSubscribe',
+        handled: true,
+        extra: { email },
+      });
     } finally {
       setIsSubscribing(false);
     }
@@ -299,6 +341,12 @@ export const Footer: React.FC<FooterProps> = ({
                 )}
               </Button>
             </form>
+
+            {errorMessage && (
+              <div className="mt-3 p-3 bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-400 text-sm rounded-lg">
+                {errorMessage}
+              </div>
+            )}
 
             {subscribeSuccess && (
               <div className="mt-3 p-3 bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400 text-sm rounded-lg">

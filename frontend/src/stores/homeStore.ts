@@ -247,18 +247,24 @@ export const useHomeStore = create<HomeStore>()(
         // Component State Actions
         setHeroSlide: (slide) =>
           set((state) => {
-            state.components.heroSection.currentSlide = slide;
+            if (state.components.heroSection) {
+              state.components.heroSection.currentSlide = slide;
+            }
           }),
 
         setHeroAutoPlay: (autoPlay) =>
           set((state) => {
-            state.components.heroSection.autoPlay = autoPlay;
-            state.components.heroSection.isPlaying = autoPlay;
+            if (state.components.heroSection) {
+              state.components.heroSection.autoPlay = autoPlay;
+              state.components.heroSection.isPlaying = autoPlay;
+            }
           }),
 
         toggleHeroPlayback: () =>
           set((state) => {
-            state.components.heroSection.isPlaying = !state.components.heroSection.isPlaying;
+            if (state.components.heroSection) {
+              state.components.heroSection.isPlaying = !state.components.heroSection.isPlaying;
+            }
           }),
 
         selectTags: (tags) =>

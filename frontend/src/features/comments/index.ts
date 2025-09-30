@@ -73,15 +73,6 @@ export {
 // Import specific type for internal usage
 import type { Comment as CommentType } from '../../types/comment';
 
-// 使用示例
-export {
-  BasicCommentExample,
-  CompactCommentExample,
-  EmbeddedCommentExample,
-  ReadOnlyCommentExample,
-  FullFeaturedExample
-} from './example/CommentSystemExample';
-
 // 版本信息
 export const VERSION = '1.0.0';
 

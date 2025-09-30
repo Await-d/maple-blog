@@ -4,7 +4,7 @@
  */
 
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import {
   User,
   AuthState,
@@ -327,26 +327,38 @@ export const useAuthStore = create<AuthStore>()(
         rememberMe: state.rememberMe,
         user: state.user,
       }),
-      // Custom serialization for Date objects
-      serialize: (state) => {
-        return JSON.stringify({
-          ...state,
-          state: {
-            ...state.state,
-            expiresAt: state.state.expiresAt?.toISOString(),
-          },
-        });
-      },
-      deserialize: (str) => {
-        const parsed = JSON.parse(str);
-        return {
-          ...parsed,
-          state: {
-            ...parsed.state,
-            expiresAt: parsed.state.expiresAt ? new Date(parsed.state.expiresAt) : null,
-          },
-        };
-      },
+      // Use new storage API
+      storage: createJSONStorage(() => ({
+        getItem: (key) => {
+          const item = localStorage.getItem(key);
+          if (!item) return null;
+          
+          try {
+            const parsed = JSON.parse(item);
+            // Handle Date deserialization
+            if (parsed?.state?.expiresAt) {
+              parsed.state.expiresAt = new Date(parsed.state.expiresAt);
+            }
+            return item;
+          } catch {
+            return item;
+          }
+        },
+        setItem: (key, value) => {
+          try {
+            const parsed = JSON.parse(value);
+            // Handle Date serialization
+            if (parsed?.state?.expiresAt instanceof Date) {
+              parsed.state.expiresAt = parsed.state.expiresAt.toISOString();
+              value = JSON.stringify(parsed);
+            }
+            localStorage.setItem(key, value);
+          } catch {
+            localStorage.setItem(key, value);
+          }
+        },
+        removeItem: (key) => localStorage.removeItem(key),
+      })),
       // Initialize on hydration
       onRehydrateStorage: () => (state) => {
         if (state) {
@@ -404,5 +416,8 @@ export const authSelectors = {
 
 // Export type for external use
 export type { AuthStore };
+
+// Export alias for backward compatibility
+export { useAuthStore as authStore };
 
 export default useAuthStore;

@@ -5,6 +5,8 @@
 
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { uploadApi } from '../../../services/uploadApi';
+import { toastService } from '../../../services/toastService';
+import { errorReporter } from '../../../services/errorReporting';
 
 interface ImageUploadModalProps {
   onImageInsert: (imageUrl: string, alt?: string) => void;
@@ -56,36 +58,45 @@ const ImageUploadModal: React.FC<ImageUploadModalProps> = ({
     const file = files[0];
     if (!file) return;
 
-    // 验证文件类型
     if (!file.type.startsWith('image/')) {
-      // TODO: Replace with proper UI notification
+      toastService.warning('仅支持上传图片文件');
       return;
     }
 
-    // 验证文件大小 (5MB)
     const maxSize = 5 * 1024 * 1024;
     if (file.size > maxSize) {
-      // TODO: Replace with proper UI notification
+      toastService.warning('图片大小不能超过 5MB');
       return;
     }
 
     setUploading(true);
+    const uploadToastId = toastService.loading('图片上传中…', {
+      groupId: 'comment-image-upload',
+    });
 
     try {
-      // 上传图片
       const uploadResult = await uploadApi.uploadImage(file);
 
-      // 设置预览
       setPreviewUrl(uploadResult.url);
       setImageUrl(uploadResult.url);
 
-      // 自动填充alt文本
       if (!altText && uploadResult.filename) {
         setAltText(uploadResult.filename.replace(/\.[^/.]+$/, ''));
       }
 
+      toastService.completeLoading(uploadToastId, '图片上传成功');
     } catch (error) {
-      // TODO: Replace with proper error notification
+      toastService.failLoading(uploadToastId, '图片上传失败，请稍后重试');
+      errorReporter.captureError(error as Error, {
+        component: 'ImageUploadModal',
+        action: 'uploadImage',
+        handled: true,
+        extra: {
+          fileName: file.name,
+          fileSize: file.size,
+          fileType: file.type,
+        },
+      });
     } finally {
       setUploading(false);
     }
@@ -137,11 +148,12 @@ const ImageUploadModal: React.FC<ImageUploadModalProps> = ({
     e.preventDefault();
 
     if (!imageUrl.trim()) {
-      // TODO: Replace with proper UI notification
+      toastService.warning('请提供有效的图片地址或上传图片');
       return;
     }
 
     onImageInsert(imageUrl, altText.trim());
+    toastService.success('图片已插入评论');
   }, [imageUrl, altText, onImageInsert]);
 
   return (

@@ -95,7 +95,10 @@ export class AnalyticsTracker {
   private constructor() {
     this.sessionId = this.generateSessionId();
     this.collectUserProperties();
-    this.setupPerformanceObservers();
+    // Setup performance observers asynchronously
+    this.setupPerformanceObservers().catch(error => {
+      console.warn('Failed to setup performance observers:', error);
+    });
     this.startEventFlushTimer();
   }
 
@@ -109,7 +112,7 @@ export class AnalyticsTracker {
   /**
    * 初始化分析追踪
    */
-  initialize(config: {
+  async initialize(config: {
     apiEndpoint?: string;
     userId?: string;
     enablePerformanceTracking?: boolean;
@@ -117,7 +120,10 @@ export class AnalyticsTracker {
     flushInterval?: number;
   } = {}) {
     if (this.isInitialized) {
-      console.warn('AnalyticsTracker is already initialized');
+      const logger = await import('./logger').then(m => m.createLogger('AnalyticsTracker'));
+      logger.warn('Analytics tracker already initialized', 'initialization_warning', {
+        attempted_config: config
+      });
       return;
     }
 
@@ -331,9 +337,23 @@ export class AnalyticsTracker {
     try {
       await this.sendEvents(events);
     } catch (error) {
-      console.error('Failed to send analytics events:', error);
+      const logger = await import('./logger').then(m => m.createLogger('AnalyticsTracker'));
+      logger.error('Failed to send analytics events', 'event_transmission_error', {
+        event_count: events.length,
+        queue_size_before: this.eventQueue.length,
+        error_message: (error as Error).message,
+        endpoint: this.apiEndpoint,
+        retry_count: events.length > 0 ? (events[0] as AnalyticsEvent & { retryCount?: number }).retryCount || 0 : 0
+      }, error as Error);
+
       // 发送失败时重新入队（但限制重试次数）
-      this.eventQueue.unshift(...events.slice(0, 50)); // 只保留前50个事件
+      const eventsWithRetry = events.slice(0, 50).map(event => ({
+        ...event,
+        retryCount: ((event as AnalyticsEvent & { retryCount?: number }).retryCount || 0) + 1,
+        lastFailedAt: Date.now()
+      })).filter(event => (event as AnalyticsEvent & { retryCount?: number }).retryCount! <= 3); // 最多重试3次
+      
+      this.eventQueue.unshift(...eventsWithRetry);
     }
   }
 
@@ -406,7 +426,7 @@ export class AnalyticsTracker {
     return segments[0] || 'unknown';
   }
 
-  private setupPerformanceObservers() {
+  private async setupPerformanceObservers() {
     if (typeof PerformanceObserver === 'undefined') {
       return;
     }
@@ -467,7 +487,15 @@ export class AnalyticsTracker {
       this.performanceObservers.push(navigationObserver);
 
     } catch (error) {
-      console.warn('Failed to setup performance observers:', error);
+      const logger = await import('./logger').then(m => m.createLogger('AnalyticsTracker'));
+      logger.warn('Failed to setup performance observers', 'performance_observer_error', {
+        browser_support: typeof PerformanceObserver !== 'undefined',
+        error_message: (error as Error).message,
+        user_agent: navigator.userAgent
+      }, error as Error);
+      
+      // Continue without performance monitoring if setup fails
+      // This is a graceful degradation - analytics will still work without performance metrics
     }
   }
 
@@ -551,27 +579,103 @@ export class AnalyticsTracker {
       events,
       session_id: this.sessionId,
       user_id: this.userId,
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      client_info: {
+        user_agent: navigator.userAgent,
+        screen_resolution: `${window.screen.width}x${window.screen.height}`,
+        viewport_size: `${window.innerWidth}x${window.innerHeight}`,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        language: navigator.language,
+        platform: navigator.platform
+      }
     };
 
-    // 尝试使用 sendBeacon (更可靠)
-    if (navigator.sendBeacon) {
-      const sent = navigator.sendBeacon(
-        this.apiEndpoint,
-        JSON.stringify(payload)
-      );
-      if (sent) return;
-    }
+    const maxRetries = 3;
+    const baseDelay = 1000; // 1 second
+    
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        // 尝试使用 sendBeacon (更可靠) - 但只在最后一次尝试或页面卸载时
+        if ((attempt === maxRetries - 1 || document.visibilityState === 'hidden') && navigator.sendBeacon) {
+          const sent = navigator.sendBeacon(
+            this.apiEndpoint,
+            JSON.stringify(payload)
+          );
+          if (sent) {
+            const logger = await import('./logger').then(m => m.createLogger('AnalyticsTracker'));
+            logger.debug('Events sent via sendBeacon', 'event_transmission', {
+              event_count: events.length,
+              attempt: attempt + 1,
+              method: 'sendBeacon'
+            });
+            return;
+          }
+        }
 
-    // 回退到 fetch
-    await fetch(this.apiEndpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
-      keepalive: true
-    });
+        // 回退到 fetch with enhanced error handling
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+        
+        const response = await fetch(this.apiEndpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Client-Version': '1.0.0',
+            'X-Request-ID': crypto.randomUUID(),
+          },
+          body: JSON.stringify(payload),
+          keepalive: true,
+          signal: controller.signal
+        });
+
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        const result = await response.json();
+        
+        const logger = await import('./logger').then(m => m.createLogger('AnalyticsTracker'));
+        logger.debug('Events sent successfully', 'event_transmission', {
+          event_count: events.length,
+          attempt: attempt + 1,
+          method: 'fetch',
+          response_status: response.status,
+          server_timestamp: result.timestamp
+        });
+        
+        return; // Success, exit retry loop
+
+      } catch (error) {
+        const logger = await import('./logger').then(m => m.createLogger('AnalyticsTracker'));
+        
+        if (attempt === maxRetries - 1) {
+          // Last attempt failed
+          logger.error('All attempts to send events failed', 'event_transmission_failed', {
+            event_count: events.length,
+            total_attempts: maxRetries,
+            final_error: (error as Error).message,
+            is_offline: !navigator.onLine,
+            connection_type: (navigator as Navigator & { connection?: { effectiveType?: string } })?.connection?.effectiveType || 'unknown'
+          }, error as Error);
+          throw error;
+        } else {
+          // Retry with exponential backoff
+          const delay = baseDelay * Math.pow(2, attempt) + Math.random() * 1000;
+          
+          logger.warn('Event transmission attempt failed, retrying', 'event_transmission_retry', {
+            attempt: attempt + 1,
+            max_attempts: maxRetries,
+            retry_delay_ms: delay,
+            error_message: (error as Error).message,
+            is_offline: !navigator.onLine
+          }, error as Error);
+          
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
+      }
+    }
   }
 
   private hashString(str: string): number {

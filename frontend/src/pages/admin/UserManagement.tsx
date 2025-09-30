@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Card,
   CardContent,
@@ -18,6 +18,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { adminUserApi, type AdminUser, type CreateUserRequest, type UpdateUserRequest, type UserFilters, type UserSortConfig, type BulkOperation, type UserStatistics } from '@/services/adminUserApi';
+import { toastService } from '@/services/toastService';
+import { ConfirmationDialog, BulkActionConfirmation } from '@/components/common/ConfirmationDialog';
+import { UserManagementSkeleton, StatsCardSkeleton } from '@/components/common/SkeletonLoader';
 import {
   Tabs,
   TabsContent,
@@ -57,115 +61,7 @@ import {
   Ban,
 } from 'lucide-react';
 
-// Extended User interface for admin management
-interface AdminUser {
-  id: string;
-  username: string;
-  email: string;
-  displayName: string;
-  firstName: string;
-  lastName: string;
-  avatar?: string;
-  status: 'Active' | 'Inactive' | 'Suspended' | 'Banned';
-  roles: string[];
-  primaryRole: 'Admin' | 'Author' | 'User';
-  lastLogin?: string;
-  registrationDate: string;
-  postCount: number;
-  commentCount: number;
-  emailVerified: boolean;
-  twoFactorEnabled: boolean;
-  isOnline: boolean;
-  lastActivity: string;
-  profileCompletion: number;
-  accountAge: string;
-  loginCount: number;
-  failedLoginAttempts: number;
-  lockoutEnd?: string;
-  ipAddress?: string;
-  location?: string;
-  createdBy?: string;
-  notes?: string;
-}
-
-// Filter interface
-interface UserFilters {
-  search: string;
-  role: string;
-  status: string;
-  emailVerified: boolean | null;
-  twoFactorEnabled: boolean | null;
-  isOnline: boolean | null;
-  registrationDateFrom: string;
-  registrationDateTo: string;
-  lastLoginFrom: string;
-  lastLoginTo: string;
-}
-
-// Sort configuration
-interface SortConfig {
-  key: keyof AdminUser | null;
-  direction: 'asc' | 'desc';
-}
-
-// Pagination configuration
-interface PaginationConfig {
-  page: number;
-  itemsPerPage: number;
-  totalItems: number;
-  totalPages: number;
-}
-
-// Bulk operation types
-type BulkOperation = 'delete' | 'activate' | 'deactivate' | 'suspend' | 'unsuspend' | 'verify-email' | 'reset-password';
-
-// Mock data for demonstration
-const generateMockUsers = (): AdminUser[] => {
-  const statuses: AdminUser['status'][] = ['Active', 'Inactive', 'Suspended', 'Banned'];
-  const roles: AdminUser['primaryRole'][] = ['Admin', 'Author', 'User'];
-  const locations = ['New York, US', 'London, UK', 'Tokyo, JP', 'Berlin, DE', 'Sydney, AU', 'Toronto, CA'];
-  
-  return Array.from({ length: 127 }, (_, index) => {
-    const firstName = `User${index + 1}`;
-    const lastName = `Last${index + 1}`;
-    const username = `user${index + 1}`;
-    const status = statuses[Math.floor(Math.random() * statuses.length)];
-    const role = roles[Math.floor(Math.random() * roles.length)];
-    const registrationDate = new Date(2020 + Math.floor(Math.random() * 4), Math.floor(Math.random() * 12), Math.floor(Math.random() * 28));
-    const lastLogin = Math.random() > 0.3 ? new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000) : undefined;
-    const isOnline = Math.random() > 0.7;
-    
-    return {
-      id: `user-${index + 1}`,
-      username,
-      email: `${username}@example.com`,
-      displayName: `${firstName} ${lastName}`,
-      firstName,
-      lastName,
-      avatar: Math.random() > 0.5 ? `https://i.pravatar.cc/100?img=${index + 1}` : undefined,
-      status,
-      roles: role === 'Admin' ? ['Admin', 'Author', 'User'] : role === 'Author' ? ['Author', 'User'] : ['User'],
-      primaryRole: role,
-      lastLogin: lastLogin?.toISOString(),
-      registrationDate: registrationDate.toISOString(),
-      postCount: Math.floor(Math.random() * 50),
-      commentCount: Math.floor(Math.random() * 200),
-      emailVerified: Math.random() > 0.2,
-      twoFactorEnabled: Math.random() > 0.7,
-      isOnline,
-      lastActivity: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString(),
-      profileCompletion: Math.floor(Math.random() * 40) + 60,
-      accountAge: `${Math.floor((Date.now() - registrationDate.getTime()) / (1000 * 60 * 60 * 24))} days`,
-      loginCount: Math.floor(Math.random() * 1000) + 50,
-      failedLoginAttempts: Math.floor(Math.random() * 5),
-      lockoutEnd: status === 'Suspended' && Math.random() > 0.5 ? new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() : undefined,
-      ipAddress: `${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}`,
-      location: locations[Math.floor(Math.random() * locations.length)],
-      createdBy: index < 10 ? 'System' : 'admin',
-      notes: Math.random() > 0.8 ? 'Test user account created for demonstration' : undefined,
-    };
-  });
-};
+// All types are now imported from adminUserApi service
 
 const UserManagement: React.FC = () => {
   // State management
@@ -179,14 +75,44 @@ const UserManagement: React.FC = () => {
   const [editingUser, setEditingUser] = useState<AdminUser | null>(null);
   const [bulkOperation, setBulkOperation] = useState<BulkOperation>('delete');
 
+  // Confirmation states
+  const [confirmation, setConfirmation] = useState<{
+    open: boolean;
+    type?: string;
+    data?: AdminUser;
+    title?: string;
+    message?: string;
+    onConfirm?: () => void | Promise<void>;
+    onCancel?: () => void;
+  }>({ open: false });
+
+  const [bulkConfirmation, setBulkConfirmation] = useState<{
+    open: boolean;
+    action?: string;
+    itemCount?: number;
+    itemType?: string;
+    severity?: 'info' | 'warning' | 'danger';
+    onConfirm?: () => void | Promise<void>;
+    onCancel?: () => void;
+  }>({ open: false });
+
+  const [userDetailsModal, setUserDetailsModal] = useState<{
+    open: boolean;
+    user?: AdminUser;
+  }>({ open: false });
+
+  // Additional state for enterprise features
+  const [error, setError] = useState<string | null>(null);
+  const [statistics, setStatistics] = useState<UserStatistics | null>(null);
+
   // Filters state
   const [filters, setFilters] = useState<UserFilters>({
     search: '',
     role: '',
     status: '',
-    emailVerified: null,
-    twoFactorEnabled: null,
-    isOnline: null,
+    emailVerified: undefined,
+    twoFactorEnabled: undefined,
+    isOnline: undefined,
     registrationDateFrom: '',
     registrationDateTo: '',
     lastLoginFrom: '',
@@ -194,133 +120,100 @@ const UserManagement: React.FC = () => {
   });
 
   // Sort and pagination state
-  const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'registrationDate', direction: 'desc' });
-  const [pagination, setPagination] = useState<PaginationConfig>({
+  const [sortConfig, setSortConfig] = useState<UserSortConfig>({
+    field: 'registrationDate',
+    direction: 'desc'
+  });
+  const [pagination, setPagination] = useState({
     page: 1,
-    itemsPerPage: 20,
-    totalItems: 0,
+    pageSize: 20,
+    total: 0,
     totalPages: 0,
   });
 
-  // Load users on component mount
-  useEffect(() => {
-    const loadUsers = async () => {
-      setLoading(true);
-      try {
-        // Simulate API delay
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        const mockUsers = generateMockUsers();
-        setUsers(mockUsers);
-        setPagination(prev => ({
-          ...prev,
-          totalItems: mockUsers.length,
-          totalPages: Math.ceil(mockUsers.length / prev.itemsPerPage),
-        }));
-      } catch (error) {
-        // TODO: Implement proper error handling with toast notification
-      } finally {
-        setLoading(false);
-      }
-    };
+  // Real API integration - Load users with comprehensive error handling
+  const loadUsers = React.useCallback(async (showLoading = true) => {
+    try {
+      if (showLoading) setLoading(true);
+      setError(null);
 
-    loadUsers();
+      const response = await adminUserApi.getUsers(
+        filters,
+        sortConfig,
+        { page: pagination.page, pageSize: pagination.pageSize }
+      );
+
+      setUsers(response.data);
+      setPagination(prev => ({
+        ...prev,
+        total: response.pagination.total,
+        totalPages: response.pagination.totalPages,
+      }));
+
+      toastService.success('User data loaded successfully', {
+        groupId: 'user-load',
+      });
+
+    } catch (error) {
+      console.error('Failed to load users:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to load users';
+      setError(errorMessage);
+      
+      toastService.error('Failed to load users', {
+        groupId: 'user-load',
+        actions: [
+          {
+            id: 'retry',
+            label: 'Retry',
+            variant: 'primary',
+          }
+        ],
+        onAction: (toast, actionId) => {
+          if (actionId === 'retry') {
+            loadUsers(true);
+            toastService.hide(toast.id);
+          }
+        }
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [filters, sortConfig, pagination.page, pagination.pageSize]);
+
+  // Load statistics
+  const loadStatistics = React.useCallback(async () => {
+    try {
+      const stats = await adminUserApi.getUserStatistics();
+      setStatistics(stats);
+    } catch (error) {
+      console.error('Failed to load statistics:', error);
+      toastService.warning('Statistics temporarily unavailable');
+    }
   }, []);
 
-  // Filter and sort users
-  const filteredAndSortedUsers = useMemo(() => {
-    let result = [...users];
-
-    // Apply filters
-    if (filters.search) {
-      const searchLower = filters.search.toLowerCase();
-      result = result.filter(user => 
-        user.username.toLowerCase().includes(searchLower) ||
-        user.email.toLowerCase().includes(searchLower) ||
-        user.displayName.toLowerCase().includes(searchLower)
-      );
-    }
-
-    if (filters.role) {
-      result = result.filter(user => user.primaryRole === filters.role);
-    }
-
-    if (filters.status) {
-      result = result.filter(user => user.status === filters.status);
-    }
-
-    if (filters.emailVerified !== null) {
-      result = result.filter(user => user.emailVerified === filters.emailVerified);
-    }
-
-    if (filters.twoFactorEnabled !== null) {
-      result = result.filter(user => user.twoFactorEnabled === filters.twoFactorEnabled);
-    }
-
-    if (filters.isOnline !== null) {
-      result = result.filter(user => user.isOnline === filters.isOnline);
-    }
-
-    if (filters.registrationDateFrom) {
-      const fromDate = new Date(filters.registrationDateFrom);
-      result = result.filter(user => new Date(user.registrationDate) >= fromDate);
-    }
-
-    if (filters.registrationDateTo) {
-      const toDate = new Date(filters.registrationDateTo);
-      result = result.filter(user => new Date(user.registrationDate) <= toDate);
-    }
-
-    // Apply sorting
-    if (sortConfig.key) {
-      result.sort((a, b) => {
-        const aValue = a[sortConfig.key!];
-        const bValue = b[sortConfig.key!];
-
-        if (aValue === null || aValue === undefined) return 1;
-        if (bValue === null || bValue === undefined) return -1;
-
-        if (typeof aValue === 'string' && typeof bValue === 'string') {
-          const comparison = aValue.localeCompare(bValue);
-          return sortConfig.direction === 'asc' ? comparison : -comparison;
-        }
-
-        if (typeof aValue === 'number' && typeof bValue === 'number') {
-          const comparison = aValue - bValue;
-          return sortConfig.direction === 'asc' ? comparison : -comparison;
-        }
-
-        // Date comparison
-        if (typeof aValue === 'string' && typeof bValue === 'string' && 
-            (sortConfig.key === 'registrationDate' || sortConfig.key === 'lastLogin' || sortConfig.key === 'lastActivity')) {
-          const aDate = new Date(aValue).getTime();
-          const bDate = new Date(bValue).getTime();
-          const comparison = aDate - bDate;
-          return sortConfig.direction === 'asc' ? comparison : -comparison;
-        }
-
-        return 0;
-      });
-    }
-
-    return result;
-  }, [users, filters, sortConfig]);
-
-  // Paginated users
-  const paginatedUsers = useMemo(() => {
-    const startIndex = (pagination.page - 1) * pagination.itemsPerPage;
-    const endIndex = startIndex + pagination.itemsPerPage;
-    return filteredAndSortedUsers.slice(startIndex, endIndex);
-  }, [filteredAndSortedUsers, pagination.page, pagination.itemsPerPage]);
-
-  // Update pagination when filters change
+  // Initial data load
   useEffect(() => {
-    setPagination(prev => ({
-      ...prev,
-      page: 1,
-      totalItems: filteredAndSortedUsers.length,
-      totalPages: Math.ceil(filteredAndSortedUsers.length / prev.itemsPerPage),
-    }));
-  }, [filteredAndSortedUsers.length, pagination.itemsPerPage]);
+    loadUsers();
+    loadStatistics();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Reload users when filters, sort, or pagination changes
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      loadUsers(false); // Don't show loading for filter changes
+    }, 300); // Debounce
+
+    return () => clearTimeout(timeoutId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters, sortConfig, pagination.page, pagination.pageSize]);
+
+  // Server-side filtering and pagination - no client-side processing needed
+  // All filtering, sorting, and pagination is handled by the API
+
+  // Computed values for template compatibility
+  const filteredAndSortedUsers = users; // Server handles filtering and sorting
+  const paginatedUsers = users; // Server handles pagination
 
   // Utility functions
   const getStatusColor = (status: AdminUser['status']) => {
@@ -370,10 +263,10 @@ const UserManagement: React.FC = () => {
   };
 
   // Action handlers
-  const handleSort = (key: keyof AdminUser) => {
+  const handleSort = (field: keyof AdminUser) => {
     setSortConfig(prev => ({
-      key,
-      direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc',
+      field,
+      direction: prev.field === field && prev.direction === 'asc' ? 'desc' : 'asc',
     }));
   };
 
@@ -390,43 +283,123 @@ const UserManagement: React.FC = () => {
   };
 
   const handleSelectAll = () => {
-    if (selectedUsers.size === paginatedUsers.length) {
+    if (selectedUsers.size === users.length && users.length > 0) {
       setSelectedUsers(new Set());
     } else {
-      setSelectedUsers(new Set(paginatedUsers.map(user => user.id)));
+      setSelectedUsers(new Set(users.map(user => user.id)));
     }
   };
 
   const handleUserAction = async (action: string, user: AdminUser) => {
-    // Here you would make API calls to perform the action
-    
     switch (action) {
       case 'edit':
         setEditingUser(user);
         break;
       case 'delete':
-        // TODO: Implement proper confirmation dialog
-        setUsers(prev => prev.filter(u => u.id !== user.id));
+        setConfirmation({
+          open: true,
+          type: 'deleteUser',
+          data: user,
+          title: 'Delete User',
+          message: `Are you sure you want to delete user "${user.displayName}"? This action cannot be undone.`,
+          onConfirm: async () => {
+            try {
+              await adminUserApi.deleteUser(user.id, {
+                anonymizeData: true,
+                reason: 'Admin deletion via user management interface'
+              });
+              
+              // Optimistic update
+              setUsers(prev => prev.filter(u => u.id !== user.id));
+              toastService.success(`User "${user.displayName}" deleted successfully`);
+              
+              // Reload data
+              await loadUsers(false);
+              await loadStatistics();
+            } catch (error) {
+              console.error('Failed to delete user:', error);
+              toastService.error('Failed to delete user');
+            }
+            setConfirmation({ open: false });
+          },
+          onCancel: () => setConfirmation({ open: false })
+        });
         break;
       case 'toggleStatus': {
         const newStatus = user.status === 'Active' ? 'Inactive' : 'Active';
-        setUsers(prev => prev.map(u =>
-          u.id === user.id ? { ...u, status: newStatus } : u
-        ));
+        try {
+          await adminUserApi.updateUser(user.id, { status: newStatus });
+          setUsers(prev => prev.map(u =>
+            u.id === user.id ? { ...u, status: newStatus } : u
+          ));
+          toastService.success(`User status updated to ${newStatus}`);
+        } catch (error) {
+          console.error('Failed to update user status:', error);
+          toastService.error('Failed to update user status');
+        }
         break;
       }
       case 'resetPassword':
-        // TODO: Show toast notification instead of alert
+        setConfirmation({
+          open: true,
+          type: 'resetPassword',
+          data: user,
+          title: 'Reset Password',
+          message: `Are you sure you want to reset the password for "${user.displayName}"? A new password will be sent via email.`,
+          onConfirm: async () => {
+            try {
+              await adminUserApi.resetUserPassword(user.id, {
+                userId: user.id,
+                temporaryPassword: true,
+                requireChangeOnLogin: true,
+                sendEmail: true,
+                expiryHours: 24,
+              });
+              toastService.success(`Password reset email sent to ${user.email}`);
+            } catch (error) {
+              console.error('Failed to reset password:', error);
+              toastService.error('Failed to reset password');
+            }
+            setConfirmation({ open: false });
+          },
+          onCancel: () => setConfirmation({ open: false })
+        });
         break;
       case 'suspend':
-        setUsers(prev => prev.map(u => 
-          u.id === user.id ? { ...u, status: 'Suspended' as AdminUser['status'] } : u
-        ));
+        try {
+          await adminUserApi.updateUser(user.id, { status: 'Suspended' });
+          setUsers(prev => prev.map(u => 
+            u.id === user.id ? { ...u, status: 'Suspended' as AdminUser['status'] } : u
+          ));
+          toastService.success(`User ${user.displayName} suspended`);
+        } catch (error) {
+          console.error('Failed to suspend user:', error);
+          toastService.error('Failed to suspend user');
+        }
         break;
       case 'unsuspend':
-        setUsers(prev => prev.map(u => 
-          u.id === user.id ? { ...u, status: 'Active' as AdminUser['status'] } : u
-        ));
+        try {
+          await adminUserApi.updateUser(user.id, { status: 'Active' });
+          setUsers(prev => prev.map(u => 
+            u.id === user.id ? { ...u, status: 'Active' as AdminUser['status'] } : u
+          ));
+          toastService.success(`User ${user.displayName} unsuspended`);
+        } catch (error) {
+          console.error('Failed to unsuspend user:', error);
+          toastService.error('Failed to unsuspend user');
+        }
+        break;
+      case 'revokeSessions':
+        try {
+          const result = await adminUserApi.revokeUserSessions(
+            user.id,
+            'Admin action via user management interface'
+          );
+          toastService.success(`Revoked ${result.revokedSessions} active sessions`);
+        } catch (error) {
+          console.error('Failed to revoke sessions:', error);
+          toastService.error('Failed to revoke user sessions');
+        }
         break;
       default:
         break;
@@ -435,30 +408,84 @@ const UserManagement: React.FC = () => {
 
   const handleBulkAction = async () => {
     if (selectedUsers.size === 0) return;
-    // Here you would make API calls to perform bulk actions
+    
     switch (bulkOperation) {
       case 'delete':
-        // TODO: Implement proper confirmation dialog
-        setUsers(prev => prev.filter(user => !selectedUsers.has(user.id)));
-        setSelectedUsers(new Set());
+        setBulkConfirmation({
+          open: true,
+          action: 'delete',
+          itemCount: selectedUsers.size,
+          itemType: 'users',
+          severity: 'danger',
+          onConfirm: async () => {
+            try {
+              const userIds = Array.from(selectedUsers);
+              const result = await adminUserApi.performBulkOperation({
+                userIds,
+                operation: 'delete',
+                reason: 'Bulk delete via admin interface',
+                notifyUsers: true,
+              });
+
+              if (result.failureCount > 0) {
+                toastService.warning(
+                  `Bulk operation completed with ${result.failureCount} failures`,
+                  {
+                    title: 'Partial Success',
+                    actions: [{ id: 'details', label: 'View Details', variant: 'primary' }]
+                  }
+                );
+              } else {
+                toastService.success(`Successfully deleted ${result.successCount} users`);
+              }
+
+              setSelectedUsers(new Set());
+              await loadUsers(false);
+              await loadStatistics();
+            } catch (error) {
+              console.error('Bulk operation failed:', error);
+              toastService.error('Bulk operation failed');
+            }
+            setBulkConfirmation({ open: false });
+          },
+          onCancel: () => setBulkConfirmation({ open: false })
+        });
         break;
       case 'activate':
-        setUsers(prev => prev.map(user => 
-          selectedUsers.has(user.id) ? { ...user, status: 'Active' as AdminUser['status'] } : user
-        ));
-        setSelectedUsers(new Set());
-        break;
       case 'deactivate':
-        setUsers(prev => prev.map(user => 
-          selectedUsers.has(user.id) ? { ...user, status: 'Inactive' as AdminUser['status'] } : user
-        ));
-        setSelectedUsers(new Set());
-        break;
       case 'suspend':
-        setUsers(prev => prev.map(user => 
-          selectedUsers.has(user.id) ? { ...user, status: 'Suspended' as AdminUser['status'] } : user
-        ));
-        setSelectedUsers(new Set());
+      case 'unsuspend':
+      case 'verify-email':
+      case 'reset-password':
+        try {
+          const userIds = Array.from(selectedUsers);
+          const result = await adminUserApi.performBulkOperation({
+            userIds,
+            operation: bulkOperation,
+            reason: `Bulk ${bulkOperation} via admin interface`,
+            notifyUsers: true,
+          });
+
+          if (result.failureCount > 0) {
+            toastService.warning(
+              `Bulk operation completed with ${result.failureCount} failures`,
+              {
+                title: 'Partial Success',
+              }
+            );
+          } else {
+            toastService.success(
+              `Successfully ${bulkOperation}d ${result.successCount} users`
+            );
+          }
+
+          setSelectedUsers(new Set());
+          await loadUsers(false);
+          await loadStatistics();
+        } catch (error) {
+          console.error('Bulk operation failed:', error);
+          toastService.error('Bulk operation failed');
+        }
         break;
       default:
         break;
@@ -499,9 +526,9 @@ const UserManagement: React.FC = () => {
       search: '',
       role: '',
       status: '',
-      emailVerified: null,
-      twoFactorEnabled: null,
-      isOnline: null,
+      emailVerified: undefined,
+      twoFactorEnabled: undefined,
+      isOnline: undefined,
       registrationDateFrom: '',
       registrationDateTo: '',
       lastLoginFrom: '',
@@ -509,12 +536,23 @@ const UserManagement: React.FC = () => {
     });
   };
 
-  if (loading) {
+  if (loading && users.length === 0) {
+    return <UserManagementSkeleton viewMode={viewMode} showFilters={showFilters} />;
+  }
+
+  if (error && users.length === 0) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading users...</p>
+        <div className="text-center space-y-4">
+          <AlertTriangle className="h-12 w-12 text-red-500 mx-auto" />
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900">Failed to Load Users</h3>
+            <p className="text-gray-600 mt-2">{error}</p>
+          </div>
+          <Button onClick={() => loadUsers(true)} variant="outline">
+            <RotateCcw className="mr-2 h-4 w-4" />
+            Retry
+          </Button>
         </div>
       </div>
     );
@@ -543,70 +581,65 @@ const UserManagement: React.FC = () => {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Users</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{users.length}</div>
-            <p className="text-xs text-muted-foreground">
-              {users.filter(u => u.status === 'Active').length} active
-            </p>
-          </CardContent>
-        </Card>
+      {statistics ? (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Users</CardTitle>
+              <Users className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{statistics.totalUsers}</div>
+              <p className="text-xs text-muted-foreground">
+                {statistics.activeUsers} active
+              </p>
+            </CardContent>
+          </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Online Now</CardTitle>
-            <Activity className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {users.filter(u => u.isOnline).length}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {Math.round((users.filter(u => u.isOnline).length / users.length) * 100)}% of total
-            </p>
-          </CardContent>
-        </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Online Now</CardTitle>
+              <Activity className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{statistics.onlineUsers}</div>
+              <p className="text-xs text-muted-foreground">
+                {statistics.totalUsers > 0 ? Math.round((statistics.onlineUsers / statistics.totalUsers) * 100) : 0}% of total
+              </p>
+            </CardContent>
+          </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">New This Month</CardTitle>
-            <Calendar className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {users.filter(u => {
-                const regDate = new Date(u.registrationDate);
-                const now = new Date();
-                const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-                return regDate >= thirtyDaysAgo;
-              }).length}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Last 30 days
-            </p>
-          </CardContent>
-        </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">New This Month</CardTitle>
+              <Calendar className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{statistics.newUsersThisMonth}</div>
+              <p className="text-xs text-muted-foreground">
+                Last 30 days
+              </p>
+            </CardContent>
+          </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Verification Rate</CardTitle>
-            <Mail className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {Math.round((users.filter(u => u.emailVerified).length / users.length) * 100)}%
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Email verified
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Verification Rate</CardTitle>
+              <Mail className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {statistics.totalUsers > 0 ? Math.round((statistics.verifiedUsers / statistics.totalUsers) * 100) : 0}%
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Email verified
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      ) : (
+        <StatsCardSkeleton count={4} />
+      )}
 
       {/* Filters and Controls */}
       <Card>
@@ -690,10 +723,10 @@ const UserManagement: React.FC = () => {
               <div>
                 <select
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  value={filters.emailVerified === null ? '' : filters.emailVerified.toString()}
-                  onChange={(e) => setFilters(prev => ({ 
-                    ...prev, 
-                    emailVerified: e.target.value === '' ? null : e.target.value === 'true' 
+                  value={filters.emailVerified === undefined ? '' : filters.emailVerified.toString()}
+                  onChange={(e) => setFilters(prev => ({
+                    ...prev,
+                    emailVerified: e.target.value === '' ? undefined : e.target.value === 'true'
                   }))}
                 >
                   <option value="">All Verification</option>
@@ -723,10 +756,10 @@ const UserManagement: React.FC = () => {
               <div>
                 <select
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  value={filters.isOnline === null ? '' : filters.isOnline.toString()}
-                  onChange={(e) => setFilters(prev => ({ 
-                    ...prev, 
-                    isOnline: e.target.value === '' ? null : e.target.value === 'true' 
+                  value={filters.isOnline === undefined ? '' : filters.isOnline.toString()}
+                  onChange={(e) => setFilters(prev => ({
+                    ...prev,
+                    isOnline: e.target.value === '' ? undefined : e.target.value === 'true'
                   }))}
                 >
                   <option value="">All Users</option>
@@ -796,7 +829,7 @@ const UserManagement: React.FC = () => {
                     <th className="text-left py-2 px-4 cursor-pointer hover:bg-gray-50" onClick={() => handleSort('username')}>
                       <div className="flex items-center">
                         User
-                        {sortConfig.key === 'username' && (
+                        {sortConfig.field === 'username' && (
                           <span className="ml-1 text-xs">
                             {sortConfig.direction === 'asc' ? '↑' : '↓'}
                           </span>
@@ -806,7 +839,7 @@ const UserManagement: React.FC = () => {
                     <th className="text-left py-2 px-4 cursor-pointer hover:bg-gray-50" onClick={() => handleSort('primaryRole')}>
                       <div className="flex items-center">
                         Role
-                        {sortConfig.key === 'primaryRole' && (
+                        {sortConfig.field === 'primaryRole' && (
                           <span className="ml-1 text-xs">
                             {sortConfig.direction === 'asc' ? '↑' : '↓'}
                           </span>
@@ -816,7 +849,7 @@ const UserManagement: React.FC = () => {
                     <th className="text-left py-2 px-4 cursor-pointer hover:bg-gray-50" onClick={() => handleSort('status')}>
                       <div className="flex items-center">
                         Status
-                        {sortConfig.key === 'status' && (
+                        {sortConfig.field === 'status' && (
                           <span className="ml-1 text-xs">
                             {sortConfig.direction === 'asc' ? '↑' : '↓'}
                           </span>
@@ -826,7 +859,7 @@ const UserManagement: React.FC = () => {
                     <th className="text-left py-2 px-4 cursor-pointer hover:bg-gray-50" onClick={() => handleSort('registrationDate')}>
                       <div className="flex items-center">
                         Joined
-                        {sortConfig.key === 'registrationDate' && (
+                        {sortConfig.field === 'registrationDate' && (
                           <span className="ml-1 text-xs">
                             {sortConfig.direction === 'asc' ? '↑' : '↓'}
                           </span>
@@ -836,7 +869,7 @@ const UserManagement: React.FC = () => {
                     <th className="text-left py-2 px-4 cursor-pointer hover:bg-gray-50" onClick={() => handleSort('lastLogin')}>
                       <div className="flex items-center">
                         Last Login
-                        {sortConfig.key === 'lastLogin' && (
+                        {sortConfig.field === 'lastLogin' && (
                           <span className="ml-1 text-xs">
                             {sortConfig.direction === 'asc' ? '↑' : '↓'}
                           </span>
@@ -985,7 +1018,7 @@ const UserManagement: React.FC = () => {
                                 </button>
                                 <button
                                   className="block w-full text-left px-3 py-2 text-sm hover:bg-gray-50"
-                                  onClick={() => {/* TODO: Implement user details view */}}
+                                  onClick={() => setUserDetailsModal({ open: true, user })}
                                 >
                                   <Eye className="inline-block w-4 h-4 mr-2" />
                                   View Details
@@ -1155,12 +1188,12 @@ const UserManagement: React.FC = () => {
           )}
 
           {/* Pagination */}
-          {pagination.totalPages > 1 && (
+          {pagination.totalPages && pagination.totalPages > 1 && (
             <div className="flex items-center justify-between mt-6 pt-6 border-t">
               <div className="text-sm text-gray-700">
-                Showing {(pagination.page - 1) * pagination.itemsPerPage + 1} to{' '}
-                {Math.min(pagination.page * pagination.itemsPerPage, pagination.totalItems)} of{' '}
-                {pagination.totalItems} users
+                Showing {(pagination.page - 1) * pagination.pageSize + 1} to{' '}
+                {Math.min(pagination.page * pagination.pageSize, pagination.total || 0)} of{' '}
+                {pagination.total || 0} users
               </div>
               <div className="flex items-center space-x-2">
                 <Button
@@ -1172,9 +1205,9 @@ const UserManagement: React.FC = () => {
                   Previous
                 </Button>
                 <div className="flex items-center space-x-1">
-                  {Array.from({ length: Math.min(5, pagination.totalPages) }, (_, i) => {
+                  {Array.from({ length: Math.min(5, pagination.totalPages || 0) }, (_, i) => {
                     const pageNumber = Math.max(1, pagination.page - 2) + i;
-                    if (pageNumber > pagination.totalPages) return null;
+                    if (pageNumber > (pagination.totalPages || 0)) return null;
                     
                     return (
                       <Button
@@ -1193,7 +1226,7 @@ const UserManagement: React.FC = () => {
                   variant="outline"
                   size="sm"
                   onClick={() => setPagination(prev => ({ ...prev, page: prev.page + 1 }))}
-                  disabled={pagination.page === pagination.totalPages}
+                  disabled={pagination.page === (pagination.totalPages || 0)}
                 >
                   Next
                 </Button>
@@ -1212,38 +1245,100 @@ const UserManagement: React.FC = () => {
               Add a new user to the system with the specified details.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
+          <form id="create-user-form" className="space-y-4">
             <div className="grid gap-4 md:grid-cols-2">
-              <Input label="First Name" required />
-              <Input label="Last Name" required />
+              <Input name="firstName" label="First Name" required />
+              <Input name="lastName" label="Last Name" required />
             </div>
-            <Input label="Username" required />
-            <Input label="Email" type="email" required />
-            <Input label="Password" type="password" required />
+            <Input name="username" label="Username" required />
+            <Input name="displayName" label="Display Name" required />
+            <Input name="email" label="Email" type="email" required />
+            <Input name="password" label="Password" type="password" required />
             <div>
               <label className="block text-sm font-medium mb-2">Role</label>
-              <select className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <select name="primaryRole" className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                 <option value="User">User</option>
                 <option value="Author">Author</option>
                 <option value="Admin">Admin</option>
               </select>
             </div>
             <div className="flex items-center space-x-2">
-              <input type="checkbox" id="emailVerified" className="rounded" />
+              <input type="checkbox" name="emailVerified" id="emailVerified" className="rounded" />
               <label htmlFor="emailVerified" className="text-sm">Email Verified</label>
             </div>
             <div className="flex items-center space-x-2">
-              <input type="checkbox" id="sendWelcomeEmail" className="rounded" />
+              <input type="checkbox" name="sendWelcomeEmail" id="sendWelcomeEmail" className="rounded" />
               <label htmlFor="sendWelcomeEmail" className="text-sm">Send Welcome Email</label>
             </div>
-          </div>
+          </form>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowCreateModal(false)}>
               Cancel
             </Button>
-            <Button onClick={() => {
-              // TODO: Implement user creation functionality
-              setShowCreateModal(false);
+            <Button onClick={async () => {
+              try {
+                const formData = new FormData(document.querySelector('#create-user-form') as HTMLFormElement);
+                
+                const createRequest: CreateUserRequest = {
+                  username: formData.get('username') as string,
+                  email: formData.get('email') as string,
+                  firstName: formData.get('firstName') as string,
+                  lastName: formData.get('lastName') as string,
+                  password: formData.get('password') as string,
+                  primaryRole: formData.get('primaryRole') as 'Admin' | 'Author' | 'User',
+                  emailVerified: formData.get('emailVerified') === 'on',
+                  sendWelcomeEmail: formData.get('sendWelcomeEmail') === 'on',
+                };
+
+                // Validate required fields
+                if (!createRequest.username || !createRequest.email || !createRequest.firstName || 
+                    !createRequest.lastName || !createRequest.password) {
+                  toastService.error('Please fill in all required fields');
+                  return;
+                }
+
+                // Check email availability
+                const emailCheck = await adminUserApi.checkEmailAvailability(createRequest.email);
+                if (!emailCheck.available) {
+                  toastService.error('Email address is already in use');
+                  return;
+                }
+
+                // Check username availability
+                const usernameCheck = await adminUserApi.checkUsernameAvailability(createRequest.username);
+                if (!usernameCheck.available) {
+                  toastService.error('Username is already taken');
+                  return;
+                }
+
+                const newUser = await adminUserApi.createUser(createRequest);
+                
+                // Optimistic update
+                setUsers(prev => [newUser, ...prev]);
+                setShowCreateModal(false);
+
+                toastService.success(`User "${newUser.displayName}" created successfully`, {
+                  actions: [{
+                    id: 'view',
+                    label: 'View User',
+                    variant: 'primary',
+                  }],
+                  onAction: (toast, actionId) => {
+                    if (actionId === 'view') {
+                      setEditingUser(newUser);
+                      toastService.hide(toast.id);
+                    }
+                  }
+                });
+
+                // Reload to get fresh data
+                await loadUsers(false);
+                await loadStatistics();
+
+              } catch (error) {
+                console.error('Failed to create user:', error);
+                toastService.error('Failed to create user');
+              }
             }}>
               Create User
             </Button>
@@ -1312,45 +1407,48 @@ const UserManagement: React.FC = () => {
               </DialogDescription>
             </DialogHeader>
             
-            <Tabs defaultValue="basic" className="space-y-4">
-              <TabsList>
-                <TabsTrigger value="basic">Basic Info</TabsTrigger>
-                <TabsTrigger value="security">Security</TabsTrigger>
-                <TabsTrigger value="activity">Activity</TabsTrigger>
-              </TabsList>
-              
-              <TabsContent value="basic" className="space-y-4">
-                <div className="grid gap-4 md:grid-cols-2">
-                  <Input label="First Name" defaultValue={editingUser.firstName} />
-                  <Input label="Last Name" defaultValue={editingUser.lastName} />
-                </div>
-                <Input label="Username" defaultValue={editingUser.username} />
-                <Input label="Email" type="email" defaultValue={editingUser.email} />
-                <Input label="Display Name" defaultValue={editingUser.displayName} />
-                <div>
-                  <label className="block text-sm font-medium mb-2">Primary Role</label>
-                  <select 
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    defaultValue={editingUser.primaryRole}
-                  >
-                    <option value="User">User</option>
-                    <option value="Author">Author</option>
-                    <option value="Admin">Admin</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-2">Status</label>
-                  <select 
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    defaultValue={editingUser.status}
-                  >
-                    <option value="Active">Active</option>
-                    <option value="Inactive">Inactive</option>
-                    <option value="Suspended">Suspended</option>
-                    <option value="Banned">Banned</option>
-                  </select>
-                </div>
-              </TabsContent>
+            <form id="edit-user-form">
+              <Tabs defaultValue="basic" className="space-y-4">
+                <TabsList>
+                  <TabsTrigger value="basic">Basic Info</TabsTrigger>
+                  <TabsTrigger value="security">Security</TabsTrigger>
+                  <TabsTrigger value="activity">Activity</TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="basic" className="space-y-4">
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <Input name="firstName" label="First Name" defaultValue={editingUser.firstName} />
+                    <Input name="lastName" label="Last Name" defaultValue={editingUser.lastName} />
+                  </div>
+                  <Input name="username" label="Username" defaultValue={editingUser.username} />
+                  <Input name="email" label="Email" type="email" defaultValue={editingUser.email} />
+                  <Input name="displayName" label="Display Name" defaultValue={editingUser.displayName} />
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Primary Role</label>
+                    <select
+                      name="primaryRole"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      defaultValue={editingUser.primaryRole}
+                    >
+                      <option value="User">User</option>
+                      <option value="Author">Author</option>
+                      <option value="Admin">Admin</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Status</label>
+                    <select
+                      name="status"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      defaultValue={editingUser.status}
+                    >
+                      <option value="Active">Active</option>
+                      <option value="Inactive">Inactive</option>
+                      <option value="Suspended">Suspended</option>
+                      <option value="Banned">Banned</option>
+                    </select>
+                  </div>
+                </TabsContent>
               
               <TabsContent value="security" className="space-y-4">
                 <div className="grid gap-4 md:grid-cols-2">
@@ -1447,16 +1545,346 @@ const UserManagement: React.FC = () => {
                 </div>
               </TabsContent>
             </Tabs>
-            
+            </form>
+
             <DialogFooter>
               <Button variant="outline" onClick={() => setEditingUser(null)}>
                 Cancel
               </Button>
-              <Button onClick={() => {
-                // TODO: Implement user update functionality
-                setEditingUser(null);
+              <Button onClick={async () => {
+                try {
+                  if (!editingUser) return;
+
+                  const formData = new FormData(document.querySelector('#edit-user-form') as HTMLFormElement);
+                  
+                  const updateRequest: UpdateUserRequest = {
+                    firstName: formData.get('firstName') as string,
+                    lastName: formData.get('lastName') as string,
+                    email: formData.get('email') as string,
+                    displayName: formData.get('displayName') as string,
+                    primaryRole: formData.get('primaryRole') as 'Admin' | 'Author' | 'User',
+                    status: formData.get('status') as 'Active' | 'Inactive' | 'Suspended' | 'Banned',
+                    emailVerified: (document.getElementById('emailVerified') as HTMLInputElement)?.checked,
+                    twoFactorEnabled: (document.getElementById('twoFactorEnabled') as HTMLInputElement)?.checked,
+                    notes: formData.get('notes') as string,
+                  };
+
+                  // Check email availability if email changed
+                  if (updateRequest.email && updateRequest.email !== editingUser.email) {
+                    const emailCheck = await adminUserApi.checkEmailAvailability(
+                      updateRequest.email, 
+                      editingUser.id
+                    );
+                    if (!emailCheck.available) {
+                      toastService.error('Email address is already in use');
+                      return;
+                    }
+                  }
+
+                  const updatedUser = await adminUserApi.updateUser(editingUser.id, updateRequest);
+                  
+                  // Optimistic update
+                  setUsers(prev => prev.map(user => 
+                    user.id === editingUser.id ? updatedUser : user
+                  ));
+                  
+                  setEditingUser(null);
+                  toastService.success(`User "${updatedUser.displayName}" updated successfully`);
+
+                  // Reload to get fresh data
+                  await loadUsers(false);
+
+                } catch (error) {
+                  console.error('Failed to update user:', error);
+                  toastService.error('Failed to update user');
+                }
               }}>
                 Save Changes
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Confirmation Dialog */}
+      <ConfirmationDialog
+        open={confirmation.open}
+        onOpenChange={(open) => setConfirmation({ open })}
+        title={confirmation.title || '确认操作'}
+        description={confirmation.message || '确定要执行此操作吗？'}
+        severity={confirmation.type === 'deleteUser' ? 'danger' : 'warning'}
+        confirmAction={{
+          label: confirmation.type === 'deleteUser' ? '删除' : '确认',
+          variant: confirmation.type === 'deleteUser' ? 'destructive' : 'default',
+          onClick: confirmation.onConfirm || (() => { /* noop */ })
+        }}
+        cancelAction={{
+          label: '取消',
+          onClick: confirmation.onCancel || (() => { /* noop */ })
+        }}
+      />
+
+      {/* Bulk Action Confirmation Dialog */}
+      <BulkActionConfirmation
+        open={bulkConfirmation.open}
+        onOpenChange={(open) => setBulkConfirmation({ open })}
+        action={bulkConfirmation.action || 'delete'}
+        itemCount={bulkConfirmation.itemCount || 0}
+        itemType={bulkConfirmation.itemType || 'items'}
+        severity={bulkConfirmation.severity || 'warning'}
+        onConfirm={bulkConfirmation.onConfirm || (() => { /* noop */ })}
+        onCancel={bulkConfirmation.onCancel || (() => { /* noop */ })}
+      />
+
+      {/* User Details Modal */}
+      {userDetailsModal.user && (
+        <Dialog open={userDetailsModal.open} onOpenChange={(open) => setUserDetailsModal({ open })}>
+          <DialogContent className="max-w-4xl">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-3">
+                <div className="relative">
+                  <UserAvatar
+                    user={{
+                      id: userDetailsModal.user.id,
+                      displayName: userDetailsModal.user.displayName,
+                      username: userDetailsModal.user.username,
+                      avatarUrl: userDetailsModal.user.avatar,
+                      role: userDetailsModal.user.primaryRole,
+                      isVip: false,
+                    }}
+                    size="lg"
+                    showStatus={false}
+                    showRole={false}
+                  />
+                  {userDetailsModal.user.isOnline && (
+                    <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-400 border-2 border-white rounded-full"></div>
+                  )}
+                </div>
+                <div>
+                  <h2 className="text-xl font-semibold">{userDetailsModal.user.displayName}</h2>
+                  <p className="text-sm text-gray-500">@{userDetailsModal.user.username}</p>
+                </div>
+              </DialogTitle>
+              <DialogDescription>
+                完整的用户信息和活动记录
+              </DialogDescription>
+            </DialogHeader>
+
+            <Tabs defaultValue="overview" className="space-y-4">
+              <TabsList className="grid w-full grid-cols-4">
+                <TabsTrigger value="overview">概览</TabsTrigger>
+                <TabsTrigger value="activity">活动</TabsTrigger>
+                <TabsTrigger value="security">安全</TabsTrigger>
+                <TabsTrigger value="content">内容</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="overview" className="space-y-6">
+                <div className="grid gap-6 md:grid-cols-2">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-base">基本信息</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium text-gray-500">邮箱</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm">{userDetailsModal.user.email}</span>
+                          {userDetailsModal.user.emailVerified && (
+                            <CheckCircle className="h-4 w-4 text-green-500" />
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium text-gray-500">状态</span>
+                        <Badge className={getStatusColor(userDetailsModal.user.status)}>
+                          {userDetailsModal.user.status}
+                        </Badge>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium text-gray-500">角色</span>
+                        <Badge className={getRoleColor(userDetailsModal.user.primaryRole)}>
+                          {userDetailsModal.user.primaryRole}
+                        </Badge>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium text-gray-500">注册时间</span>
+                        <span className="text-sm">{formatDateTime(userDetailsModal.user.registrationDate)}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium text-gray-500">账户年龄</span>
+                        <span className="text-sm">{userDetailsModal.user.accountAge}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium text-gray-500">资料完整度</span>
+                        <span className="text-sm">{userDetailsModal.user.profileCompletion}%</span>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-base">统计信息</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium text-gray-500">文章数量</span>
+                        <span className="text-sm font-bold">{userDetailsModal.user.postCount}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium text-gray-500">评论数量</span>
+                        <span className="text-sm font-bold">{userDetailsModal.user.commentCount}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium text-gray-500">总登录次数</span>
+                        <span className="text-sm font-bold">{userDetailsModal.user.loginCount}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium text-gray-500">最后登录</span>
+                        <span className="text-sm">
+                          {userDetailsModal.user.lastLogin ? formatDateTime(userDetailsModal.user.lastLogin) : '从未'}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium text-gray-500">最后活动</span>
+                        <span className="text-sm">{formatDateTime(userDetailsModal.user.lastActivity)}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium text-gray-500">在线状态</span>
+                        <div className="flex items-center gap-2">
+                          <span className={`inline-block w-2 h-2 rounded-full ${userDetailsModal.user.isOnline ? 'bg-green-400' : 'bg-gray-400'}`}></span>
+                          <span className="text-sm">{userDetailsModal.user.isOnline ? '在线' : '离线'}</span>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {userDetailsModal.user.notes && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-base">管理员备注</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-sm text-gray-700">{userDetailsModal.user.notes}</p>
+                    </CardContent>
+                  </Card>
+                )}
+              </TabsContent>
+
+              <TabsContent value="activity" className="space-y-4">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-base">登录记录</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium">总登录次数</span>
+                        <span className="text-lg font-bold text-blue-600">{userDetailsModal.user.loginCount}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium">失败登录尝试</span>
+                        <span className={`text-lg font-bold ${userDetailsModal.user.failedLoginAttempts > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                          {userDetailsModal.user.failedLoginAttempts}
+                        </span>
+                      </div>
+                      {userDetailsModal.user.lockoutEnd && (
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-medium">锁定至</span>
+                          <span className="text-sm text-red-600">{formatDateTime(userDetailsModal.user.lockoutEnd)}</span>
+                        </div>
+                      )}
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium">最后登录IP</span>
+                        <span className="text-sm font-mono">{userDetailsModal.user.ipAddress}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium">位置</span>
+                        <span className="text-sm">{userDetailsModal.user.location}</span>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-base">内容活动</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium">发布的文章</span>
+                        <span className="text-lg font-bold text-purple-600">{userDetailsModal.user.postCount}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium">发表的评论</span>
+                        <span className="text-lg font-bold text-orange-600">{userDetailsModal.user.commentCount}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium">创建者</span>
+                        <span className="text-sm">{userDetailsModal.user.createdBy || '系统'}</span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="security" className="space-y-4">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">安全设置</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">邮箱验证</span>
+                      <div className="flex items-center gap-2">
+                        {userDetailsModal.user.emailVerified ? (
+                          <>
+                            <CheckCircle className="h-4 w-4 text-green-500" />
+                            <span className="text-sm text-green-600">已验证</span>
+                          </>
+                        ) : (
+                          <>
+                            <AlertTriangle className="h-4 w-4 text-yellow-500" />
+                            <span className="text-sm text-yellow-600">未验证</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">双因素认证</span>
+                      <div className="flex items-center gap-2">
+                        {userDetailsModal.user.twoFactorEnabled ? (
+                          <>
+                            <Shield className="h-4 w-4 text-green-500" />
+                            <span className="text-sm text-green-600">已启用</span>
+                          </>
+                        ) : (
+                          <>
+                            <Shield className="h-4 w-4 text-gray-400" />
+                            <span className="text-sm text-gray-600">未启用</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="content" className="space-y-4">
+                <div className="text-center py-8">
+                  <p className="text-gray-500">内容管理功能将在后续版本中提供</p>
+                </div>
+              </TabsContent>
+            </Tabs>
+
+            <DialogFooter>
+              <Button onClick={() => setUserDetailsModal({ open: false })}>
+                关闭
+              </Button>
+              <Button
+                onClick={() => userDetailsModal.user && handleUserAction('edit', userDetailsModal.user)}
+                disabled={!userDetailsModal.user}
+              >
+                编辑用户
               </Button>
             </DialogFooter>
           </DialogContent>

@@ -35,7 +35,7 @@ interface FilterOptions {
   years: Array<{ year: number; count: number }>;
 }
 
-export default function AdvancedSearch({
+function AdvancedSearch({
   className = '',
   onSearch,
   showToggle = true,
@@ -407,3 +407,7 @@ export default function AdvancedSearch({
     </div>
   );
 }
+
+// Export both named and default exports
+export { AdvancedSearch };
+export default AdvancedSearch;

@@ -15,7 +15,9 @@ import {
   BookOpen,
   Tag,
   Calendar,
-  TrendingUp
+  TrendingUp,
+  Info,
+  Layout
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { UserRole } from '../../types/auth';
@@ -98,6 +100,12 @@ export const GlobalSidebar: React.FC = () => {
             label="归档"
             isActive={isActivePath('/archive')}
           />
+          <SidebarLink
+            to="/about"
+            icon={<Info />}
+            label="关于"
+            isActive={isActivePath('/about')}
+          />
         </SidebarSection>
 
         {/* 发现 */}
@@ -131,6 +139,12 @@ export const GlobalSidebar: React.FC = () => {
         {/* 用户区域 */}
         {isAuthenticated ? (
           <SidebarSection title="个人">
+            <SidebarLink
+              to="/dashboard"
+              icon={<Layout />}
+              label="仪表板"
+              isActive={isActivePath('/dashboard')}
+            />
             <SidebarLink
               to="/profile"
               icon={<User />}

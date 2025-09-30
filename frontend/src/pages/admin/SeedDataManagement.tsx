@@ -26,6 +26,9 @@ import {
 } from '@/components/ui/dialog';
 import { Progress as _Progress } from '@/components/ui/progress';
 import { Separator as _Separator } from '@/components/ui/separator';
+import { errorReporter } from '@/services/errorReporting';
+import { toast } from '@/services/toastNotification';
+import { showValidation, ValidationResult as ValidationDisplayResult } from '@/components/common/ValidationDisplay';
 import {
   CheckCircle,
   AlertTriangle,
@@ -121,7 +124,14 @@ const SeedDataManagement: React.FC = () => {
         setStatus(data);
       }
     } catch (error) {
-      // TODO: Replace with proper error reporting
+      await errorReporter.captureError(
+        error instanceof Error ? error : new Error('Failed to load seed data status'),
+        {
+          component: 'SeedDataManagement',
+          action: 'loadStatus'
+        }
+      );
+      toast.error('加载种子数据状态失败，请刷新页面重试');
     } finally {
       setLoading(false);
     }
@@ -135,7 +145,14 @@ const SeedDataManagement: React.FC = () => {
         setProviders(data);
       }
     } catch (error) {
-      // TODO: Replace with proper error reporting
+      await errorReporter.captureError(
+        error instanceof Error ? error : new Error('Failed to load seed data providers'),
+        {
+          component: 'SeedDataManagement',
+          action: 'fetchProviders'
+        }
+      );
+      toast.error('加载种子数据提供商失败，请重试');
     }
   };
 
@@ -147,7 +164,14 @@ const SeedDataManagement: React.FC = () => {
         setEnvironment(data.name);
       }
     } catch (error) {
-      // TODO: Replace with proper error reporting
+      await errorReporter.captureError(
+        error instanceof Error ? error : new Error('Failed to load environment info'),
+        {
+          component: 'SeedDataManagement',
+          action: 'fetchEnvironment'
+        }
+      );
+      toast.error('加载环境信息失败，请重试');
     }
   };
 
@@ -161,11 +185,48 @@ const SeedDataManagement: React.FC = () => {
       });
 
       if (response.ok) {
-        const _validation: ValidationResult = await response.json();
-        // TODO: Handle validation result - display to user via UI
+        const validationResult: ValidationResult = await response.json();
+        // Convert to ValidationDisplayResult format for display
+        const displayResult: ValidationDisplayResult = {
+          valid: validationResult.isValid,
+          errors: validationResult.errors.map(error => ({
+            field: 'environment',
+            message: error
+          })),
+          warnings: validationResult.warnings.map(warning => ({
+            field: 'environment',
+            message: warning
+          })),
+          summary: {
+            totalErrors: validationResult.errors.length,
+            totalWarnings: validationResult.warnings.length,
+            criticalErrors: 0
+          }
+        };
+
+        // Display validation result to user
+        showValidation(displayResult, {
+          title: '环境验证结果',
+          showSummary: true,
+          showMetadata: true,
+          onRetry: () => validateEnvironment()
+        });
+
+        if (validationResult.isValid) {
+          toast.success('环境验证通过，可以安全执行种子数据操作');
+        } else {
+          toast.warning(`发现 ${validationResult.errors.length} 个环境问题`);
+        }
       }
     } catch (error) {
-      // TODO: Replace with proper error reporting
+      await errorReporter.captureError(
+        error instanceof Error ? error : new Error('Failed to validate environment'),
+        {
+          component: 'SeedDataManagement',
+          action: 'validateEnvironment'
+        }
+      );
+      toast.error('环境验证失败，请重试');
     } finally {
       setLoading(false);
     }
@@ -206,9 +267,20 @@ const SeedDataManagement: React.FC = () => {
           validationErrors: [],
           validationWarnings: [],
         });
+        toast.error('种子数据生成失败，请检查服务器状态');
       }
     } catch (error) {
-      // TODO: Replace with proper error reporting
+      await errorReporter.captureError(
+        error instanceof Error ? error : new Error('Failed to seed data'),
+        {
+          component: 'SeedDataManagement',
+          action: 'seedData',
+          environment,
+          forceSeeding,
+          confirmProduction
+        }
+      );
+      toast.error('种子数据操作失败，请重试');
     } finally {
       setLoading(false);
       setShowSeedDialog(false);
@@ -228,9 +300,22 @@ const SeedDataManagement: React.FC = () => {
         const result: CleanupResult = await response.json();
         setCleanupResult(result);
         fetchStatus(); // Refresh status
+        if (result.isSuccess) {
+          toast.success(dryRun ? '测试数据清理预览完成' : '测试数据已成功清理');
+        } else {
+          toast.error('测试数据清理失败: ' + result.errorMessage);
+        }
       }
     } catch (error) {
-      // TODO: Replace with proper error reporting
+      await errorReporter.captureError(
+        error instanceof Error ? error : new Error('Failed to clean test data'),
+        {
+          component: 'SeedDataManagement',
+          action: 'cleanTestData',
+          dryRun
+        }
+      );
+      toast.error('测试数据清理操作失败，请重试');
     } finally {
       setLoading(false);
       setShowCleanupDialog(false);

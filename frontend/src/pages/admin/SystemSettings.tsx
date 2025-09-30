@@ -9,6 +9,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/Button';
 import { Input, Textarea } from '@/components/ui/Input';
 import { cn } from '@/utils/cn';
+import { errorReporter } from '@/services/errorReporting';
+import { toast } from '@/services/toastNotification';
+import { confirmSimple } from '@/components/common/ConfirmationDialog';
 import {
   Settings,
   Save,
@@ -81,7 +84,14 @@ export const SystemSettings: React.FC = () => {
         lastSaved: new Date(),
       }));
     } catch (error) {
-      // TODO: Replace with proper error reporting
+      await errorReporter.captureError(
+        error instanceof Error ? error : new Error('Failed to load system settings'),
+        {
+          component: 'SystemSettings',
+          action: 'loadSettings'
+        }
+      );
+      toast.error('加载系统设置失败，请刷新页面重试');
       setSettingsState(prev => ({
         ...prev,
         loading: false,
@@ -120,9 +130,16 @@ export const SystemSettings: React.FC = () => {
       }));
 
       // 显示成功消息
-      showSuccessMessage('设置已成功保存');
+      toast.success('设置已成功保存');
     } catch (error) {
-      // TODO: Replace with proper error reporting
+      await errorReporter.captureError(
+        error instanceof Error ? error : new Error('Failed to save system settings'),
+        {
+          component: 'SystemSettings',
+          action: 'saveSettings'
+        }
+      );
+      toast.error('保存设置失败，请重试');
       setSettingsState(prev => ({
         ...prev,
         saving: false,
@@ -132,9 +149,14 @@ export const SystemSettings: React.FC = () => {
   }, [settingsState.settings]);
 
   // 重置设置
-  const resetSettings = useCallback(() => {
-    // TODO: Replace with proper confirmation modal
-    // For now, proceeding with reset (should be handled by UI confirmation)
+  const resetSettings = useCallback(async () => {
+    const confirmed = await confirmSimple(
+      '确定要重置所有设置到默认值吗？此操作不可撤销。',
+      '重置系统设置'
+    );
+
+    if (!confirmed) return;
+
     setSettingsState(prev => ({
         ...prev,
         settings: DEFAULT_SETTINGS,
@@ -163,7 +185,7 @@ export const SystemSettings: React.FC = () => {
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       try {
         const importedSettings = JSON.parse(e.target?.result as string);
         
@@ -175,12 +197,19 @@ export const SystemSettings: React.FC = () => {
             isDirty: true,
             errors: [],
           }));
-          showSuccessMessage('配置导入成功');
+          toast.success('配置导入成功');
         } else {
           throw new Error('Invalid settings format');
         }
       } catch (error) {
-        // TODO: Replace with proper error reporting
+        await errorReporter.captureError(
+          error instanceof Error ? error : new Error('Failed to import settings'),
+          {
+            component: 'SystemSettings',
+            action: 'importSettings'
+          }
+        );
+        toast.error('配置文件导入失败，请检查文件格式');
         setSettingsState(prev => ({
           ...prev,
           errors: [{ field: 'general', message: '配置文件格式无效' }],
@@ -488,10 +517,8 @@ const isValidEmail = (email: string): boolean => {
   return emailRegex.test(email);
 };
 
-const showSuccessMessage = (_message: string) => {
-  // TODO: Replace with proper toast notification component
-  // Success: _message
-};
+// Success message function replaced with toast.success() - this function is no longer needed
+// All success messages now use the toast system directly
 
 // 常规设置标签页组件
 const GeneralSettingsTab: React.FC<{
@@ -1757,8 +1784,16 @@ const PerformanceSettingsTab: React.FC<{
       
       setCacheCleared(true);
       setTimeout(() => setCacheCleared(false), 3000);
+      toast.success('缓存清理成功');
     } catch (error) {
-      // TODO: Replace with proper error reporting
+      await errorReporter.captureError(
+        error instanceof Error ? error : new Error('Failed to clear cache'),
+        {
+          component: 'SystemSettings',
+          action: 'clearCache'
+        }
+      );
+      toast.error('缓存清理失败，请重试');
     } finally {
       setClearingCache(false);
     }

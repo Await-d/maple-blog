@@ -23,6 +23,8 @@ const ResetPasswordPage = React.lazy(() => import('./pages/auth/ResetPasswordPag
 const AdminDashboard = React.lazy(() => import('./pages/admin/AdminDashboard'));
 const ArchivePage = React.lazy(() => import('./pages/archive/ArchivePage'));
 const UserProfilePage = React.lazy(() => import('./pages/UserProfilePage'));
+const DashboardPage = React.lazy(() => import('./pages/DashboardPage'));
+const AboutPage = React.lazy(() => import('./pages/AboutPage'));
 
 // 错误和加载组件
 import { NotFoundPage } from './pages/errors/NotFoundPage';
@@ -191,6 +193,7 @@ const App: React.FC = () => {
               <Route path="/blog" element={<BlogListPage />} />
               <Route path="/blog/:slug" element={<BlogPostPage />} />
               <Route path="/archive" element={<ArchivePage />} />
+              <Route path="/about" element={<AboutPage />} />
 
               {/* 认证路由 */}
               <Route path="/login" element={<LoginPage />} />
@@ -203,6 +206,14 @@ const App: React.FC = () => {
                 element={
                   <ProtectedRoute>
                     <UserProfilePage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/dashboard"
+                element={
+                  <ProtectedRoute>
+                    <DashboardPage />
                   </ProtectedRoute>
                 }
               />

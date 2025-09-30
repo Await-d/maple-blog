@@ -7,6 +7,7 @@ import React, { useState } from 'react';
 import { Comment } from '../../../types/comment';
 import { useAuth } from '../../../hooks/useAuth';
 import { UserRole } from '../../../types/auth';
+import { toastService } from '../../../services/toastService';
 
 interface CommentActionsProps {
   comment: Comment;
@@ -34,13 +35,15 @@ const CommentActions: React.FC<CommentActionsProps> = ({
 
   const handleLike = async () => {
     if (!isAuthenticated) {
-      // TODO: Replace with proper UI notification for login required
+      toastService.warning('请登录后参与评论互动');
       return;
     }
 
     setActionLoading('like');
     try {
       await onLike();
+    } catch (error) {
+      toastService.error('点赞失败，请稍后重试');
     } finally {
       setActionLoading(null);
     }
@@ -204,7 +207,7 @@ const CommentActions: React.FC<CommentActionsProps> = ({
             });
           } else {
             navigator.clipboard.writeText(url);
-            // TODO: Replace with proper UI notification for copy success
+            toastService.success('评论链接已复制到剪贴板');
           }
         }}
         className={`

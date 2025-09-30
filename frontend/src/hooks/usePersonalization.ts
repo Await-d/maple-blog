@@ -12,6 +12,8 @@ import {
   useRecordInteraction,
   HOME_QUERY_KEYS,
 } from '../services/home/homeApi';
+import { toastService } from '../services/toastService';
+import { errorReporter } from '../services/errorReporting';
 import type {
   PostSummary,
   PersonalizationSettings,
@@ -45,6 +47,8 @@ interface UsePersonalizationReturn {
   state: PersonalizationState;
   actions: PersonalizationActions;
   settings: PersonalizationSettings | undefined;
+  preferences: PersonalizationSettings | undefined;
+  updatePreferences: (preferences: Partial<PersonalizationSettings>) => void;
   analytics: {
     totalInteractions: number;
     readingStreak: number;
@@ -76,24 +80,7 @@ export const usePersonalization = (): UsePersonalizationReturn => {
     refetch: refetchRecommendations,
   } = usePersonalizedRecommendations(user?.id || null, 10);
 
-  const recordInteractionMutation = useRecordInteraction({
-    onSuccess: (_, variables) => {
-      // Update local interaction history
-      setInteractionHistory(prev => [
-        ...prev,
-        {
-          ...variables,
-          timestamp: new Date().toISOString(),
-        },
-      ]);
-
-      // Clear error on successful interaction
-      setError(null);
-    },
-    onError: (error: unknown) => {
-      setError(error instanceof Error ? error.message : 'Failed to record interaction');
-    },
-  });
+  const recordInteractionMutation = useRecordInteraction(undefined, user?.id);
 
   // Load personalization data from localStorage on mount
   useEffect(() => {
@@ -135,6 +122,10 @@ export const usePersonalization = (): UsePersonalizationReturn => {
     const interval = setInterval(saveToStorage, 30000); // Save every 30 seconds
     return () => clearInterval(interval);
   }, [saveToStorage]);
+
+  useEffect(() => {
+    saveToStorage();
+  }, [interactionHistory, feedbackHistory, saveToStorage]);
 
   // Calculate analytics from interaction history
   const analytics = useMemo(() => {
@@ -213,7 +204,7 @@ export const usePersonalization = (): UsePersonalizationReturn => {
     type: UserInteraction['interactionType'],
     duration?: number
   ) => {
-    if (!isAuthenticated) return;
+    if (!isAuthenticated || !postId) return;
 
     const interaction: UserInteraction = {
       postId,
@@ -222,7 +213,26 @@ export const usePersonalization = (): UsePersonalizationReturn => {
       timestamp: new Date().toISOString(),
     };
 
-    await recordInteractionMutation.mutateAsync(interaction);
+    try {
+      await recordInteractionMutation.mutateAsync(interaction);
+      setInteractionHistory(prev => [...prev, interaction]);
+      setError(null);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to record interaction';
+      setError(message);
+      if (type !== 'view') {
+        toastService.error(message);
+      }
+      errorReporter.captureError(err instanceof Error ? err : new Error(String(err)), {
+        component: 'usePersonalization',
+        action: 'recordInteraction',
+        handled: true,
+        extra: {
+          postId,
+          interactionType: type,
+        },
+      });
+    }
   }, [isAuthenticated, recordInteractionMutation]);
 
   const provideFeedback = useCallback(async (
@@ -268,13 +278,14 @@ export const usePersonalization = (): UsePersonalizationReturn => {
     if (user) {
       const storageKey = `personalization_${user.id}`;
       localStorage.removeItem(storageKey);
+      queryClient.removeQueries({
+        queryKey: HOME_QUERY_KEYS.recommendations(user.id, 10),
+      });
+      queryClient.removeQueries({
+        queryKey: HOME_QUERY_KEYS.homePagePersonalized(user.id),
+      });
     }
-
-    // Invalidate recommendations
-    queryClient.removeQueries({
-      queryKey: HOME_QUERY_KEYS.recommendations(user?.id || '', 10),
-    });
-  }, [setInteractionHistory, setFeedbackHistory, setError, user, queryClient]);
+  }, [user, queryClient]);
 
   const addInterest = useCallback((
     type: 'category' | 'tag' | 'author',
@@ -345,6 +356,8 @@ export const usePersonalization = (): UsePersonalizationReturn => {
     state,
     actions,
     settings: personalizationSettings,
+    preferences: personalizationSettings,
+    updatePreferences: actions.updatePreferences,
     analytics,
   };
 };
@@ -354,51 +367,80 @@ export const usePersonalization = (): UsePersonalizationReturn => {
  * Automatically tracks view interactions when posts are visible
  */
 export const useAutoTrackViews = (posts: PostSummary[]) => {
-  const actions = usePersonalizationActions();
+  const { isAuthenticated, user } = useAuth();
+  const { mutate: recordView } = useRecordInteraction(
+    {
+      onError: (error, variables) => {
+        errorReporter.captureError(error instanceof Error ? error : new Error(String(error)), {
+          component: 'useAutoTrackViews',
+          action: 'recordView',
+          handled: true,
+          extra: {
+            postId: variables.postId,
+            duration: variables.duration,
+          },
+        });
+      },
+    },
+    user?.id
+  );
 
   useEffect(() => {
+    if (!isAuthenticated || posts.length === 0) {
+      return;
+    }
+
     const trackedPosts = new Set<string>();
+    const exitObservers = new Map<Element, IntersectionObserver>();
 
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            const postId = entry.target.getAttribute('data-post-id');
-            if (postId && !trackedPosts.has(postId)) {
-              trackedPosts.add(postId);
-
-              // Track view with estimated reading time
-              const startTime = Date.now();
-              const unobserve = () => {
-                const duration = Math.round((Date.now() - startTime) / 1000);
-                if (duration > 3) { // Only track if viewed for more than 3 seconds
-                  // TODO: Record interaction when store action is available
-                  // Would record interaction: postId, 'view', duration
-                }
-              };
-
-              // Track when post leaves viewport
-              const exitObserver = new IntersectionObserver(
-                ([exitEntry]) => {
-                  if (!exitEntry.isIntersecting) {
-                    unobserve();
-                    exitObserver.disconnect();
-                  }
-                },
-                { threshold: 0 }
-              );
-              exitObserver.observe(entry.target);
-            }
+          if (!entry.isIntersecting) {
+            return;
           }
+
+          const postId = entry.target.getAttribute('data-post-id');
+          if (!postId || trackedPosts.has(postId)) {
+            return;
+          }
+
+          trackedPosts.add(postId);
+          const startTime = Date.now();
+
+          const exitObserver = new IntersectionObserver(
+            ([exitEntry]) => {
+              if (exitEntry.isIntersecting) {
+                return;
+              }
+
+              const duration = Math.round((Date.now() - startTime) / 1000);
+              if (duration > 3) {
+                recordView({
+                  postId,
+                  interactionType: 'view',
+                  duration,
+                  timestamp: new Date().toISOString(),
+                });
+              }
+
+              const storedObserver = exitObservers.get(exitEntry.target);
+              storedObserver?.disconnect();
+              exitObservers.delete(exitEntry.target);
+            },
+            { threshold: 0 }
+          );
+
+          exitObservers.set(entry.target, exitObserver);
+          exitObserver.observe(entry.target);
         });
       },
       {
-        threshold: 0.5, // Track when 50% of post is visible
-        rootMargin: '0px 0px -50px 0px', // Only trigger when well into viewport
+        threshold: 0.5,
+        rootMargin: '0px 0px -50px 0px',
       }
     );
 
-    // Observe all post elements
     posts.forEach((post) => {
       const element = document.querySelector(`[data-post-id="${post.id}"]`);
       if (element) {
@@ -408,8 +450,10 @@ export const useAutoTrackViews = (posts: PostSummary[]) => {
 
     return () => {
       observer.disconnect();
+      exitObservers.forEach((exitObserver) => exitObserver.disconnect());
+      exitObservers.clear();
     };
-  }, [posts, actions]);
+  }, [posts, isAuthenticated, recordView]);
 };
 
 export default usePersonalization;

@@ -15,6 +15,31 @@ interface PerformanceEventTiming extends PerformanceEntry {
   processingStart: number;
 }
 
+// Network Information API types
+interface NetworkInformation {
+  readonly effectiveType: 'slow-2g' | '2g' | '3g' | '4g';
+  readonly downlink: number;
+  readonly rtt: number;
+  readonly saveData: boolean;
+  addEventListener(type: string, listener: EventListener): void;
+  removeEventListener(type: string, listener: EventListener): void;
+}
+
+interface NavigatorWithConnection extends Navigator {
+  readonly connection?: NetworkInformation;
+}
+
+// Memory API types (Chrome-specific)
+interface MemoryInfo {
+  readonly usedJSHeapSize: number;
+  readonly totalJSHeapSize: number;
+  readonly jsHeapSizeLimit: number;
+}
+
+interface PerformanceWithMemory extends Performance {
+  readonly memory?: MemoryInfo;
+}
+
 // Core Web Vitals 目标阈值
 export const PERFORMANCE_TARGETS = {
   LCP: 2500, // 最大内容绘制 < 2.5s
@@ -184,18 +209,18 @@ export const codeSplitting = {
   // 路由级别的代码分割
   routeChunks: {
     home: () => import('../pages/HomePage'),
-    // blog: () => import('../pages/BlogPage'), // TODO: Create BlogPage
-    // post: () => import('../pages/PostDetailPage'), // TODO: Create PostDetailPage
-    // archive: () => import('../pages/ArchivePage'), // TODO: Create ArchivePage
-    // admin: () => import('../pages/AdminPage'), // TODO: Create AdminPage
+    blog: () => import('../pages/BlogPage'),
+    post: () => import('../pages/PostDetailPage'),
+    archive: () => import('../pages/archive/ArchivePage'),
+    admin: () => import('../pages/AdminPage'),
   },
 
   // 功能模块的代码分割
   featureChunks: {
-    // auth: () => import('../features/auth'), // TODO: Create auth index
-    // search: () => import('../features/search'), // TODO: Create search index
-    // admin: () => import('../features/admin'), // TODO: Create admin index
-    // personalization: () => import('../features/personalization'), // TODO: Create personalization index
+    auth: () => import('../features/auth'),
+    search: () => import('../features/search'),
+    admin: () => import('../features/admin'),
+    personalization: () => import('../features/personalization'),
   },
 
   // 第三方库的代码分割配置 (供Vite使用)
@@ -261,43 +286,165 @@ export const performanceMonitoring = {
       fid?: number;
       cls?: number;
       ttfb?: number;
-    }>((resolve) => {
+      fcp?: number;
+      navigation?: PerformanceNavigationTiming;
+      resources?: PerformanceResourceTiming[];
+    }>((resolve, _reject) => {
       const metrics: Record<string, number> = {};
-
-      // 测量 LCP
-      new PerformanceObserver((list) => {
-        const entries = list.getEntries();
-        const lastEntry = entries[entries.length - 1] as PerformancePaintTiming;
-        metrics.lcp = lastEntry.startTime;
-      }).observe({ entryTypes: ['largest-contentful-paint'] });
-
-      // 测量 FID
-      new PerformanceObserver((list) => {
-        const entries = list.getEntries() as PerformanceEntry[];
-        entries.forEach((entry) => {
-          metrics.fid = (entry as PerformanceEventTiming).processingStart - entry.startTime;
-        });
-      }).observe({ entryTypes: ['first-input'] });
-
-      // 测量 CLS
-      let clsValue = 0;
-      new PerformanceObserver((list) => {
-        for (const entry of list.getEntries() as PerformanceEntry[]) {
-          if (!(entry as LayoutShift).hadRecentInput) {
-            clsValue += (entry as LayoutShift).value;
+      const observers: PerformanceObserver[] = [];
+      let observersCreated = 0;
+      let observersCompleted = 0;
+      const timeout = 10000; // 10 seconds timeout
+      
+      const cleanup = () => {
+        observers.forEach(observer => {
+          try {
+            observer.disconnect();
+          } catch (error) {
+            // Observer might already be disconnected
           }
+        });
+      };
+
+      const completeWithResults = () => {
+        cleanup();
+        
+        // Add navigation and resource timing data
+        try {
+          const navigation = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming;
+          if (navigation) {
+            metrics.ttfb = navigation.responseStart - navigation.requestStart;
+            metrics.domContentLoaded = navigation.domContentLoadedEventEnd - navigation.fetchStart;
+            metrics.loadComplete = navigation.loadEventEnd - navigation.fetchStart;
+          }
+
+          // First Contentful Paint from paint timing API
+          const paintEntries = performance.getEntriesByType('paint');
+          const fcpEntry = paintEntries.find(entry => entry.name === 'first-contentful-paint');
+          if (fcpEntry) {
+            metrics.fcp = fcpEntry.startTime;
+          }
+
+          // Resource timing summary
+          const resources = performance.getEntriesByType('resource') as PerformanceResourceTiming[];
+          if (resources.length > 0) {
+            metrics.resourceCount = resources.length;
+            metrics.totalResourceSize = resources.reduce((total, resource) => 
+              total + (resource.transferSize || 0), 0
+            );
+            metrics.avgResourceLoadTime = resources.reduce((total, resource) => 
+              total + (resource.responseEnd - resource.startTime), 0
+            ) / resources.length;
+          }
+        } catch (error) {
+          // Don't fail the entire measurement due to navigation timing issues
         }
-        metrics.cls = clsValue;
-      }).observe({ entryTypes: ['layout-shift'] });
 
-      // 测量 TTFB
-      const navigation = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming;
-      if (navigation) {
-        metrics.ttfb = navigation.responseStart - navigation.requestStart;
-      }
+        resolve(metrics);
+      };
 
-      // 延迟解析，等待指标收集
-      setTimeout(() => resolve(metrics), 3000);
+      const createObserver = async (entryTypes: string[], handler: (list: PerformanceObserverEntryList) => void) => {
+        try {
+          if (!('PerformanceObserver' in window)) {
+            throw new Error('PerformanceObserver not supported');
+          }
+
+          const observer = new PerformanceObserver((list) => {
+            try {
+              handler(list);
+              observersCompleted++;
+              
+              // Complete when all observers have fired or timeout
+              if (observersCompleted >= observersCreated || Date.now() - startTime > timeout) {
+                completeWithResults();
+              }
+            } catch (error) {
+              const logger = import('./logger').then(m => m.createLogger('PerformanceMonitoring'));
+              logger.then(l => l.warn('Performance observer handler error', 'observer_error', {
+                entry_types: entryTypes,
+                error_message: (error as Error).message
+              }, error as Error));
+            }
+          });
+
+          observer.observe({ entryTypes });
+          observers.push(observer);
+          observersCreated++;
+          
+        } catch (error) {
+          const logger = await import('./logger').then(m => m.createLogger('PerformanceMonitoring'));
+          logger.warn('Failed to create performance observer', 'observer_creation_error', {
+            entry_types: entryTypes,
+            error_message: (error as Error).message,
+            browser_support: 'PerformanceObserver' in window
+          }, error as Error);
+        }
+      };
+
+      const startTime = Date.now();
+
+      // Set overall timeout
+      const timeoutId = setTimeout(() => {
+        const logger = import('./logger').then(m => m.createLogger('PerformanceMonitoring'));
+        logger.then(l => l.warn('Performance measurement timed out', 'measurement_timeout', {
+          timeout_ms: timeout,
+          observers_created: observersCreated,
+          observers_completed: observersCompleted,
+          partial_metrics: Object.keys(metrics)
+        }));
+        completeWithResults();
+      }, timeout);
+
+      // Setup observers with error handling
+      Promise.all([
+        // LCP Observer
+        createObserver(['largest-contentful-paint'], (list) => {
+          const entries = list.getEntries();
+          const lastEntry = entries[entries.length - 1] as PerformancePaintTiming;
+          if (lastEntry) {
+            metrics.lcp = lastEntry.startTime;
+          }
+        }),
+
+        // FID Observer  
+        createObserver(['first-input'], (list) => {
+          const entries = list.getEntries() as PerformanceEntry[];
+          entries.forEach((entry) => {
+            metrics.fid = (entry as PerformanceEventTiming).processingStart - entry.startTime;
+          });
+        }),
+
+        // CLS Observer
+        createObserver(['layout-shift'], (list) => {
+          for (const entry of list.getEntries() as PerformanceEntry[]) {
+            if (!(entry as LayoutShift).hadRecentInput) {
+              metrics.cls = (metrics.cls || 0) + (entry as LayoutShift).value;
+            }
+          }
+        })
+      ]).then(() => {
+        // If no observers were created successfully, resolve immediately
+        if (observersCreated === 0) {
+          clearTimeout(timeoutId);
+          completeWithResults();
+        }
+      }).catch((error) => {
+        clearTimeout(timeoutId);
+        const logger = import('./logger').then(m => m.createLogger('PerformanceMonitoring'));
+        logger.then(l => l.error('Failed to setup performance observers', 'observer_setup_error', {
+          error_message: (error as Error).message
+        }, error as Error));
+        
+        // Still resolve with partial metrics rather than reject
+        completeWithResults();
+      });
+
+      // Fallback: resolve after minimum wait time if no observers trigger
+      setTimeout(() => {
+        if (observersCompleted === 0) {
+          completeWithResults();
+        }
+      }, 5000); // 5 second minimum wait
     });
   },
 
@@ -320,54 +467,256 @@ export const performanceMonitoring = {
   },
 
   // 上报性能数据
-  reportPerformanceMetrics: (metrics: Record<string, number>, endpoint = '/api/analytics/performance') => {
-    if (navigator.sendBeacon) {
-      navigator.sendBeacon(endpoint, JSON.stringify(metrics));
-    } else {
-      fetch(endpoint, {
-        method: 'POST',
-        body: JSON.stringify(metrics),
-        headers: { 'Content-Type': 'application/json' }
-      }).catch(() => {
-        // 静默处理错误，不影响用户体验
-      });
+  reportPerformanceMetrics: async (metrics: Record<string, number>, endpoint = '/api/analytics/performance') => {
+    const maxRetries = 3;
+    const baseDelay = 1000;
+    
+    const enrichedMetrics = {
+      ...metrics,
+      timestamp: Date.now(),
+      page_url: window.location.href,
+      user_agent: navigator.userAgent,
+      connection_type: (navigator as NavigatorWithConnection)?.connection?.effectiveType || 'unknown',
+      memory_info: (performance as PerformanceWithMemory)?.memory ? {
+        used_js_heap_size: (performance as PerformanceWithMemory).memory!.usedJSHeapSize,
+        total_js_heap_size: (performance as PerformanceWithMemory).memory!.totalJSHeapSize,
+        js_heap_size_limit: (performance as PerformanceWithMemory).memory!.jsHeapSizeLimit
+      } : null,
+      session_id: sessionStorage.getItem('session_id') || 'unknown'
+    };
+
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        // Try sendBeacon first (more reliable for page unload scenarios)
+        if ((attempt === maxRetries - 1 || document.visibilityState === 'hidden') && navigator.sendBeacon) {
+          const sent = navigator.sendBeacon(endpoint, JSON.stringify(enrichedMetrics));
+          if (sent) {
+            const logger = await import('./logger').then(m => m.createLogger('PerformanceMonitoring'));
+            logger.debug('Performance metrics sent via sendBeacon', 'metrics_transmission', {
+              metrics_count: Object.keys(metrics).length,
+              endpoint,
+              attempt: attempt + 1
+            });
+            return;
+          }
+        }
+
+        // Fallback to fetch with enhanced error handling
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 second timeout
+
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          body: JSON.stringify(enrichedMetrics),
+          headers: { 
+            'Content-Type': 'application/json',
+            'X-Client-Version': '1.0.0',
+            'X-Request-ID': crypto.randomUUID()
+          },
+          signal: controller.signal
+        });
+
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        const logger = await import('./logger').then(m => m.createLogger('PerformanceMonitoring'));
+        logger.debug('Performance metrics sent successfully', 'metrics_transmission', {
+          metrics_count: Object.keys(metrics).length,
+          endpoint,
+          attempt: attempt + 1,
+          response_status: response.status
+        });
+        
+        return; // Success
+
+      } catch (error) {
+        const logger = await import('./logger').then(m => m.createLogger('PerformanceMonitoring'));
+        
+        if (attempt === maxRetries - 1) {
+          // Final attempt failed - log but don't throw (silent failure)
+          logger.warn('Failed to send performance metrics after all retries', 'metrics_transmission_failed', {
+            metrics_count: Object.keys(metrics).length,
+            endpoint,
+            total_attempts: maxRetries,
+            final_error: (error as Error).message,
+            is_offline: !navigator.onLine
+          }, error as Error);
+          return; // Silent failure to not impact user experience
+        } else {
+          // Retry with exponential backoff
+          const delay = baseDelay * Math.pow(2, attempt) + Math.random() * 500;
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
+      }
     }
   }
 };
 
 // 初始化性能优化
-export const initializePerformanceOptimizations = () => {
-  // 预加载关键资源
-  preloadStrategies.preloadCriticalCSS();
-  preloadStrategies.preloadFonts();
-  preloadStrategies.preconnectExternalServices();
+export const initializePerformanceOptimizations = async () => {
+  const logger = await import('./logger').then(m => m.createLogger('HomeOptimization'));
+  
+  try {
+    logger.info('Initializing performance optimizations', 'initialization_start', {
+      page_url: window.location.href,
+      user_agent: navigator.userAgent,
+      connection_type: (navigator as NavigatorWithConnection)?.connection?.effectiveType || 'unknown'
+    });
 
-  // 预取下一页内容 (延迟执行)
-  setTimeout(() => {
-    preloadStrategies.prefetchNextPageContent();
-  }, 2000);
+    // 预加载关键资源 (with error handling for each)
+    const initializationTasks = [
+      { name: 'critical_css', fn: preloadStrategies.preloadCriticalCSS },
+      { name: 'fonts', fn: preloadStrategies.preloadFonts },
+      { name: 'external_services', fn: preloadStrategies.preconnectExternalServices }
+    ];
 
-  // 初始化图片懒加载
-  const imageObserver = imageOptimization.createResponsiveImageLoader();
-  document.querySelectorAll('img[data-src]').forEach(img => {
-    imageObserver.observe(img);
-  });
+    await Promise.allSettled(
+      initializationTasks.map(async (task) => {
+        try {
+          task.fn();
+          logger.debug(`${task.name} preload completed`, 'preload_success', {
+            task_name: task.name
+          });
+        } catch (error) {
+          logger.warn(`${task.name} preload failed`, 'preload_error', {
+            task_name: task.name,
+            error_message: (error as Error).message
+          }, error as Error);
+        }
+      })
+    );
 
-  // 监控性能 (页面加载完成后)
-  window.addEventListener('load', async () => {
-    // 延迟测量，确保所有指标都能收集到
+    // 预取下一页内容 (延迟执行，非阻塞)
     setTimeout(async () => {
-      const metrics = await performanceMonitoring.measurePerformance();
-      const budgetCheck = performanceMonitoring.checkPerformanceBudget(metrics);
+      try {
+        preloadStrategies.prefetchNextPageContent();
+        logger.debug('Next page content prefetch initiated', 'prefetch_initiated');
+      } catch (error) {
+        logger.warn('Next page content prefetch failed', 'prefetch_error', {
+          error_message: (error as Error).message
+        }, error as Error);
+      }
+    }, 2000);
 
-      // 上报性能数据
-      performanceMonitoring.reportPerformanceMetrics({
-        ...metrics,
-        budgetPassed: budgetCheck.passed ? 1 : 0,
-        timestamp: Date.now()
+    // 初始化图片懒加载 (with error recovery)
+    try {
+      if ('IntersectionObserver' in window) {
+        const imageObserver = imageOptimization.createResponsiveImageLoader();
+        const lazyImages = document.querySelectorAll('img[data-src]');
+        
+        lazyImages.forEach(img => {
+          try {
+            imageObserver.observe(img);
+          } catch (error) {
+            logger.warn('Failed to observe image for lazy loading', 'lazy_load_error', {
+              image_src: (img as HTMLImageElement).dataset.src,
+              error_message: (error as Error).message
+            }, error as Error);
+            
+            // Fallback: load image immediately
+            const imgElement = img as HTMLImageElement;
+            if (imgElement.dataset.src) {
+              imgElement.src = imgElement.dataset.src;
+            }
+          }
+        });
+
+        logger.info('Image lazy loading initialized', 'lazy_load_init', {
+          image_count: lazyImages.length
+        });
+      } else {
+        logger.warn('IntersectionObserver not supported, loading all images immediately', 'fallback_load');
+        // Fallback for browsers without IntersectionObserver
+        document.querySelectorAll('img[data-src]').forEach(img => {
+          const imgElement = img as HTMLImageElement;
+          if (imgElement.dataset.src) {
+            imgElement.src = imgElement.dataset.src;
+          }
+        });
+      }
+    } catch (error) {
+      logger.error('Image lazy loading initialization failed', 'lazy_load_init_error', {
+        error_message: (error as Error).message
+      }, error as Error);
+    }
+
+    // 监控性能 (页面加载完成后，带超时保护)
+    const setupPerformanceMonitoring = async () => {
+      try {
+        logger.info('Setting up performance monitoring', 'perf_monitoring_setup');
+        
+        // 设置超时保护，确保性能监控不会无限等待
+        const monitoringTimeout = setTimeout(() => {
+          logger.warn('Performance monitoring timed out', 'perf_monitoring_timeout');
+        }, 30000); // 30 seconds max
+
+        const metrics = await performanceMonitoring.measurePerformance();
+        const budgetCheck = performanceMonitoring.checkPerformanceBudget(metrics);
+
+        clearTimeout(monitoringTimeout);
+
+        logger.info('Performance metrics collected', 'perf_metrics_collected', {
+          metrics_count: Object.keys(metrics).length,
+          budget_passed: budgetCheck.passed,
+          failed_budgets: Object.entries(budgetCheck.results)
+            .filter(([_, passed]) => !passed)
+            .map(([metric]) => metric)
+        });
+
+        // 上报性能数据 (with retry logic built into reportPerformanceMetrics)
+        const { navigation, resources, ...numericMetrics } = metrics;
+        await performanceMonitoring.reportPerformanceMetrics({
+          ...numericMetrics,
+          budgetPassed: budgetCheck.passed ? 1 : 0,
+          timestamp: Date.now(),
+          page_load_complete: 1
+        });
+
+      } catch (error) {
+        logger.error('Performance monitoring failed', 'perf_monitoring_error', {
+          error_message: (error as Error).message,
+          page_fully_loaded: document.readyState === 'complete'
+        }, error as Error);
+      }
+    };
+
+    // Set up performance monitoring with multiple trigger points
+    if (document.readyState === 'complete') {
+      // Page already loaded
+      setTimeout(setupPerformanceMonitoring, 2000);
+    } else {
+      // Wait for page load
+      window.addEventListener('load', () => {
+        setTimeout(setupPerformanceMonitoring, 5000);
       });
-    }, 5000);
-  });
+      
+      // Fallback: also trigger on DOM content loaded + delay
+      document.addEventListener('DOMContentLoaded', () => {
+        setTimeout(setupPerformanceMonitoring, 8000);
+      });
+    }
+
+    logger.info('Performance optimizations initialization completed', 'initialization_complete');
+    
+    // Track initialization completion
+    const analytics = await import('./analyticsTracking').then(m => m.analytics);
+    analytics.track('performance_optimization_initialized', {
+      initialization_time: performance.now(),
+      page_url: window.location.href
+    });
+
+  } catch (error) {
+    logger.error('Performance optimizations initialization failed', 'initialization_failed', {
+      error_message: (error as Error).message,
+      page_ready_state: document.readyState
+    }, error as Error);
+    
+    // Even if initialization fails, we don't want to break the page
+    // Continue with basic functionality
+  }
 };
 
 // 导出默认配置

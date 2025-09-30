@@ -6,6 +6,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Helmet } from '@/components/common/DocumentHead';
 import { LineChart, BarChart, PieChart } from '@/components/charts';
+import { createLogger, reportError } from '@/utils/logger';
 import { analyticsService, TIME_PERIODS } from '@/services/analyticsService';
 import { 
   AnalyticsData, 
@@ -37,6 +38,9 @@ import {
 } from 'lucide-react';
 
 export const AnalyticsDashboard: React.FC = () => {
+  // Initialize logger for this component
+  const log = createLogger('AnalyticsDashboard');
+  
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [alerts, setAlerts] = useState<AnalyticsAlert[]>([]);
   const [goals, setGoals] = useState<GoalTracking[]>([]);
@@ -50,9 +54,17 @@ export const AnalyticsDashboard: React.FC = () => {
 
   // Load analytics data
   const loadData = useCallback(async (showRefreshing = false) => {
+    const action = showRefreshing ? 'refreshAnalyticsData' : 'loadAnalyticsData';
+    log.info(`Starting analytics data ${showRefreshing ? 'refresh' : 'load'}`, action, {
+      filters,
+      showRefreshing
+    });
+
     try {
       if (showRefreshing) setRefreshing(true);
       else setLoading(true);
+
+      log.startTimer('analyticsDataLoad');
 
       const [analyticsData, alertsData, goalsData] = await Promise.all([
         analyticsService.getAnalyticsData(filters),
@@ -63,13 +75,32 @@ export const AnalyticsDashboard: React.FC = () => {
       setData(analyticsData);
       setAlerts(alertsData);
       setGoals(goalsData);
+
+      log.endTimer('analyticsDataLoad');
+      log.info(`Analytics data ${showRefreshing ? 'refresh' : 'load'} completed successfully`, action, {
+        dataPointsLoaded: analyticsData?.traffic?.length || 0,
+        alertsCount: alertsData?.length || 0,
+        goalsCount: goalsData?.length || 0
+      });
     } catch (error) {
-      console.error('Failed to load analytics data:', error);
+      log.endTimer('analyticsDataLoad');
+      log.error(`Failed to ${showRefreshing ? 'refresh' : 'load'} analytics data`, action, {
+        filters,
+        showRefreshing,
+        errorMessage: (error as Error).message
+      }, error as Error);
+
+      // Report critical analytics loading errors
+      await reportError(error as Error, {
+        component: 'AnalyticsDashboard',
+        action,
+        extra: { filters, showRefreshing }
+      });
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [filters]);
+  }, [filters, log]);
 
   // Handle period change
   const handlePeriodChange = (period: TimePeriod['value']) => {
@@ -89,7 +120,18 @@ export const AnalyticsDashboard: React.FC = () => {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     } catch (error) {
-      console.error('Export failed:', error);
+      log.error(`Analytics export failed for format ${format}`, 'handleExport', {
+        format,
+        filters,
+        errorMessage: (error as Error).message
+      }, error as Error);
+      
+      // Report export failures
+      await reportError(error as Error, {
+        component: 'AnalyticsDashboard',
+        action: 'handleExport',
+        extra: { format, filters }
+      });
     }
   };
 

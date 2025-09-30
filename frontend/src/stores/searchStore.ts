@@ -7,19 +7,17 @@ import {
   SearchRequest,
   SearchResponse,
   SearchHistory,
-  AutoCompleteSuggestion,
   SearchFilters,
   SortOption,
-  TimelineArchive,
-  CalendarArchive,
-  CategoryTree,
-  TagCloud,
+  CategoryTreeNode,
   ContentType,
   PostStatus,
   DEFAULT_PAGE_SIZE,
   DEFAULT_SORT_OPTION,
   DEFAULT_SEARCH_CONFIG,
 } from '@/types/search';
+import { archiveApi } from '@/services/search/archiveApi';
+import { searchApi } from '@/services/search/searchApi';
 
 // 搜索状态接口
 interface SearchStore extends SearchState {
@@ -63,6 +61,7 @@ interface ArchiveStore extends ArchiveState {
   loadCalendarArchive: (_year: number) => Promise<void>;
   loadCategoryTree: () => Promise<void>;
   loadTagCloud: () => Promise<void>;
+  loadCategoryPosts: (categorySlug: string, page?: number, pageSize?: number) => Promise<void>;
 
   // 视图切换
   setCurrentView: (view: 'timeline' | 'calendar' | 'category' | 'tag') => void;
@@ -108,6 +107,7 @@ const initialArchiveState: ArchiveState = {
   currentView: 'timeline',
   loading: false,
   error: null,
+  categoryPosts: {},
 };
 
 // 创建搜索状态管理
@@ -227,9 +227,8 @@ export const useSearchStore = create<SearchStore>()(
           try {
             const startTime = performance.now();
 
-            // 这里应该调用实际的API服务
-            // 目前使用模拟数据
-            const response = await mockSearchApi(searchRequest);
+            // 调用真实的搜索API服务
+            const response = await searchApi.search(searchRequest);
 
             const endTime = performance.now();
             const searchTime = endTime - startTime;
@@ -297,8 +296,8 @@ export const useSearchStore = create<SearchStore>()(
           }
 
           try {
-            // 模拟API调用
-            const suggestions = await mockAutoCompleteApi(query);
+            // 调用真实的自动完成API
+            const suggestions = await searchApi.getAutoComplete(query);
 
             set((draft) => {
               draft.autoComplete = suggestions;
@@ -427,8 +426,8 @@ export const useArchiveStore = create<ArchiveStore>()(
         });
 
         try {
-          // 模拟API调用
-          const timeline = await mockTimelineArchiveApi(year);
+          // 调用真实的时间轴归档API
+          const timeline = await archiveApi.getTimelineArchive(year);
 
           set((draft) => {
             draft.timelineArchive = timeline;
@@ -449,8 +448,8 @@ export const useArchiveStore = create<ArchiveStore>()(
         });
 
         try {
-          // 模拟API调用
-          const calendar = await mockCalendarArchiveApi(year);
+          // 调用真实的日历归档API
+          const calendar = await archiveApi.getCalendarArchive(year);
 
           set((draft) => {
             draft.calendarArchive = calendar;
@@ -471,17 +470,22 @@ export const useArchiveStore = create<ArchiveStore>()(
         });
 
         try {
-          // 模拟API调用
-          const categoryTree = await mockCategoryTreeApi();
+          const categoryTree = await archiveApi.getCategoryTree();
+          const categoriesWithLevels = applyCategoryLevels(categoryTree.categories);
 
           set((draft) => {
-            draft.categoryTree = categoryTree;
+            draft.categoryTree = {
+              categories: categoriesWithLevels,
+              totalCount: categoryTree.totalCount,
+            };
+            draft.categoryPosts = {};
             draft.loading = false;
           });
         } catch (error) {
+          const message = error instanceof Error ? error.message : '加载分类树失败';
           set((draft) => {
             draft.loading = false;
-            draft.error = error instanceof Error ? error.message : '加载分类树失败';
+            draft.error = message;
           });
         }
       },
@@ -493,18 +497,40 @@ export const useArchiveStore = create<ArchiveStore>()(
         });
 
         try {
-          // 模拟API调用
-          const tagCloud = await mockTagCloudApi();
+          const tagCloud = await archiveApi.getTagCloud();
 
           set((draft) => {
             draft.tagCloud = tagCloud;
             draft.loading = false;
           });
         } catch (error) {
+          const message = error instanceof Error ? error.message : '加载标签云失败';
           set((draft) => {
             draft.loading = false;
-            draft.error = error instanceof Error ? error.message : '加载标签云失败';
+            draft.error = message;
           });
+        }
+      },
+
+      loadCategoryPosts: async (categorySlug: string, page = 1, pageSize = 20) => {
+        try {
+          const response = await archiveApi.getCategoryPosts(categorySlug, page, pageSize);
+
+          set((draft) => {
+            draft.categoryPosts[categorySlug] = response.data;
+
+            if (draft.categoryTree) {
+              updateCategoryNode(draft.categoryTree.categories, categorySlug, (node) => {
+                node.posts = response.data;
+              });
+            }
+          });
+        } catch (error) {
+          const message = error instanceof Error ? error.message : '加载分类文章失败';
+          set((draft) => {
+            draft.error = message;
+          });
+          throw error;
         }
       },
 
@@ -555,68 +581,39 @@ export const useArchiveStore = create<ArchiveStore>()(
 
       // 重置
       reset: () => {
-        set((draft) => {
-          Object.assign(draft, initialArchiveState);
-        });
+        set(() => ({
+          ...initialArchiveState,
+          categoryPosts: {},
+        }));
       },
     }))
   )
 );
 
-// 模拟API函数（实际项目中应该替换为真实的API调用）
-async function mockSearchApi(request: SearchRequest): Promise<SearchResponse> {
-  // 模拟网络延迟
-  await new Promise(resolve => setTimeout(resolve, 200));
-
-  return {
-    results: [],
-    totalCount: 0,
-    page: request.page || 1,
-    pageSize: request.pageSize || DEFAULT_PAGE_SIZE,
-    hasMore: false,
-    took: 150,
-    suggestions: [],
-  };
+function applyCategoryLevels(categories: CategoryTreeNode[], level = 0): CategoryTreeNode[] {
+  return categories.map((category) => ({
+    ...category,
+    level,
+    children: applyCategoryLevels(category.children || [], level + 1),
+    posts: category.posts ? [...category.posts] : category.posts,
+  }));
 }
 
-async function mockAutoCompleteApi(_query: string): Promise<AutoCompleteSuggestion[]> {
-  await new Promise(resolve => setTimeout(resolve, 100));
-  return [];
-}
-
-async function mockTimelineArchiveApi(_year?: number): Promise<TimelineArchive> {
-  await new Promise(resolve => setTimeout(resolve, 300));
-  return {
-    years: [],
-    totalCount: 0,
-    dateRange: { from: '', to: '' },
-  };
-}
-
-async function mockCalendarArchiveApi(year: number): Promise<CalendarArchive> {
-  await new Promise(resolve => setTimeout(resolve, 300));
-  return {
-    year,
-    months: [],
-    totalCount: 0,
-  };
-}
-
-async function mockCategoryTreeApi(): Promise<CategoryTree> {
-  await new Promise(resolve => setTimeout(resolve, 300));
-  return {
-    categories: [],
-    totalCount: 0,
-  };
-}
-
-async function mockTagCloudApi(): Promise<TagCloud> {
-  await new Promise(resolve => setTimeout(resolve, 300));
-  return {
-    tags: [],
-    maxCount: 0,
-    minCount: 0,
-  };
+function updateCategoryNode(
+  categories: CategoryTreeNode[],
+  slug: string,
+  updater: (node: CategoryTreeNode) => void,
+): boolean {
+  for (const category of categories) {
+    if (category.slug === slug) {
+      updater(category);
+      return true;
+    }
+    if (updateCategoryNode(category.children || [], slug, updater)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 // 导出搜索相关的selector钩子

@@ -4,8 +4,15 @@
  */
 
 import * as signalR from '@microsoft/signalr';
-import type { CommentSocketEvents, TypingUser as _TypingUser, CommentNotification as _CommentNotification } from '../types/comment';
+import type {
+  CommentSocketEvents,
+  TypingUser as _TypingUser,
+  CommentNotification as _CommentNotification,
+  CommentConnectionStatus,
+} from '../types/comment';
 import { getAuthToken } from '../utils/auth';
+import { logger } from './loggingService';
+import { errorReporter } from './errorReporting';
 
 export class CommentSocketService {
   private connection: signalR.HubConnection | null = null;
@@ -16,6 +23,37 @@ export class CommentSocketService {
   private isConnecting = false;
   private currentPostId: string | null = null;
   private typingTimeouts = new Map<string, NodeJS.Timeout>();
+  private status: CommentConnectionStatus = { status: 'disconnected' };
+
+  private notifyStatus(status: CommentConnectionStatus, log?: { level: 'debug' | 'info' | 'warn' | 'error'; message: string; context?: Record<string, unknown>; error?: Error }): void {
+    this.status = status;
+
+    if (log) {
+      const { level, message, context, error } = log;
+      const logContext = {
+        component: 'CommentSocket',
+        action: status.status,
+        ...context,
+      };
+
+      switch (level) {
+        case 'debug':
+          logger.debug(message, logContext);
+          break;
+        case 'info':
+          logger.info(message, logContext);
+          break;
+        case 'warn':
+          logger.warn(message, logContext, error);
+          break;
+        case 'error':
+          logger.error(message, logContext, error);
+          break;
+      }
+    }
+
+    this.emit('ConnectionStatusChanged', status);
+  }
 
   /**
    * 初始化WebSocket连接
@@ -26,6 +64,12 @@ export class CommentSocketService {
     }
 
     this.isConnecting = true;
+
+    this.notifyStatus({ status: 'connecting' }, {
+      level: 'info',
+      message: '正在连接评论实时通信通道',
+      context: { attempts: this.reconnectAttempts },
+    });
 
     try {
       // 创建连接
@@ -38,7 +82,12 @@ export class CommentSocketService {
           nextRetryDelayInMilliseconds: (retryContext) => {
             // 指数退避策略
             const delay = Math.min(1000 * Math.pow(2, retryContext.previousRetryCount), 30000);
-            // TODO: Add proper reconnection logging
+            const attempt = retryContext.previousRetryCount + 1;
+            this.notifyStatus({ status: 'reconnecting', attempt }, {
+              level: 'warn',
+              message: '评论实时通道正在重连',
+              context: { attempt, delay },
+            });
             return delay;
           }
         })
@@ -51,8 +100,11 @@ export class CommentSocketService {
       // 启动连接
       await this.connection.start();
 
-      // TODO: Add proper connection success handling
       this.reconnectAttempts = 0;
+      this.notifyStatus({ status: 'connected' }, {
+        level: 'info',
+        message: '评论实时通道连接成功',
+      });
 
       // 如果有当前文章ID，自动加入文章组
       if (this.currentPostId) {
@@ -60,8 +112,20 @@ export class CommentSocketService {
       }
 
     } catch (error) {
-      // TODO: Add proper error handling for connection failures
-      this.scheduleReconnect();
+      const err = error instanceof Error ? error : new Error(String(error));
+      this.notifyStatus({ status: 'disconnected', reason: err.message }, {
+        level: 'error',
+        message: '评论实时通道连接失败',
+        error: err,
+      });
+
+      errorReporter.captureError(err, {
+        component: 'CommentSocket',
+        action: 'connect',
+        handled: true,
+      });
+
+      this.scheduleReconnect(err);
     } finally {
       this.isConnecting = false;
     }
@@ -74,15 +138,29 @@ export class CommentSocketService {
     if (this.connection) {
       try {
         await this.connection.stop();
-        // TODO: Add proper disconnection handling
+        this.notifyStatus({ status: 'disconnected', reason: 'manual' }, {
+          level: 'info',
+          message: '已断开评论实时通道',
+        });
       } catch (error) {
-        // TODO: Add proper error handling for disconnection
+        const err = error instanceof Error ? error : new Error(String(error));
+        this.notifyStatus({ status: 'disconnected', reason: err.message }, {
+          level: 'warn',
+          message: '断开评论实时通道时发生异常',
+          error: err,
+        });
+        errorReporter.captureError(err, {
+          component: 'CommentSocket',
+          action: 'disconnect',
+          handled: true,
+        });
       }
       this.connection = null;
     }
     this.eventListeners.clear();
     this.typingTimeouts.forEach(timeout => clearTimeout(timeout));
     this.typingTimeouts.clear();
+    this.reconnectAttempts = 0;
   }
 
   /**
@@ -182,46 +260,87 @@ export class CommentSocketService {
 
     // 系统事件
     this.connection.on('Error', (message) => {
-      // TODO: Add proper error handling
+      const error = new Error(message);
+      logger.error('评论实时通道收到错误事件', {
+        component: 'CommentSocket',
+        action: 'serverError',
+      }, error);
+      errorReporter.captureError(error, {
+        component: 'CommentSocket',
+        action: 'serverError',
+        handled: true,
+      });
+
       this.emit('Error', message);
     });
 
     this.connection.on('JoinedPostGroup', (postId) => {
-      // TODO: Add proper join group handling
+      logger.info('已加入评论组', {
+        component: 'CommentSocket',
+        action: 'joinPostGroup',
+        postId,
+      });
       this.emit('JoinedPostGroup', postId);
     });
 
     this.connection.on('LeftPostGroup', (postId) => {
-      // TODO: Add proper leave group handling
+      logger.info('已离开评论组', {
+        component: 'CommentSocket',
+        action: 'leavePostGroup',
+        postId,
+      });
       this.emit('LeftPostGroup', postId);
     });
 
     this.connection.on('JoinedModerationGroup', () => {
-      // TODO: Add proper moderation join handling
+      logger.info('已加入评论审核频道', {
+        component: 'CommentSocket',
+        action: 'joinModerationGroup',
+      });
       this.emit('JoinedModerationGroup');
     });
 
     this.connection.on('LeftModerationGroup', () => {
-      // TODO: Add proper moderation leave handling
+      logger.info('已离开评论审核频道', {
+        component: 'CommentSocket',
+        action: 'leaveModerationGroup',
+      });
       this.emit('LeftModerationGroup');
     });
 
     // 连接状态事件
-    this.connection.onreconnecting(() => {
-      // TODO: Add proper reconnection handling
+    this.connection.onreconnecting((error) => {
+      const attempt = this.reconnectAttempts + 1;
+      const err = error instanceof Error ? error : error ? new Error(String(error)) : undefined;
+      this.notifyStatus({ status: 'reconnecting', attempt }, {
+        level: 'warn',
+        message: '评论实时通道连接中断，正在尝试重连',
+        context: { attempt },
+        error: err,
+      });
     });
 
     this.connection.onreconnected(() => {
-      // TODO: Add proper reconnection success handling
+      this.reconnectAttempts = 0;
+      this.notifyStatus({ status: 'connected' }, {
+        level: 'info',
+        message: '评论实时通道重连成功',
+      });
       // 重新加入文章组
       if (this.currentPostId) {
         this.joinPostGroup(this.currentPostId);
       }
     });
 
-    this.connection.onclose(() => {
-      // TODO: Add proper connection close handling
-      this.scheduleReconnect();
+    this.connection.onclose((error) => {
+      const err = error instanceof Error ? error : error ? new Error(String(error)) : undefined;
+      this.notifyStatus({ status: 'disconnected', reason: err?.message }, {
+        level: 'warn',
+        message: '评论实时通道连接已关闭',
+        error: err,
+      });
+
+      this.scheduleReconnect(err);
     });
   }
 
@@ -242,7 +361,18 @@ export class CommentSocketService {
       }
       return success;
     } catch (error) {
-      // TODO: Add proper error handling for group join
+      const err = error instanceof Error ? error : new Error(String(error));
+      logger.error('加入评论组失败', {
+        component: 'CommentSocket',
+        action: 'joinPostGroup',
+        postId,
+      }, err);
+      errorReporter.captureError(err, {
+        component: 'CommentSocket',
+        action: 'joinPostGroup',
+        handled: true,
+        extra: { postId },
+      });
       return false;
     }
   }
@@ -262,7 +392,18 @@ export class CommentSocketService {
       }
       return success;
     } catch (error) {
-      // TODO: Add proper error handling for group leave
+      const err = error instanceof Error ? error : new Error(String(error));
+      logger.warn('离开评论组失败', {
+        component: 'CommentSocket',
+        action: 'leavePostGroup',
+        postId,
+      }, err);
+      errorReporter.captureError(err, {
+        component: 'CommentSocket',
+        action: 'leavePostGroup',
+        handled: true,
+        extra: { postId },
+      });
       return false;
     }
   }
@@ -278,7 +419,13 @@ export class CommentSocketService {
     try {
       await this.connection.invoke('StartTyping', postId, parentId);
     } catch (error) {
-      // TODO: Add proper error handling for start typing
+      const err = error instanceof Error ? error : new Error(String(error));
+      logger.warn('发送正在输入状态失败', {
+        component: 'CommentSocket',
+        action: 'startTyping',
+        postId,
+        parentId,
+      }, err);
     }
   }
 
@@ -293,7 +440,13 @@ export class CommentSocketService {
     try {
       await this.connection.invoke('StopTyping', postId, parentId);
     } catch (error) {
-      // TODO: Add proper error handling for stop typing
+      const err = error instanceof Error ? error : new Error(String(error));
+      logger.warn('发送停止输入状态失败', {
+        component: 'CommentSocket',
+        action: 'stopTyping',
+        postId,
+        parentId,
+      }, err);
     }
   }
 
@@ -308,7 +461,12 @@ export class CommentSocketService {
     try {
       await this.connection.invoke('GetCommentStats', postId);
     } catch (error) {
-      // TODO: Add proper error handling for stats
+      const err = error instanceof Error ? error : new Error(String(error));
+      logger.warn('获取评论统计失败', {
+        component: 'CommentSocket',
+        action: 'getCommentStats',
+        postId,
+      }, err);
     }
   }
 
@@ -323,7 +481,12 @@ export class CommentSocketService {
     try {
       await this.connection.invoke('GetOnlineUserCount', postId);
     } catch (error) {
-      // TODO: Add proper error handling for user count
+      const err = error instanceof Error ? error : new Error(String(error));
+      logger.warn('获取在线评论人数失败', {
+        component: 'CommentSocket',
+        action: 'getOnlineUserCount',
+        postId,
+      }, err);
     }
   }
 
@@ -338,7 +501,12 @@ export class CommentSocketService {
     try {
       await this.connection.invoke('MarkNotificationAsRead', notificationId);
     } catch (error) {
-      // TODO: Add proper error handling for notification
+      const err = error instanceof Error ? error : new Error(String(error));
+      logger.warn('标记评论通知为已读失败', {
+        component: 'CommentSocket',
+        action: 'markNotificationAsRead',
+        notificationId,
+      }, err);
     }
   }
 
@@ -353,7 +521,11 @@ export class CommentSocketService {
     try {
       await this.connection.invoke('GetUnreadNotificationCount');
     } catch (error) {
-      // TODO: Add proper error handling for unread count
+      const err = error instanceof Error ? error : new Error(String(error));
+      logger.warn('获取未读评论通知数量失败', {
+        component: 'CommentSocket',
+        action: 'getUnreadNotificationCount',
+      }, err);
     }
   }
 
@@ -368,7 +540,12 @@ export class CommentSocketService {
     try {
       await this.connection.invoke('GetRecentNotifications', limit);
     } catch (error) {
-      // TODO: Add proper error handling for recent notifications
+      const err = error instanceof Error ? error : new Error(String(error));
+      logger.warn('获取最新评论通知失败', {
+        component: 'CommentSocket',
+        action: 'getRecentNotifications',
+        limit,
+      }, err);
     }
   }
 
@@ -381,9 +558,19 @@ export class CommentSocketService {
     }
 
     try {
-      return await this.connection.invoke('JoinModerationGroup');
+      const result = await this.connection.invoke('JoinModerationGroup');
+      return result;
     } catch (error) {
-      // TODO: Add proper error handling for moderation join
+      const err = error instanceof Error ? error : new Error(String(error));
+      logger.error('加入评论审核频道失败', {
+        component: 'CommentSocket',
+        action: 'joinModerationGroup',
+      }, err);
+      errorReporter.captureError(err, {
+        component: 'CommentSocket',
+        action: 'joinModerationGroup',
+        handled: true,
+      });
       return false;
     }
   }
@@ -397,9 +584,19 @@ export class CommentSocketService {
     }
 
     try {
-      return await this.connection.invoke('LeaveModerationGroup');
+      const result = await this.connection.invoke('LeaveModerationGroup');
+      return result;
     } catch (error) {
-      // TODO: Add proper error handling for moderation leave
+      const err = error instanceof Error ? error : new Error(String(error));
+      logger.warn('离开评论审核频道失败', {
+        component: 'CommentSocket',
+        action: 'leaveModerationGroup',
+      }, err);
+      errorReporter.captureError(err, {
+        component: 'CommentSocket',
+        action: 'leaveModerationGroup',
+        handled: true,
+      });
       return false;
     }
   }
@@ -415,7 +612,11 @@ export class CommentSocketService {
     try {
       await this.connection.invoke('GetModerationStats');
     } catch (error) {
-      // TODO: Add proper error handling for moderation stats
+      const err = error instanceof Error ? error : new Error(String(error));
+      logger.warn('获取评论审核统计失败', {
+        component: 'CommentSocket',
+        action: 'getModerationStats',
+      }, err);
     }
   }
 
@@ -425,11 +626,12 @@ export class CommentSocketService {
   on<K extends keyof CommentSocketEvents>(
     event: K,
     listener: CommentSocketEvents[K]
-  ): void {
+  ): () => void {
     if (!this.eventListeners.has(event)) {
       this.eventListeners.set(event, new Set());
     }
     this.eventListeners.get(event)!.add(listener as (...args: unknown[]) => void);
+    return () => this.off(event, listener);
   }
 
   /**
@@ -461,7 +663,18 @@ export class CommentSocketService {
         try {
           (listener as (...args: unknown[]) => void)(...args);
         } catch (error) {
-          // TODO: Add proper error handling for event listeners
+          const err = error instanceof Error ? error : new Error(String(error));
+          logger.error('评论实时事件监听器执行失败', {
+            component: 'CommentSocket',
+            action: 'emit',
+            event,
+          }, err);
+          errorReporter.captureError(err, {
+            component: 'CommentSocket',
+            action: 'emit',
+            handled: true,
+            extra: { event },
+          });
         }
       });
     }
@@ -502,16 +715,38 @@ export class CommentSocketService {
   /**
    * 调度重连
    */
-  private scheduleReconnect(): void {
+  private scheduleReconnect(error?: Error): void {
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-      // TODO: Add proper handling for max reconnection attempts
+      const reason = error?.message || '已达到最大重连次数';
+      this.notifyStatus({ status: 'failed', attempts: this.reconnectAttempts, reason }, {
+        level: 'error',
+        message: '评论实时通道多次重连失败，停止尝试',
+        error,
+      });
+
+      if (error) {
+        errorReporter.captureError(error, {
+          component: 'CommentSocket',
+          action: 'scheduleReconnect',
+          handled: true,
+          extra: { attempts: this.reconnectAttempts },
+        });
+      }
       return;
     }
 
+    const attempt = this.reconnectAttempts + 1;
     const delay = Math.min(this.reconnectDelay * Math.pow(2, this.reconnectAttempts), 30000);
 
+    this.notifyStatus({ status: 'reconnecting', attempt }, {
+      level: 'warn',
+      message: '计划重连评论实时通道',
+      context: { attempt, delay },
+      error,
+    });
+
     setTimeout(() => {
-      this.reconnectAttempts++;
+      this.reconnectAttempts = attempt;
       this.connect();
     }, delay);
   }
@@ -521,6 +756,10 @@ export class CommentSocketService {
    */
   get connectionState(): signalR.HubConnectionState {
     return this.connection?.state || signalR.HubConnectionState.Disconnected;
+  }
+
+  get connectionStatus(): CommentConnectionStatus {
+    return this.status;
   }
 
   /**
@@ -546,13 +785,13 @@ export const useCommentSocket = () => {
     markNotificationAsRead: (notificationId: string) => commentSocket.markNotificationAsRead(notificationId),
     getRecentNotifications: (limit?: number) => commentSocket.getRecentNotifications(limit),
     getUnreadNotificationCount: () => commentSocket.getUnreadNotificationCount(),
-    on: <K extends keyof CommentSocketEvents>(event: K, listener: CommentSocketEvents[K]) => {
-      commentSocket.on(event, listener);
-    },
+    on: <K extends keyof CommentSocketEvents>(event: K, listener: CommentSocketEvents[K]) =>
+      commentSocket.on(event, listener),
     off: <K extends keyof CommentSocketEvents>(event: K, listener: CommentSocketEvents[K]) => {
       commentSocket.off(event, listener);
     },
     isConnected: commentSocket.isConnected,
-    connectionState: commentSocket.connectionState
+    connectionState: commentSocket.connectionState,
+    connectionStatus: commentSocket.connectionStatus,
   };
 };

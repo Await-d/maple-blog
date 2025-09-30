@@ -197,7 +197,7 @@ function MultiSelect({
   );
 }
 
-export default function SearchFilters({
+function SearchFilters({
   filters,
   filterOptions,
   onChange,
@@ -424,3 +424,7 @@ export default function SearchFilters({
     </div>
   );
 }
+
+// Export both named and default exports
+export { SearchFilters };
+export default SearchFilters;

@@ -31,7 +31,7 @@ interface SearchResultsProps {
   virtualScrolling?: boolean;
 }
 
-export default function SearchResults({
+function SearchResults({
   className = '',
   showStats = true,
   showViewToggle = true,
@@ -350,3 +350,7 @@ export default function SearchResults({
     </div>
   );
 }
+
+// Export both named and default exports
+export { SearchResults };
+export default SearchResults;

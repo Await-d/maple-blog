@@ -14,11 +14,14 @@ import type {
   CommentListConfig,
   TypingUser,
   CommentNotification,
-  CommentError
+  CommentError,
+  CommentConnectionStatus,
 } from '../types/comment';
 import { CommentSortOrder, CommentReportReason } from '../types/comment';
 import { commentApi } from '../services/commentApi';
 import { commentSocket } from '../services/commentSocket';
+import { logger } from '../services/loggingService';
+import { errorReporter } from '../services/errorReporting';
 
 interface CommentState {
   // 评论数据
@@ -60,6 +63,7 @@ interface CommentState {
 
   // 配置
   config: CommentListConfig;
+  connectionStatus: CommentConnectionStatus;
 
   // 操作方法
   actions: {
@@ -95,8 +99,8 @@ interface CommentState {
     setSortOrder: (sortOrder: CommentSortOrder) => void;
 
     // 实时功能
-    initializeRealtime: (postId: string) => void;
-    cleanupRealtime: () => void;
+    initializeRealtime: (postId: string) => Promise<void>;
+    cleanupRealtime: () => Promise<void>;
 
     // 错误处理
     addError: (error: CommentError) => void;
@@ -131,6 +135,9 @@ const defaultConfig: CommentListConfig = {
   showToolbar: true
 };
 
+const realtimeSubscriptions = new Set<() => void>();
+let currentRealtimePostId: string | null = null;
+
 export const useCommentStore = create<CommentState>()(
   devtools(
     immer((set, get) => ({
@@ -153,6 +160,7 @@ export const useCommentStore = create<CommentState>()(
       notifications: [],
       unreadNotificationCount: 0,
       config: defaultConfig,
+      connectionStatus: { status: 'disconnected' },
 
       actions: {
         // 加载评论列表
@@ -573,10 +581,69 @@ export const useCommentStore = create<CommentState>()(
         },
 
         // 实时功能初始化
-        initializeRealtime: (postId: string) => {
-          // 连接WebSocket
-          commentSocket.connect();
-          commentSocket.joinPostGroup(postId);
+        initializeRealtime: async (postId: string) => {
+          currentRealtimePostId = postId;
+
+          realtimeSubscriptions.forEach(unsubscribe => unsubscribe());
+          realtimeSubscriptions.clear();
+
+          set(state => {
+            state.connectionStatus = { status: 'connecting' };
+            state.loadingStates['realtime'] = true;
+          });
+
+          const handleConnectionStatus = (status: CommentConnectionStatus) => {
+            set(state => {
+              state.connectionStatus = status;
+              state.loadingStates['realtime'] = status.status === 'connecting' || status.status === 'reconnecting';
+
+              if (status.status === 'failed') {
+                state.errors.push({
+                  type: 'network',
+                  message: status.reason || '评论实时通道连接失败',
+                });
+              }
+            });
+          };
+
+          realtimeSubscriptions.add(commentSocket.on('ConnectionStatusChanged', handleConnectionStatus));
+
+          try {
+            await commentSocket.connect();
+            const joined = await commentSocket.joinPostGroup(postId);
+            if (!joined) {
+              logger.warn('评论实时通道未能加入文章组', {
+                component: 'CommentStore',
+                action: 'initializeRealtime',
+                postId,
+              });
+            }
+          } catch (error) {
+            const err = error instanceof Error ? error : new Error(String(error));
+            logger.error('初始化评论实时通道失败', {
+              component: 'CommentStore',
+              action: 'initializeRealtime',
+              postId,
+            }, err);
+
+            errorReporter.captureError(err, {
+              component: 'CommentStore',
+              action: 'initializeRealtime',
+              handled: true,
+              extra: { postId },
+            });
+
+            handleConnectionStatus({
+              status: 'failed',
+              attempts:
+                commentSocket.connectionStatus.status === 'failed'
+                  ? commentSocket.connectionStatus.attempts
+                  : 0,
+              reason: err.message,
+            });
+
+            return;
+          }
 
           // 绑定事件监听器
           const handleCommentCreated = (comment: Comment) => {
@@ -696,15 +763,15 @@ export const useCommentStore = create<CommentState>()(
           };
 
           // 绑定所有事件
-          commentSocket.on('CommentCreated', handleCommentCreated);
-          commentSocket.on('CommentUpdated', handleCommentUpdated);
-          commentSocket.on('CommentDeleted', handleCommentDeleted);
-          commentSocket.on('CommentLiked', handleCommentLiked);
-          commentSocket.on('CommentUnliked', handleCommentUnliked);
-          commentSocket.on('UserStartedTyping', handleUserStartedTyping);
-          commentSocket.on('UserStoppedTyping', handleUserStoppedTyping);
-          commentSocket.on('CommentStats', handleCommentStats);
-          commentSocket.on('OnlineUserCount', handleOnlineUserCount);
+          realtimeSubscriptions.add(commentSocket.on('CommentCreated', handleCommentCreated));
+          realtimeSubscriptions.add(commentSocket.on('CommentUpdated', handleCommentUpdated));
+          realtimeSubscriptions.add(commentSocket.on('CommentDeleted', handleCommentDeleted));
+          realtimeSubscriptions.add(commentSocket.on('CommentLiked', handleCommentLiked));
+          realtimeSubscriptions.add(commentSocket.on('CommentUnliked', handleCommentUnliked));
+          realtimeSubscriptions.add(commentSocket.on('UserStartedTyping', handleUserStartedTyping));
+          realtimeSubscriptions.add(commentSocket.on('UserStoppedTyping', handleUserStoppedTyping));
+          realtimeSubscriptions.add(commentSocket.on('CommentStats', handleCommentStats));
+          realtimeSubscriptions.add(commentSocket.on('OnlineUserCount', handleOnlineUserCount));
 
           // 获取初始统计信息
           commentSocket.getCommentStats(postId);
@@ -712,9 +779,33 @@ export const useCommentStore = create<CommentState>()(
         },
 
         // 清理实时功能
-        cleanupRealtime: () => {
-          // 这里应该清理事件监听器，但由于SignalR的限制，我们只能断开连接
-          // 在实际应用中，可能需要维护一个监听器注册表
+        cleanupRealtime: async () => {
+          realtimeSubscriptions.forEach(unsubscribe => unsubscribe());
+          realtimeSubscriptions.clear();
+
+          if (currentRealtimePostId) {
+            try {
+              await commentSocket.leavePostGroup(currentRealtimePostId);
+            } catch (error) {
+              const err = error instanceof Error ? error : new Error(String(error));
+              logger.warn('离开评论实时通道失败', {
+                component: 'CommentStore',
+                action: 'cleanupRealtime',
+                postId: currentRealtimePostId,
+              }, err);
+            }
+          }
+
+          await commentSocket.disconnect();
+
+          currentRealtimePostId = null;
+
+          set(state => {
+            state.connectionStatus = { status: 'disconnected' };
+            state.loadingStates['realtime'] = false;
+            state.typingUsers = [];
+            state.onlineUserCounts = {};
+          });
         },
 
         // 错误处理
@@ -788,6 +879,7 @@ export const useCommentStore = create<CommentState>()(
               notifications: [],
               unreadNotificationCount: 0
             });
+            state.connectionStatus = { status: 'disconnected' };
           });
         }
       }

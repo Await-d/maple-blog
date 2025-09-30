@@ -9,6 +9,7 @@ import { BrowserRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { HelmetProvider } from '@/components/common/DocumentHead';
+import { errorReporter } from '@/services/errorReporting';
 
 import App from './App';
 import './styles/globals.css';
@@ -44,7 +45,7 @@ const queryClient = new QueryClient({
 // 错误边界组件
 class ErrorBoundary extends React.Component<
   { children: React.ReactNode },
-  { hasError: boolean; error?: Error }
+  { hasError: boolean; error?: Error; errorId?: string }
 > {
   constructor(props: { children: React.ReactNode }) {
     super(props);
@@ -56,13 +57,27 @@ class ErrorBoundary extends React.Component<
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    // TODO: Replace with proper error reporting service (e.g., Sentry)
-    // For now, keeping critical error logging for debugging
-    console.error('应用程序错误:', error);
-    console.error('错误信息:', errorInfo);
+    if (isDevelopment()) {
+      console.error('应用程序错误:', error);
+      console.error('错误信息:', errorInfo);
+    }
 
-    // 这里可以集成错误报告服务
-    // 例如: Sentry.captureException(error, { extra: errorInfo });
+    errorReporter
+      .captureError(error, {
+        component: 'RootErrorBoundary',
+        action: 'render',
+        extra: { errorInfo },
+        handled: true,
+      })
+      .then((errorId) => {
+        if (!errorId) return;
+        this.setState({ errorId });
+      })
+      .catch((captureError) => {
+        console.error('Error reporting failed:', captureError);
+      });
+
+    this.setState({ hasError: true, error });
   }
 
   render() {
@@ -75,6 +90,11 @@ class ErrorBoundary extends React.Component<
           <p className="text-gray-700 mb-4">
             抱歉，应用程序遇到了意外错误。请刷新页面重试。
           </p>
+          {this.state.errorId && (
+            <p className="text-sm text-gray-500 mb-2">
+              错误追踪编号：{this.state.errorId}
+            </p>
+          )}
           {isDevelopment() && this.state.error && (
             <details className="mt-4 p-4 bg-gray-100 rounded">
               <summary className="cursor-pointer font-semibold">
@@ -117,7 +137,15 @@ async function initializeApp() {
 
     return true;
   } catch (error) {
-    // TODO: Replace with proper error reporting service
+    if (isDevelopment()) {
+      console.error('应用程序初始化失败:', error);
+    }
+
+    await errorReporter.captureError(error as Error, {
+      component: 'AppInitialization',
+      action: 'initialize',
+      handled: true,
+    });
     return false;
   }
 }
@@ -152,7 +180,12 @@ async function renderApp() {
       <ErrorBoundary>
         <HelmetProvider>
           <QueryClientProvider client={queryClient}>
-            <BrowserRouter>
+            <BrowserRouter
+              future={{
+                v7_startTransition: true,
+                v7_relativeSplatPath: true,
+              }}
+            >
               <App />
               {isDevelopment() && (
                 <ReactQueryDevtools initialIsOpen={false} />
@@ -167,9 +200,15 @@ async function renderApp() {
 
 // 启动应用
 renderApp().catch((error) => {
-  // TODO: Replace with proper error reporting service (e.g., Sentry)
-  // For now, keeping critical error logging for debugging
-  console.error('应用程序渲染失败:', error);
+  errorReporter.captureError(error as Error, {
+    component: 'AppInitialization',
+    action: 'renderRoot',
+    handled: false,
+  });
+
+  if (isDevelopment()) {
+    console.error('应用程序渲染失败:', error);
+  }
 
   // 显示fallback错误UI
   const container = document.getElementById('root');

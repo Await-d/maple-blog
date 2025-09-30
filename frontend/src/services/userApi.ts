@@ -1,55 +1,23 @@
-/**
- * User API Service
- */
-
 import { apiClient } from './api/client';
+import type { UserProfile } from '../types/auth';
 
-export interface User {
+export type UpdateProfileRequest = Partial<Pick<
+  UserProfile,
+  'displayName' | 'bio' | 'location' | 'website' | 'birthday' | 'timezone'
+>> & {
+  socialLinks?: UserProfile['socialLinks'];
+  avatar?: string;
+};
+
+export type UpdatePreferencesRequest = Partial<UserProfile['preferences']>;
+
+export interface UserSearchResult {
   id: string;
   username: string;
-  email: string;
-  avatar?: string;
-  bio?: string;
   displayName: string;
-  isVip: boolean;
-  role: 'User' | 'Author' | 'Admin';
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface UserProfile extends User {
-  firstName?: string;
-  lastName?: string;
-  phone?: string;
-  website?: string;
-  location?: string;
-  socialLinks?: {
-    twitter?: string;
-    facebook?: string;
-    linkedin?: string;
-    github?: string;
-  };
-  preferences?: {
-    emailNotifications: boolean;
-    pushNotifications: boolean;
-    theme: 'light' | 'dark' | 'auto';
-    language: string;
-  };
-}
-
-export interface UpdateProfileRequest {
-  firstName?: string;
-  lastName?: string;
-  bio?: string;
   avatar?: string;
-  website?: string;
-  location?: string;
-  socialLinks?: {
-    twitter?: string;
-    facebook?: string;
-    linkedin?: string;
-    github?: string;
-  };
+  role: 'User' | 'Author' | 'Admin';
+  isVip?: boolean;
 }
 
 export const userApi = {
@@ -64,8 +32,8 @@ export const userApi = {
   /**
    * Get user by ID
    */
-  async getUserById(userId: string): Promise<User> {
-    const response = await apiClient.get<User>(`/users/${userId}`);
+  async getUserById(userId: string): Promise<UserProfile> {
+    const response = await apiClient.get<UserProfile>(`/users/${userId}`);
     return response.data;
   },
 
@@ -112,8 +80,8 @@ export const userApi = {
   /**
    * Search users
    */
-  async searchUsers(query: string, limit = 10): Promise<User[]> {
-    const response = await apiClient.get<User[]>('/users/search', {
+  async searchUsers(query: string, limit = 10): Promise<UserSearchResult[]> {
+    const response = await apiClient.get<UserSearchResult[]>('/users/search', {
       params: { q: query, limit },
     });
     return response.data;

@@ -406,6 +406,16 @@ export interface UseAuthReturn {
   getTimeToExpiry: () => number;
 }
 
+// Export aliases for compatibility with imports that expect different names
+export type LoginCredentials = LoginRequest;
+export type RegisterData = RegisterFormData;
+export type AuthError = OperationResult;
+export type UserPermission = Permission;
+
+// Additional exports for common patterns
+export type { Permission as UserPermissions };
+
+// Default export for convenience
 export default {
   UserRole,
   USER_PERMISSIONS,

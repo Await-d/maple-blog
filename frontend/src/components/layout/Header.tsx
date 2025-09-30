@@ -272,6 +272,14 @@ export const Header: React.FC<HeaderProps> = ({
                 {userMenuOpen && (
                   <div className="absolute right-0 top-full mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-2 z-50">
                     <Link
+                      to="/dashboard"
+                      className="flex items-center space-x-2 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                      onClick={() => setUserMenuOpen(false)}
+                    >
+                      <User size={16} />
+                      <span>仪表板</span>
+                    </Link>
+                    <Link
                       to="/profile"
                       className="flex items-center space-x-2 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
                       onClick={() => setUserMenuOpen(false)}

@@ -46,7 +46,15 @@ const MentionSuggestions: React.FC<MentionSuggestionsProps> = ({
       try {
         // 这里应该调用实际的用户搜索API
         const result = await userApi.searchUsers(query, 10);
-        setUsers(result || []);
+        const mappedUsers: User[] = (result || []).map(user => ({
+          id: user.id,
+          username: user.username,
+          displayName: user.displayName,
+          avatarUrl: user.avatar,
+          role: user.role,
+          isVip: Boolean(user.isVip),
+        }));
+        setUsers(mappedUsers);
         setSelectedIndex(0);
       } catch (error) {
         console.error('Search users failed:', error);
@@ -142,7 +150,14 @@ const MentionSuggestions: React.FC<MentionSuggestionsProps> = ({
               `}
               onMouseEnter={() => setSelectedIndex(index)}
             >
-              <UserAvatar user={user} size="xs" />
+              <UserAvatar user={{
+                id: user.id,
+                username: user.username,
+                displayName: user.displayName,
+                avatarUrl: user.avatarUrl,
+                role: user.role,
+                isVip: user.isVip,
+              }} size="xs" />
 
               <div className="flex-1 min-w-0">
                 <div className="flex items-center space-x-2">

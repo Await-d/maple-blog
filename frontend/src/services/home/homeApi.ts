@@ -165,6 +165,7 @@ class HomeApiService {
       postId: interaction.postId,
       interactionType: interaction.interactionType,
       duration: interaction.duration,
+      timestamp: interaction.timestamp,
     });
   }
 
@@ -348,35 +349,56 @@ export function useActiveAuthors(
  * Hook to record user interactions
  */
 export function useRecordInteraction(
-  options?: UseMutationOptions<void, ApiErrorResponse, UserInteraction>
+  options?: UseMutationOptions<void, ApiErrorResponse, UserInteraction>,
+  userId?: string
 ) {
   const queryClient = useQueryClient();
+  const { onSuccess, onError, onSettled, ...restOptions } = options ?? {};
 
   return useMutation({
     mutationFn: HomeApiService.recordInteraction,
-    onSuccess: (_, variables) => {
-      // Invalidate related queries to update recommendations
-      const userId = localStorage.getItem('userId'); // Adjust based on your auth implementation
-      if (userId) {
+    onSuccess: (data, variables, context, mutation) => {
+      const targetUserId = userId ?? (typeof window !== 'undefined' ? localStorage.getItem('userId') ?? undefined : undefined);
+      if (targetUserId) {
         queryClient.invalidateQueries({
-          queryKey: HOME_QUERY_KEYS.recommendations(userId, 10),
+          queryKey: HOME_QUERY_KEYS.recommendations(targetUserId, 10),
+        });
+        queryClient.invalidateQueries({
+          queryKey: HOME_QUERY_KEYS.homePagePersonalized(targetUserId),
         });
       }
 
-      // Update local post data if available
       queryClient.setQueriesData<PostSummary[]>(
-        { predicate: (query) => query.queryKey.includes('home') },
+        {
+          predicate: (query) =>
+            Array.isArray(query.queryKey) && query.queryKey.length > 0 && query.queryKey[0] === 'home',
+        },
         (oldData) => {
           if (!oldData) return oldData;
-          return oldData.map(post =>
+
+          return oldData.map((post) =>
             post.id === variables.postId
-              ? { ...post, viewCount: post.viewCount + (variables.interactionType === 'view' ? 1 : 0) }
+              ? {
+                  ...post,
+                  viewCount:
+                    post.viewCount + (variables.interactionType === 'view' && variables.duration ? 1 : 0),
+                  likeCount:
+                    post.likeCount + (variables.interactionType === 'like' ? 1 : 0),
+                }
               : post
           );
         }
       );
+
+      onSuccess?.(data, variables, context, mutation);
     },
-    ...options,
+    onError: (error, variables, context, mutation) => {
+      onError?.(error, variables, context, mutation);
+    },
+    onSettled: (data, error, variables, context, mutation) => {
+      onSettled?.(data, error, variables, context, mutation);
+    },
+    ...restOptions,
   });
 }
 

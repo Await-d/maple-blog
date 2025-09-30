@@ -4,6 +4,43 @@
  */
 
 // 基础搜索类型
+export interface SearchQuery {
+  text: string;
+  filters?: SearchFilters;
+  sortBy?: SortOption;
+  sortDirection?: 'asc' | 'desc';
+  advanced?: boolean;
+}
+
+export interface SearchCategory {
+  id: string;
+  name: string;
+  slug: string;
+  count: number;
+  description?: string;
+  color?: string;
+}
+
+export interface AdvancedSearchOptions {
+  exactPhrase?: string;
+  anyWords?: string[];
+  excludeWords?: string[];
+  titleOnly?: boolean;
+  contentOnly?: boolean;
+  authorName?: string;
+  dateRange?: DateRange;
+  minReadingTime?: number;
+  maxReadingTime?: number;
+}
+
+export interface SearchStats {
+  totalResults: number;
+  searchTime: number;
+  topCategories: { name: string; count: number }[];
+  topTags: { name: string; count: number }[];
+  averageRelevanceScore: number;
+}
+
 export interface SearchRequest {
   query: string;
   filters?: SearchFilters;
@@ -312,6 +349,7 @@ export interface ArchiveState {
   calendarArchive?: CalendarArchive;
   categoryTree?: CategoryTree;
   tagCloud?: TagCloud;
+  categoryPosts: Record<string, ArchivePost[]>;
 
   // 当前视图
   currentView: 'timeline' | 'calendar' | 'category' | 'tag';

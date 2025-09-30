@@ -3,7 +3,7 @@
  * 分类归档组件 - 展示层级分类结构和相关文章
  */
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Folder,
   FolderOpen,
@@ -19,7 +19,8 @@ import {
 } from 'lucide-react';
 import { useArchiveStore } from '@/stores/searchStore';
 import { CategoryTreeNode, ArchivePost } from '@/types/search';
-import { archiveApi } from '@/services/search/archiveApi';
+import { toastService } from '@/services/toastService';
+import { errorReporter } from '@/services/errorReporting';
 
 interface CategoryArchiveProps {
   className?: string;
@@ -39,6 +40,7 @@ interface CategoryNodeProps {
   onPostClick?: (post: ArchivePost) => void;
   level: number;
   showPosts: boolean;
+  loadingCategorySlug?: string | null;
 }
 
 function CategoryNode({
@@ -49,10 +51,12 @@ function CategoryNode({
   onPostClick,
   level,
   showPosts,
+  loadingCategorySlug,
 }: CategoryNodeProps) {
   const isExpanded = expandedCategories.has(category.id);
   const hasChildren = category.children.length > 0;
   const hasPosts = category.posts && category.posts.length > 0;
+  const isLoading = loadingCategorySlug === category.slug;
 
   const indentClass = `ml-${level * 4}`;
 
@@ -121,6 +125,12 @@ function CategoryNode({
               {category.children.length}
             </span>
           )}
+          {isLoading && (
+            <svg className="h-4 w-4 animate-spin text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V2C5.373 2 0 7.373 0 14h4z"></path>
+            </svg>
+          )}
         </div>
       </div>
 
@@ -138,10 +148,15 @@ function CategoryNode({
               onPostClick={onPostClick}
               level={level + 1}
               showPosts={showPosts}
+              loadingCategorySlug={loadingCategorySlug}
             />
           ))}
 
           {/* 文章列表 */}
+          {showPosts && isLoading && (
+            <div className={`${indentClass} ml-8 text-sm text-gray-500`}>正在加载文章…</div>
+          )}
+
           {showPosts && hasPosts && (
             <div className={`space-y-2 ${indentClass} ml-8`}>
               {category.posts!.map((post) => (
@@ -272,6 +287,36 @@ function CategoryCard({ category, onCategoryClick }: CategoryCardProps) {
   );
 }
 
+const findCategoryBySlug = (
+  categories: CategoryTreeNode[] | undefined,
+  slug: string,
+): CategoryTreeNode | undefined => {
+  if (!categories) return undefined;
+  for (const category of categories) {
+    if (category.slug === slug) {
+      return category;
+    }
+    const child = findCategoryBySlug(category.children, slug);
+    if (child) return child;
+  }
+  return undefined;
+};
+
+const findCategoryById = (
+  categories: CategoryTreeNode[] | undefined,
+  id: string,
+): CategoryTreeNode | undefined => {
+  if (!categories) return undefined;
+  for (const category of categories) {
+    if (category.id === id) {
+      return category;
+    }
+    const child = findCategoryById(category.children, id);
+    if (child) return child;
+  }
+  return undefined;
+};
+
 export default function CategoryArchive({
   className = '',
   showSearch = true,
@@ -281,17 +326,20 @@ export default function CategoryArchive({
   onPostClick,
   viewMode: initialViewMode = 'tree',
 }: CategoryArchiveProps) {
-  const { categoryTree, loading, error, loadCategoryTree } = useArchiveStore();
+  const { categoryTree, loading, error, loadCategoryTree, loadCategoryPosts } = useArchiveStore();
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(initialExpandedCategories);
   const [searchTerm, setSearchTerm] = useState('');
   const [viewMode, setViewMode] = useState<'tree' | 'grid' | 'list'>(initialViewMode);
   const [showPosts, setShowPosts] = useState(false);
   const [sortBy, setSortBy] = useState<'name' | 'count' | 'recent'>('name');
+  const [loadingCategorySlug, setLoadingCategorySlug] = useState<string | null>(null);
 
   // 加载分类树
   useEffect(() => {
-    loadCategoryTree();
-  }, [loadCategoryTree]);
+    if (!categoryTree) {
+      loadCategoryTree();
+    }
+  }, [categoryTree, loadCategoryTree]);
 
   // 过滤和排序分类
   const filteredCategories = useMemo(() => {
@@ -355,7 +403,9 @@ export default function CategoryArchive({
   }, [categoryTree]);
 
   // 处理分类展开/折叠
-  const handleToggle = (categoryId: string) => {
+  const handleToggle = useCallback(async (categoryId: string) => {
+    const isExpanding = !expandedCategories.has(categoryId);
+
     setExpandedCategories(prev => {
       const newSet = new Set(prev);
       if (newSet.has(categoryId)) {
@@ -365,7 +415,32 @@ export default function CategoryArchive({
       }
       return newSet;
     });
-  };
+
+    if (!isExpanding || !showPosts || loadingCategorySlug) {
+      return;
+    }
+
+    const categoryNode = findCategoryById(categoryTree?.categories, categoryId);
+    if (!categoryNode || (categoryNode.posts && categoryNode.posts.length > 0)) {
+      return;
+    }
+
+    setLoadingCategorySlug(categoryNode.slug);
+    try {
+      await loadCategoryPosts(categoryNode.slug, 1, 20);
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      toastService.error(err.message || '加载分类文章失败');
+      errorReporter.captureError(err, {
+        component: 'CategoryArchive',
+        action: 'loadCategoryPostsOnToggle',
+        handled: true,
+        extra: { categorySlug: categoryNode.slug },
+      });
+    } finally {
+      setLoadingCategorySlug(null);
+    }
+  }, [expandedCategories, showPosts, categoryTree, loadCategoryPosts, loadingCategorySlug]);
 
   // 展开所有分类
   const expandAll = () => {
@@ -387,18 +462,32 @@ export default function CategoryArchive({
 
   // 处理分类点击
   const handleCategoryClick = async (category: CategoryTreeNode) => {
-    // 如果分类没有加载文章，则加载文章
-    if (!category.posts) {
+    setExpandedCategories((prev) => {
+      const next = new Set(prev);
+      next.add(category.id);
+      return next;
+    });
+
+    if (!category.posts || category.posts.length === 0) {
+      setLoadingCategorySlug(category.slug);
       try {
-        const _response = await archiveApi.getCategoryPosts(category.slug);
-        // 这里应该更新分类的文章数据
-        // 由于状态管理的限制，这里只是示例
+        await loadCategoryPosts(category.slug, 1, 20);
       } catch (error) {
-        console.error('Failed to load category posts:', error);
+        const err = error instanceof Error ? error : new Error(String(error));
+        toastService.error(err.message || '加载分类文章失败');
+        errorReporter.captureError(err, {
+          component: 'CategoryArchive',
+          action: 'loadCategoryPosts',
+          handled: true,
+          extra: { categorySlug: category.slug },
+        });
+      } finally {
+        setLoadingCategorySlug(null);
       }
     }
 
-    onCategoryClick?.(category);
+    const updatedCategory = findCategoryBySlug(categoryTree?.categories, category.slug) || category;
+    onCategoryClick?.(updatedCategory);
   };
 
   if (loading) {
@@ -565,6 +654,7 @@ export default function CategoryArchive({
               onPostClick={onPostClick}
               level={0}
               showPosts={showPosts}
+              loadingCategorySlug={loadingCategorySlug}
             />
           ))}
         </div>
