@@ -14,8 +14,8 @@ services:
       - ./frontend:/app
       - /app/node_modules
     environment:
-      - REACT_APP_API_URL=http://localhost:5000
-      - REACT_APP_ENVIRONMENT=development
+      - VITE_API_URL=http://localhost:5000
+      - VITE_NODE_ENV=development
     depends_on:
       - backend
     networks:
@@ -30,49 +30,19 @@ services:
       target: development
     ports:
       - "5000:5000"
-      - "5001:5001"
     volumes:
       - ./backend:/app
       - ./data:/app/data
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
-      - ASPNETCORE_URLS=http://+:5000;https://+:5001
-      - Database__Provider=SQLite
-      - Database__ConnectionStrings__SQLite=Data Source=data/blog_dev.db
-      - Redis__ConnectionString=redis:6379
-      - JWT__SecretKey=maple-blog-development-secret-key-256-bits-long
-      - JWT__Issuer=MapleBlog.Dev
-      - JWT__Audience=MapleBlog.Dev.Users
-    depends_on:
-      - redis
-    networks:
-      - maple-blog-network
-    restart: unless-stopped
-
-  # Redis 缓存
-  redis:
-    image: redis:7-alpine
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-    command: redis-server --appendonly yes
-    networks:
-      - maple-blog-network
-    restart: unless-stopped
-
-  # PostgreSQL 数据库 (可选，用于测试生产数据库)
-  postgres:
-    image: postgres:15-alpine
-    ports:
-      - "5432:5432"
-    environment:
-      POSTGRES_DB: maple_blog_dev
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+      - ASPNETCORE_URLS=http://+:5000
+      - Database__Provider=${DATABASE_PROVIDER:-SQLite}
+      - Database__ConnectionStrings__SQLite=${DATABASE_CONNECTION_SQLITE:-Data Source=data/blog_dev.db}
+      - Database__ConnectionStrings__PostgreSQL=${DATABASE_CONNECTION_POSTGRESQL:-}
+      - Redis__ConnectionString=${REDIS_CONNECTION_STRING:-localhost:6379}
+      - JWT__SecretKey=${JWT_SECRET_KEY:-maple-blog-development-secret-key-256-bits-long}
+      - JWT__Issuer=${JWT_ISSUER:-MapleBlog.Dev}
+      - JWT__Audience=${JWT_AUDIENCE:-MapleBlog.Dev.Users}
     networks:
       - maple-blog-network
     restart: unless-stopped
@@ -86,12 +56,6 @@ services:
     networks:
       - maple-blog-network
     restart: unless-stopped
-
-volumes:
-  redis_data:
-    driver: local
-  postgres_data:
-    driver: local
 
 networks:
   maple-blog-network:

@@ -167,9 +167,8 @@ public abstract class BaseEntityConfiguration<T> : IEntityTypeConfiguration<T>
     /// <returns>数据库提供程序</returns>
     protected virtual DatabaseProvider GetDatabaseProvider()
     {
-        // 这里需要从配置或上下文中获取数据库提供程序信息
-        // 简化实现，实际项目中应该从配置中读取
-        return DatabaseProvider.PostgreSQL;
+        // TODO: 后续可通过配置或上下文解析真实提供程序
+        return DatabaseProvider.SQLite;
     }
 
     /// <summary>

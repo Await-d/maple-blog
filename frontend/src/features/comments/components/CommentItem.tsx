@@ -245,7 +245,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
               comment={comment}
               onReply={() => onReply(comment.id)}
               onEdit={() => onEdit(comment.id)}
-              onDelete={handleDeleteClick}
+              onDelete={async () => { handleDeleteClick(); }}
               onLike={handleLikeToggle}
               onReport={() => setReportDialogOpen(true)}
               compact={true}
@@ -291,7 +291,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
               comment={comment}
               onReply={() => onReply(comment.id)}
               onEdit={() => onEdit(comment.id)}
-              onDelete={handleDeleteClick}
+              onDelete={async () => { handleDeleteClick(); }}
               onLike={handleLikeToggle}
               onReport={() => setReportDialogOpen(true)}
               compact={false}

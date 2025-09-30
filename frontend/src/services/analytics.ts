@@ -20,7 +20,7 @@ interface LayoutShift extends PerformanceEntry {
 }
 
 // Base type for event property values
-export type EventPropertyValue = string | number | boolean | null | undefined | Date | EventPropertyValue[] | { [key: string]: EventPropertyValue };
+export type EventPropertyValue = string | number | boolean | null | undefined | Date | EventPropertyValue[] | { [key: string]: EventPropertyValue } | Record<string, unknown>;
 
 // Analytics event properties with strict typing
 export interface EventProperties {
@@ -769,7 +769,7 @@ class AnalyticsService {
       sessionId: this.sessionId,
       userId: this.userProperties.userId,
       deviceId: this.deviceId,
-      correlationId: properties.correlationId
+      correlationId: typeof properties.correlationId === 'string' ? properties.correlationId : undefined
     };
 
     this.eventQueue.push(event);

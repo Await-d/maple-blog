@@ -275,9 +275,11 @@ const SeedDataManagement: React.FC = () => {
         {
           component: 'SeedDataManagement',
           action: 'seedData',
-          environment,
-          forceSeeding,
-          confirmProduction
+          extra: {
+            environment,
+            forceSeeding,
+            confirmProduction
+          }
         }
       );
       toast.error('种子数据操作失败，请重试');
@@ -312,7 +314,9 @@ const SeedDataManagement: React.FC = () => {
         {
           component: 'SeedDataManagement',
           action: 'cleanTestData',
-          dryRun
+          extra: {
+            dryRun
+          }
         }
       );
       toast.error('测试数据清理操作失败，请重试');

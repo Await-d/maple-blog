@@ -12,12 +12,12 @@ RUN apk add --no-cache \
     && rm -rf /var/cache/apk/*
 
 # 复制包管理文件
-COPY package*.json ./
-COPY yarn.lock* ./
+COPY package.json ./
+COPY package-lock.json ./
 
 # 阶段2: 依赖安装
 FROM base AS deps
-RUN npm ci --only=production --frozen-lockfile
+RUN npm ci
 
 # 阶段3: 开发环境
 FROM base AS development

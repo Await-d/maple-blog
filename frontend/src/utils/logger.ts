@@ -18,7 +18,8 @@ export type JsonValue =
   | Date
   | Error
   | JsonValue[]
-  | { [key: string]: JsonValue };
+  | { [key: string]: JsonValue }
+  | Record<string, unknown>;
 
 // Type for the replacer function in JSON.stringify
 export type JsonReplacer = (key: string, value: JsonValue) => JsonValue | undefined;
@@ -31,7 +32,8 @@ export type MaskableValue =
   | null
   | undefined
   | MaskableValue[]
-  | { [key: string]: MaskableValue };
+  | { [key: string]: MaskableValue }
+  | Record<string, unknown>;
 
 // Component-aware logger that automatically includes component context
 export class ComponentLogger {

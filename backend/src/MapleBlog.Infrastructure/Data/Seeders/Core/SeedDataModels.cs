@@ -34,6 +34,10 @@ public class SeedResult
     public int PostsSkipped { get; set; }
     public int ConfigurationsCreated { get; set; }
     public int ConfigurationsSkipped { get; set; }
+    public int RolePermissionsCreated { get; set; }
+    public int RolePermissionsSkipped { get; set; }
+    public int UserRolesCreated { get; set; }
+    public int UserRolesSkipped { get; set; }
 
     // Validation
     public List<string> ValidationErrors { get; set; } = new();
@@ -42,9 +46,11 @@ public class SeedResult
     // Summary properties
     public TimeSpan Duration => (EndTime ?? DateTime.UtcNow) - StartTime;
     public int TotalCreated => RolesCreated + PermissionsCreated + UsersCreated +
-                              CategoriesCreated + TagsCreated + PostsCreated + ConfigurationsCreated;
+                              CategoriesCreated + TagsCreated + PostsCreated + ConfigurationsCreated +
+                              RolePermissionsCreated + UserRolesCreated;
     public int TotalSkipped => RolesSkipped + PermissionsSkipped + UsersSkipped +
-                              CategoriesSkipped + TagsSkipped + PostsSkipped + ConfigurationsSkipped;
+                              CategoriesSkipped + TagsSkipped + PostsSkipped + ConfigurationsSkipped +
+                              RolePermissionsSkipped + UserRolesSkipped;
     public bool HasValidationIssues => ValidationErrors.Any() || ValidationWarnings.Any();
 
     /// <summary>
@@ -81,6 +87,8 @@ public class SeedResult
             { "Tags", new { Created = TagsCreated, Skipped = TagsSkipped } },
             { "Posts", new { Created = PostsCreated, Skipped = PostsSkipped } },
             { "Configurations", new { Created = ConfigurationsCreated, Skipped = ConfigurationsSkipped } },
+            { "RolePermissions", new { Created = RolePermissionsCreated, Skipped = RolePermissionsSkipped } },
+            { "UserRoles", new { Created = UserRolesCreated, Skipped = UserRolesSkipped } },
             { "ValidationErrors", ValidationErrors },
             { "ValidationWarnings", ValidationWarnings }
         };

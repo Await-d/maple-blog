@@ -25,8 +25,7 @@ public class PostConfiguration : BaseEntityConfiguration<Post>
             .HasMaxLength(1000);
 
         builder.Property(p => p.Content)
-            .IsRequired()
-            .HasColumnType("nvarchar(max)"); // 无长度限制
+            .IsRequired();
 
         // SEO字段
         ConfigureStringProperty(builder.Property(p => p.MetaTitle), maxLength: 200);

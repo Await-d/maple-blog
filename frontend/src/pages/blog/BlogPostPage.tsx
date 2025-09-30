@@ -13,7 +13,7 @@ import { HomeApiService } from '@/services/home/homeApi';
 import { toastService } from '@/services/toastService';
 import { errorReporter } from '@/services/errorReporting';
 import { Post, TOCItem, SocialShare } from '@/types/blog';
-import { Comment } from '@/types/comment';
+import { Comment, CommentStatus } from '@/types/comment';
 import {
   Heart,
   Bookmark,
@@ -158,6 +158,7 @@ export const BlogPostPage: React.FC = () => {
 
   // Comment state (mock implementation since full API structure isn't available)
   const [comments, setComments] = useState<Comment[]>([]);
+  const [commentsLoading, setCommentsLoading] = useState(false);
 
   // Custom hooks
   const readingProgress = useReadingProgress();
@@ -225,7 +226,7 @@ export const BlogPostPage: React.FC = () => {
       parentId: replyingTo || undefined,
       content: commentContent,
       renderedContent: commentContent,
-      status: 'Approved' as 'Approved' | 'Pending' | 'Rejected',
+      status: CommentStatus.Approved,
       depth: replyingTo ? 1 : 0,
       threadPath: '',
       likeCount: 0,
@@ -658,7 +659,7 @@ export const BlogPostPage: React.FC = () => {
             </div>
 
             {/* Related Articles */}
-            <RelatedArticles currentPostId={post.id} tags={post.tags} category={post.category} />
+            <RelatedArticles currentPostId={post.id} tags={post.tags} category={post.category ?? null} />
 
             {/* Comments Section */}
             <section className="mb-8">
@@ -896,7 +897,7 @@ const CommentItem: React.FC<{
 const RelatedArticles: React.FC<{
   currentPostId: string;
   tags: Array<{ id: string; name: string; slug: string }>;
-  category: { id: string; name: string; color: string } | null;
+  category: { id: string; name: string; color?: string } | null;
 }> = ({ currentPostId, tags, category }) => {
   const { usePostsList } = useBlogPostQueries();
   

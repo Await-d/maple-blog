@@ -7,6 +7,11 @@ using MapleBlog.Domain.Enums;
 
 namespace MapleBlog.Infrastructure.Data.Seeders.Core;
 
+public record RolePermissionAssignment(string RoleName, string PermissionName, Guid? GrantedBy = null);
+
+public record UserRoleAssignment(string UserName, string RoleName, Guid? AssignedBy = null);
+
+
 /// <summary>
 /// Base implementation for seed data providers with common functionality
 /// </summary>
@@ -106,6 +111,22 @@ public abstract class BaseSeedDataProvider : ISeedDataProvider
     public virtual async Task<IEnumerable<Permission>> GetPermissionsAsync()
     {
         return await GetDefaultPermissionsAsync();
+    }
+
+    /// <summary>
+    /// Gets role-permission assignments to seed
+    /// </summary>
+    public virtual Task<IEnumerable<RolePermissionAssignment>> GetRolePermissionAssignmentsAsync()
+    {
+        return Task.FromResult<IEnumerable<RolePermissionAssignment>>(Array.Empty<RolePermissionAssignment>());
+    }
+
+    /// <summary>
+    /// Gets user-role assignments to seed
+    /// </summary>
+    public virtual Task<IEnumerable<UserRoleAssignment>> GetUserRoleAssignmentsAsync()
+    {
+        return Task.FromResult<IEnumerable<UserRoleAssignment>>(Array.Empty<UserRoleAssignment>());
     }
 
     /// <summary>
@@ -252,7 +273,32 @@ public abstract class BaseSeedDataProvider : ISeedDataProvider
             new Permission { Id = Guid.NewGuid(), Name = "Files.Manage", Description = "Manage file system", Category = "Files", IsSystemPermission = true }
         };
 
-        return Task.FromResult(permissions.AsEnumerable());
+        var normalized = permissions
+            .Select(permission =>
+            {
+                if (string.IsNullOrWhiteSpace(permission.Resource) || string.IsNullOrWhiteSpace(permission.Action))
+                {
+                    var parts = permission.Name.Split('.', 2, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                    if (parts.Length == 2)
+                    {
+                        permission.Resource = parts[0];
+                        permission.Action = parts[1];
+                    }
+                    else
+                    {
+                        permission.Resource = permission.Name;
+                        permission.Action = "Execute";
+                    }
+                }
+
+                permission.Name = $"{permission.Resource}.{permission.Action}";
+                return permission;
+            })
+            .GroupBy(p => new { p.Resource, p.Action, p.Scope })
+            .Select(g => g.First())
+            .ToList();
+
+        return Task.FromResult(normalized.AsEnumerable());
     }
 
     /// <summary>

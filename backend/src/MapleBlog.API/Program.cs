@@ -30,8 +30,14 @@ using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.DependencyInjection;
 using StackExchange.Redis;
 using Prometheus;
+using System.Linq;
 
 var builder = WebApplication.CreateBuilder(args);
+
+if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("ASPNETCORE_URLS")))
+{
+    builder.WebHost.UseUrls("http://127.0.0.1:0");
+}
 
 // Configure Serilog - simplified configuration without Elasticsearch
 builder.Host.UseSerilog((context, configuration) =>
@@ -466,22 +472,40 @@ app.UseStaticFiles();
 // Ensure database is created and migrated
 using (var scope = app.Services.CreateScope())
 {
-    var context = scope.ServiceProvider.GetRequiredService<MapleBlog.Infrastructure.Data.ApplicationDbContext>();
+    var context = scope.ServiceProvider.GetRequiredService<MapleBlog.Infrastructure.Data.BlogDbContext>();
     try
     {
-        // Apply database migrations
-        // await context.Database.MigrateAsync(); // TODO: Create and apply migrations
+        var availableMigrations = context.Database.GetMigrations().ToList();
 
-        // Initialize storage quota configurations
-        // var storageQuotaService = scope.ServiceProvider.GetRequiredService<MapleBlog.Application.Interfaces.IStorageQuotaService>();
-        // await storageQuotaService.InitializeDefaultQuotaConfigurationsAsync(); // TODO: Fix EF Core relationships
+        if (availableMigrations.Any())
+        {
+            var pendingMigrations = context.Database.GetPendingMigrations().ToList();
 
-        app.Logger.LogInformation("Database migration completed successfully");
+            if (pendingMigrations.Any())
+            {
+                await context.Database.MigrateAsync();
+                app.Logger.LogInformation(
+                    "Database migration completed successfully with {Count} pending migrations applied: {Migrations}",
+                    pendingMigrations.Count,
+                    string.Join(", ", pendingMigrations));
+            }
+            else
+            {
+                app.Logger.LogInformation("Database already up to date (no pending EF Core migrations).");
+            }
+        }
+        else
+        {
+            var created = await context.Database.EnsureCreatedAsync();
+            app.Logger.LogInformation(created
+                ? "Database schema created via EnsureCreated (no EF Core migrations defined)."
+                : "Database already up to date (no EF Core migrations defined).");
+        }
     }
     catch (Exception ex)
     {
         var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
-        logger.LogError(ex, "An error occurred while creating/migrating the database.");
+        logger.LogError(ex, "An error occurred while preparing the database.");
 
         // Don't crash the application in development
         if (!app.Environment.IsDevelopment())
@@ -593,4 +617,3 @@ public class NoOpNotificationRepository : MapleBlog.Application.Interfaces.INoti
     public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         => Task.FromResult(0);
 }
-

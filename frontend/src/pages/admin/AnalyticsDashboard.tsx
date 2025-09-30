@@ -7,6 +7,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Helmet } from '@/components/common/DocumentHead';
 import { LineChart, BarChart, PieChart } from '@/components/charts';
 import { createLogger, reportError } from '@/utils/logger';
+import type { LogContext } from '@/services/loggingService';
+import type { ErrorExtraValue } from '@/services/errorReporting';
 import { analyticsService, TIME_PERIODS } from '@/services/analyticsService';
 import { 
   AnalyticsData, 
@@ -56,7 +58,7 @@ export const AnalyticsDashboard: React.FC = () => {
   const loadData = useCallback(async (showRefreshing = false) => {
     const action = showRefreshing ? 'refreshAnalyticsData' : 'loadAnalyticsData';
     log.info(`Starting analytics data ${showRefreshing ? 'refresh' : 'load'}`, action, {
-      filters,
+      filters: filters as unknown as LogContext['filters'],
       showRefreshing
     });
 
@@ -85,7 +87,7 @@ export const AnalyticsDashboard: React.FC = () => {
     } catch (error) {
       log.endTimer('analyticsDataLoad');
       log.error(`Failed to ${showRefreshing ? 'refresh' : 'load'} analytics data`, action, {
-        filters,
+        filters: filters as unknown as LogContext['filters'],
         showRefreshing,
         errorMessage: (error as Error).message
       }, error as Error);
@@ -94,7 +96,10 @@ export const AnalyticsDashboard: React.FC = () => {
       await reportError(error as Error, {
         component: 'AnalyticsDashboard',
         action,
-        extra: { filters, showRefreshing }
+        extra: {
+          filters: filters as unknown as ErrorExtraValue,
+          showRefreshing
+        }
       });
     } finally {
       setLoading(false);
@@ -122,15 +127,18 @@ export const AnalyticsDashboard: React.FC = () => {
     } catch (error) {
       log.error(`Analytics export failed for format ${format}`, 'handleExport', {
         format,
-        filters,
+        filters: filters as unknown as LogContext['filters'],
         errorMessage: (error as Error).message
       }, error as Error);
-      
+
       // Report export failures
       await reportError(error as Error, {
         component: 'AnalyticsDashboard',
         action: 'handleExport',
-        extra: { format, filters }
+        extra: {
+          format,
+          filters: filters as unknown as ErrorExtraValue
+        }
       });
     }
   };

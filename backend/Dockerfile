@@ -3,6 +3,7 @@
 
 # 阶段1: 构建环境
 FROM mcr.microsoft.com/dotnet/sdk:10.0-preview AS build
+ARG PROJECT_NAME=MapleBlog.API
 WORKDIR /src
 
 # 复制项目文件
@@ -10,23 +11,26 @@ COPY ["src/MapleBlog.API/MapleBlog.API.csproj", "src/MapleBlog.API/"]
 COPY ["src/MapleBlog.Application/MapleBlog.Application.csproj", "src/MapleBlog.Application/"]
 COPY ["src/MapleBlog.Domain/MapleBlog.Domain.csproj", "src/MapleBlog.Domain/"]
 COPY ["src/MapleBlog.Infrastructure/MapleBlog.Infrastructure.csproj", "src/MapleBlog.Infrastructure/"]
+COPY ["src/MapleBlog.Admin/MapleBlog.Admin.csproj", "src/MapleBlog.Admin/"]
 
 # 还原依赖
-RUN dotnet restore "src/MapleBlog.API/MapleBlog.API.csproj"
+RUN dotnet restore "src/${PROJECT_NAME}/${PROJECT_NAME}.csproj"
 
 # 复制源代码
 COPY . .
-WORKDIR "/src/src/MapleBlog.API"
+WORKDIR "/src/src/${PROJECT_NAME}"
 
 # 构建应用
-RUN dotnet build "MapleBlog.API.csproj" -c Release -o /app/build
+RUN dotnet build "${PROJECT_NAME}.csproj" -c Release -o /app/build
 
 # 阶段2: 发布
 FROM build AS publish
-RUN dotnet publish "MapleBlog.API.csproj" -c Release -o /app/publish /p:UseAppHost=false
+ARG PROJECT_NAME=MapleBlog.API
+RUN dotnet publish "${PROJECT_NAME}.csproj" -c Release -o /app/publish /p:UseAppHost=false
 
 # 阶段3: 生产运行时
 FROM mcr.microsoft.com/dotnet/aspnet:10.0-preview AS production
+ARG PROJECT_NAME=MapleBlog.API
 WORKDIR /app
 
 # 安装运行时依赖
@@ -60,7 +64,7 @@ ENV DOTNET_USE_POLLING_FILE_WATCHER=true
 
 # 启动应用
 ENTRYPOINT ["dumb-init", "--"]
-CMD ["dotnet", "MapleBlog.API.dll"]
+CMD ["dotnet", "${PROJECT_NAME}.dll"]
 
 # 构建参数和标签
 ARG BUILD_DATE

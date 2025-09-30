@@ -12,8 +12,8 @@ RUN apk add --no-cache \
     && rm -rf /var/cache/apk/*
 
 # 复制包管理文件并安装依赖
-COPY package*.json ./
-COPY yarn.lock* ./
+COPY package.json ./
+COPY package-lock.json ./
 RUN npm ci
 
 # 开发环境配置

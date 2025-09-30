@@ -8,6 +8,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Helmet } from 'react-helmet-async';
 import { useLogger } from '@/utils/logger';
+import type { LogContext } from '@/services/loggingService';
 import blogApi from '@/services/blog/blogApi';
 import { analytics } from '@/services/analytics';
 import { PostList } from '@/components/blog/PostList';
@@ -58,7 +59,7 @@ export const BlogPage: React.FC<BlogPageProps> = ({ className = '' }) => {
   // Log page view
   React.useEffect(() => {
     logger.logUserAction('page_view', 'blog_page', {
-      filters,
+      filters: filters as unknown as LogContext['filters'],
       user_id: user?.id
     });
 
@@ -95,7 +96,7 @@ export const BlogPage: React.FC<BlogPageProps> = ({ className = '' }) => {
 
         return result;
       } catch (error) {
-        logger.logApiError('GET', '/api/posts', error as Error, { filters });
+        logger.logApiError('GET', '/api/posts', error as Error, { filters: filters as unknown as LogContext['filters'] });
         throw error;
       }
     },
@@ -168,10 +169,10 @@ export const BlogPage: React.FC<BlogPageProps> = ({ className = '' }) => {
     }
 
     setSearchParams(updatedParams);
-    
+
     logger.logUserAction('filter_change', 'blog_filters', {
-      old_filters: filters,
-      new_filters: newFilters
+      old_filters: filters as unknown as LogContext['old_filters'],
+      new_filters: newFilters as unknown as LogContext['new_filters']
     });
 
     // Update user preferences if logged in

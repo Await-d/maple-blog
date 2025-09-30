@@ -125,12 +125,28 @@ maple-blog/
 
 ### Docker部署
 
+在运行任何 Docker Compose 之前，请先通过环境变量提供外部数据库与 Redis 的连接信息：
+
 ```bash
-# 开发环境
+export POSTGRES_CONNECTION_STRING="Host=your-db-host;Port=5432;Database=maple_blog;Username=postgres;Password=***"
+export REDIS_CONNECTION_STRING="your-redis-host:6379"
+
+# 如部署管理后台，还需额外指定
+export ADMIN_POSTGRES_CONNECTION_STRING="Host=your-db-host;Port=5432;Database=maple_blog_admin;Username=postgres;Password=***"
+export ADMIN_REDIS_CONNECTION_STRING="your-redis-host:6379"
+```
+
+然后在项目根目录执行对应的 Compose 命令：
+
+```bash
+# 开发环境（默认使用 SQLite，可按需覆盖 DATABASE_PROVIDER 等变量）
 docker-compose up -d
 
 # 生产环境
 docker-compose -f docker-compose.prod.yml up -d
+
+# 管理后台（可选）
+docker-compose -f docker-compose.admin.yml up -d
 ```
 
 ## 🛠️ 技术栈
@@ -188,7 +204,17 @@ docker-compose -f docker-compose.prod.yml up -d
 
 ## 🔧 开发指南
 
-详细的开发指南请查看 [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)
+- 详细的工程规范请见 [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md)
+- 前端组件使用示例（模态框、评论系统）迁移至 [`docs/examples/`](docs/examples) 目录，供 Storybook 与文档引用
+
+## ✅ 前端验证流程
+
+- **单元测试**：`cd frontend && npx vitest run src/services/home/__tests__/homeApi.test.ts`
+  - 如在受限环境遇到 WebSocket 端口警告，可忽略，测试仍会完成
+- **关键表单自测**：
+  - Newsletter 订阅：验证空邮箱/非法邮箱的错误提示，以及成功提示文案
+  - 个人资料页：头像上传、偏好切换、密码修改及账户删除均具备防重入与错误反馈
+- 更多验证说明参阅 [`docs/frontend_verification.md`](docs/frontend_verification.md)
 
 ## 📖 API文档
 

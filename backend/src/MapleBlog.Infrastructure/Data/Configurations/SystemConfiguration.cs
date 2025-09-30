@@ -20,8 +20,7 @@ public class SystemConfigurationConfiguration : BaseEntityConfiguration<Domain.E
         ConfigureStringProperty(builder.Property(sc => sc.DataType), maxLength: 50);
 
         // 大文本字段
-        builder.Property(sc => sc.Value)
-            .HasColumnType("nvarchar(max)"); // 无长度限制
+        builder.Property(sc => sc.Value);
 
         builder.Property(sc => sc.Description)
             .HasMaxLength(1000);
@@ -78,8 +77,7 @@ public class NotificationConfiguration : BaseEntityConfiguration<Notification>
         builder.Property(n => n.Content)
             .HasMaxLength(2000);
 
-        builder.Property(n => n.Data)
-            .HasColumnType("nvarchar(max)"); // 无长度限制，存储JSON
+        builder.Property(n => n.Data);
 
         // 枚举转换
         builder.Property(n => n.Type)
@@ -111,4 +109,3 @@ public class NotificationConfiguration : BaseEntityConfiguration<Notification>
         // 关系配置在User中已定义
     }
 }
-

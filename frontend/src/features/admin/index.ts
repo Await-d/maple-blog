@@ -426,7 +426,7 @@ export const adminUtils = {
   validateConfig: (config: Record<string, unknown>) => {
     const errors: string[] = [];
     const warnings: string[] = [];
-    
+
     // Validate required fields
     const requiredFields = ['siteName', 'adminEmail', 'timezone'];
     requiredFields.forEach(field => {
@@ -434,17 +434,17 @@ export const adminUtils = {
         errors.push(`Missing required field: ${field}`);
       }
     });
-    
+
     // Validate email format
-    if (config.adminEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(config.adminEmail)) {
+    if (config.adminEmail && typeof config.adminEmail === 'string' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(config.adminEmail)) {
       errors.push('Invalid admin email format');
     }
-    
+
     // Validate numeric ranges
-    if (config.sessionTimeout && (config.sessionTimeout < 300000 || config.sessionTimeout > 86400000)) {
+    if (config.sessionTimeout && typeof config.sessionTimeout === 'number' && (config.sessionTimeout < 300000 || config.sessionTimeout > 86400000)) {
       warnings.push('Session timeout should be between 5 minutes and 24 hours');
     }
-    
+
     return { errors, warnings, isValid: errors.length === 0 };
   }
 };

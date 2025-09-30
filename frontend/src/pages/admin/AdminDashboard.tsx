@@ -254,14 +254,14 @@ export const AdminDashboard: React.FC = () => {
                     component: 'AdminDashboard',
                     action: 'permissionManagement',
                     extra: {
-                      errorInfo,
+                      componentStack: errorInfo.componentStack,
                       activeFeature: 'permissions'
                     }
                   });
                   log.error('Permission Management component error', 'errorBoundary', {
                     errorId,
                     activeFeature: 'permissions',
-                    errorInfo
+                    componentStack: errorInfo.componentStack
                   }, error);
                 }}
                 resetKeys={activeFeature ? [activeFeature] : []}
@@ -289,14 +289,14 @@ export const AdminDashboard: React.FC = () => {
                     component: 'AdminDashboard',
                     action: 'auditLogSystem',
                     extra: {
-                      errorInfo,
+                      componentStack: errorInfo.componentStack,
                       activeFeature: 'audit'
                     }
                   });
                   log.error('Audit Log System component error', 'errorBoundary', {
                     errorId,
                     activeFeature: 'audit',
-                    errorInfo
+                    componentStack: errorInfo.componentStack
                   }, error);
                 }}
                 resetKeys={activeFeature ? [activeFeature] : []}
@@ -324,14 +324,14 @@ export const AdminDashboard: React.FC = () => {
                     component: 'AdminDashboard',
                     action: 'accessibilityReport',
                     extra: {
-                      errorInfo,
+                      componentStack: errorInfo.componentStack,
                       activeFeature: 'accessibility'
                     }
                   });
                   log.error('Accessibility Report component error', 'errorBoundary', {
                     errorId,
                     activeFeature: 'accessibility',
-                    errorInfo
+                    componentStack: errorInfo.componentStack
                   }, error);
                 }}
                 resetKeys={activeFeature ? [activeFeature] : []}

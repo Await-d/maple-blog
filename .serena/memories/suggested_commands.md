@@ -14,12 +14,12 @@ dotnet ef migrations add <Name>   # Create new migration
 ## Frontend Commands (React)
 ```bash
 cd frontend
-npm install                       # Install dependencies
-npm run dev                       # Start dev server (http://localhost:3000)
-npm run build                     # Production build
-npm run typecheck                 # TypeScript checking
-npm run lint                      # ESLint
-npm test                          # Vitest tests
+pnpm install                       # Install dependencies
+pnpm run dev                       # Start dev server (http://localhost:3000)
+pnpm run build                     # Production build
+pnpm run typecheck                 # TypeScript checking
+pnpm run lint                      # ESLint
+pnpm test                          # Vitest tests
 ```
 
 ## Docker Commands
@@ -30,6 +30,6 @@ docker-compose down               # Stop all services
 ```
 
 ## Testing Commands
-- **Frontend**: `npm test` (from frontend/ directory)
+- **Frontend**: `pnpm test` (from frontend/ directory)
 - **Backend**: `dotnet test` (from backend/ directory)
-- **Single test**: `dotnet test --filter TestName` or `npm test -- --grep "test name"`
+- **Single test**: `dotnet test --filter TestName` or `pnpm test -- --grep "test name"`

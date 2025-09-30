@@ -5,9 +5,9 @@ When completing any development task, ALWAYS run these commands:
 ## Frontend Tasks
 ```bash
 cd frontend
-npm run typecheck                 # TypeScript type checking
-npm run lint                      # ESLint validation
-npm test                          # Run tests
+pnpm run typecheck                 # TypeScript type checking
+pnpm run lint                      # ESLint validation
+pnpm test                          # Run tests
 ```
 
 ## Backend Tasks  

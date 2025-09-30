@@ -73,8 +73,7 @@ public class PostRevisionConfiguration : BaseEntityConfiguration<PostRevision>
         ConfigureStringProperty(builder.Property(pr => pr.Title), maxLength: 200, isRequired: true);
 
         builder.Property(pr => pr.Content)
-            .IsRequired()
-            .HasColumnType("nvarchar(max)");
+            .IsRequired();
 
         builder.Property(pr => pr.Summary)
             .HasMaxLength(1000);

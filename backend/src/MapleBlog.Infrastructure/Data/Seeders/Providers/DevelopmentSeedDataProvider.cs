@@ -3,6 +3,7 @@ using Microsoft.Extensions.Configuration;
 using MapleBlog.Domain.Entities;
 using MapleBlog.Domain.ValueObjects;
 using MapleBlog.Domain.Enums;
+using DomainUserRole = MapleBlog.Domain.Enums.UserRole;
 using MapleBlog.Infrastructure.Data.Seeders.Core;
 
 namespace MapleBlog.Infrastructure.Data.Seeders.Providers;
@@ -13,6 +14,24 @@ namespace MapleBlog.Infrastructure.Data.Seeders.Providers;
 public class DevelopmentSeedDataProvider : BaseSeedDataProvider
 {
     private readonly IConfiguration _configuration;
+
+    private static readonly Guid SystemUserId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+    private static readonly Guid AdminUserId = Guid.Parse("22222222-2222-2222-2222-222222222222");
+    private static readonly Guid AuthorUserId = Guid.Parse("33333333-3333-3333-3333-333333333333");
+    private static readonly Guid RegularUserId = Guid.Parse("44444444-4444-4444-4444-444444444444");
+    private static readonly Guid TestUserId = Guid.Parse("55555555-5555-5555-5555-555555555555");
+
+    private static readonly IReadOnlyDictionary<string, Guid> CategoryIds = new Dictionary<string, Guid>
+    {
+        ["Technology"] = Guid.Parse("10000000-0000-0000-0000-000000000001"),
+        ["Web Development"] = Guid.Parse("10000000-0000-0000-0000-000000000002"),
+        ["Tutorials"] = Guid.Parse("10000000-0000-0000-0000-000000000003"),
+        ["News"] = Guid.Parse("10000000-0000-0000-0000-000000000004"),
+        ["Reviews"] = Guid.Parse("10000000-0000-0000-0000-000000000005"),
+        ["Opinion"] = Guid.Parse("10000000-0000-0000-0000-000000000006"),
+        ["Documentation"] = Guid.Parse("10000000-0000-0000-0000-000000000007"),
+        ["Testing"] = Guid.Parse("10000000-0000-0000-0000-000000000008")
+    };
 
     public DevelopmentSeedDataProvider(ILogger<DevelopmentSeedDataProvider> logger, IConfiguration configuration)
         : base(logger, "Development")
@@ -58,6 +77,8 @@ public class DevelopmentSeedDataProvider : BaseSeedDataProvider
             "System User",
             "Internal system user for automated operations"
         );
+        systemUser.Id = SystemUserId;
+        systemUser.Role = DomainUserRole.SuperAdmin | DomainUserRole.Admin;
         systemUser.PasswordHash = CreatePasswordHash("System123!");
         systemUser.IsActive = false;
         users.Add(systemUser);
@@ -69,6 +90,8 @@ public class DevelopmentSeedDataProvider : BaseSeedDataProvider
             "Administrator",
             "Development administrator account"
         );
+        adminUser.Id = AdminUserId;
+        adminUser.Role = DomainUserRole.Admin | DomainUserRole.Author | DomainUserRole.Moderator;
         adminUser.PasswordHash = CreatePasswordHash("Admin123!");
         users.Add(adminUser);
 
@@ -79,6 +102,8 @@ public class DevelopmentSeedDataProvider : BaseSeedDataProvider
             "Content Author",
             "Sample content author for development"
         );
+        authorUser.Id = AuthorUserId;
+        authorUser.Role = DomainUserRole.Author;
         authorUser.PasswordHash = CreatePasswordHash("Author123!");
         users.Add(authorUser);
 
@@ -89,6 +114,8 @@ public class DevelopmentSeedDataProvider : BaseSeedDataProvider
             "Regular User",
             "Sample regular user for development testing"
         );
+        regularUser.Id = RegularUserId;
+        regularUser.Role = DomainUserRole.User;
         regularUser.PasswordHash = CreatePasswordHash("User123!");
         users.Add(regularUser);
 
@@ -99,6 +126,8 @@ public class DevelopmentSeedDataProvider : BaseSeedDataProvider
             "Test User",
             "Test user for automated testing"
         );
+        testUser.Id = TestUserId;
+        testUser.Role = DomainUserRole.User;
         testUser.PasswordHash = CreatePasswordHash("Test123!");
         testUser.IsActive = true;
         users.Add(testUser);
@@ -110,17 +139,19 @@ public class DevelopmentSeedDataProvider : BaseSeedDataProvider
 
     public override async Task<IEnumerable<Category>> GetCategoriesAsync()
     {
-        return new List<Category>
+        var categories = new List<Category>
         {
-            CreateCategory("Technology", "Latest trends and insights in technology", "#3B82F6"),
-            CreateCategory("Web Development", "Modern web development techniques and frameworks", "#10B981"),
-            CreateCategory("Tutorials", "Step-by-step guides and tutorials", "#F59E0B"),
-            CreateCategory("News", "Industry news and updates", "#EF4444"),
-            CreateCategory("Reviews", "Product and service reviews", "#8B5CF6"),
-            CreateCategory("Opinion", "Personal opinions and thoughts", "#6B7280"),
-            CreateCategory("Documentation", "Technical documentation and guides", "#3B82F6"),
-            CreateCategory("Testing", "Testing and QA related content", "#EC4899")
+            CreateCategoryWithId("Technology", "Latest trends and insights in technology", "#3B82F6"),
+            CreateCategoryWithId("Web Development", "Modern web development techniques and frameworks", "#10B981"),
+            CreateCategoryWithId("Tutorials", "Step-by-step guides and tutorials", "#F59E0B"),
+            CreateCategoryWithId("News", "Industry news and updates", "#EF4444"),
+            CreateCategoryWithId("Reviews", "Product and service reviews", "#8B5CF6"),
+            CreateCategoryWithId("Opinion", "Personal opinions and thoughts", "#6B7280"),
+            CreateCategoryWithId("Documentation", "Technical documentation and guides", "#3B82F6"),
+            CreateCategoryWithId("Testing", "Testing and QA related content", "#EC4899")
         };
+
+        return categories;
     }
 
     public override async Task<IEnumerable<Tag>> GetTagsAsync()
@@ -184,6 +215,8 @@ public class DevelopmentSeedDataProvider : BaseSeedDataProvider
             CreatedAt = DateTime.UtcNow.AddDays(-30),
             UpdatedAt = DateTime.UtcNow.AddDays(-30)
         };
+        welcomePost.AuthorId = AdminUserId;
+        welcomePost.CategoryId = GetCategoryId("Technology");
         posts.Add(welcomePost);
 
         // Sample tutorial post
@@ -207,6 +240,8 @@ public class DevelopmentSeedDataProvider : BaseSeedDataProvider
             CreatedAt = DateTime.UtcNow.AddDays(-15),
             UpdatedAt = DateTime.UtcNow.AddDays(-15)
         };
+        tutorialPost.AuthorId = AuthorUserId;
+        tutorialPost.CategoryId = GetCategoryId("Tutorials");
         posts.Add(tutorialPost);
 
         // Sample draft post
@@ -229,6 +264,8 @@ public class DevelopmentSeedDataProvider : BaseSeedDataProvider
             CreatedAt = DateTime.UtcNow.AddDays(-5),
             UpdatedAt = DateTime.UtcNow.AddDays(-2)
         };
+        draftPost.AuthorId = AuthorUserId;
+        draftPost.CategoryId = GetCategoryId("Documentation");
         posts.Add(draftPost);
 
         Logger.LogInformation("Created {Count} development posts", posts.Count);
@@ -286,6 +323,106 @@ public class DevelopmentSeedDataProvider : BaseSeedDataProvider
         };
 
         return baseConfigs.Concat(developmentConfigs);
+    }
+
+    private static Guid GetCategoryId(string name)
+    {
+        if (CategoryIds.TryGetValue(name, out var id))
+        {
+            return id;
+        }
+
+        throw new KeyNotFoundException($"Category identifier not configured for '{name}'.");
+    }
+
+    private Category CreateCategoryWithId(string name, string description, string color)
+    {
+        var category = CreateCategory(name, description, color);
+        category.Id = GetCategoryId(name);
+        category.DisplayName = category.Name;
+        return category;
+    }
+
+    public override async Task<IEnumerable<RolePermissionAssignment>> GetRolePermissionAssignmentsAsync()
+    {
+        var permissions = (await GetDefaultPermissionsAsync())
+            .Select(p => string.IsNullOrWhiteSpace(p.Name) ? $"{p.Resource}.{p.Action}" : p.Name)
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Select(name => name.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (!permissions.Any())
+        {
+            return Array.Empty<RolePermissionAssignment>();
+        }
+
+        var permissionSet = new HashSet<string>(permissions, StringComparer.OrdinalIgnoreCase);
+        var assignments = new List<RolePermissionAssignment>();
+
+        // SuperAdmin receives all permissions
+        assignments.AddRange(permissionSet.Select(name => new RolePermissionAssignment("SuperAdmin", name, SystemUserId)));
+
+        // Admin receives broad management permissions
+        var adminPrefixes = new[] { "System.", "Users.", "Roles.", "Categories.", "Tags.", "Posts.", "Files.", "Comments." };
+        var adminPermissions = permissionSet
+            .Where(name => adminPrefixes.Any(prefix => name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)));
+        assignments.AddRange(adminPermissions.Select(name => new RolePermissionAssignment("Admin", name, SystemUserId)));
+
+        void AddAssignments(string roleName, IEnumerable<string> permissionNames)
+        {
+            foreach (var permissionName in permissionNames)
+            {
+                if (permissionSet.Contains(permissionName))
+                {
+                    assignments.Add(new RolePermissionAssignment(roleName, permissionName, SystemUserId));
+                }
+                else
+                {
+                    Logger.LogWarning("Skipping role permission assignment for {Role}. Permission '{Permission}' not found in seed set.", roleName, permissionName);
+                }
+            }
+        }
+
+        AddAssignments("Author", new[]
+        {
+            "Posts.Create", "Posts.Read", "Posts.Update", "Posts.Publish",
+            "Categories.Read", "Tags.Read", "Files.Upload", "Files.Download",
+            "Comments.Read", "Comments.Moderate"
+        });
+
+        AddAssignments("User", new[]
+        {
+            "Posts.Read", "Comments.Create", "Comments.Read", "Files.Download"
+        });
+
+        // Deduplicate assignments (case-insensitive)
+        var deduplicated = new Dictionary<string, RolePermissionAssignment>(StringComparer.OrdinalIgnoreCase);
+        foreach (var assignment in assignments)
+        {
+            var key = $"{assignment.RoleName.Trim().ToUpperInvariant()}|{assignment.PermissionName.Trim().ToUpperInvariant()}";
+            if (!deduplicated.ContainsKey(key))
+            {
+                deduplicated[key] = assignment;
+            }
+        }
+
+        return deduplicated.Values;
+    }
+
+    public override Task<IEnumerable<UserRoleAssignment>> GetUserRoleAssignmentsAsync()
+    {
+        var assignments = new List<UserRoleAssignment>
+        {
+            new UserRoleAssignment("system", "SuperAdmin", SystemUserId),
+            new UserRoleAssignment("admin", "Admin", SystemUserId),
+            new UserRoleAssignment("admin", "Author", SystemUserId),
+            new UserRoleAssignment("author", "Author", AdminUserId),
+            new UserRoleAssignment("user", "User", AdminUserId),
+            new UserRoleAssignment("testuser", "User", AdminUserId)
+        };
+
+        return Task.FromResult<IEnumerable<UserRoleAssignment>>(assignments);
     }
 
     #region Content Generation Methods

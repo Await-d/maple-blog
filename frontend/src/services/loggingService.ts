@@ -13,7 +13,7 @@ export enum LogLevel {
 }
 
 // Type for log context values that can be any JSON-serializable value
-export type LogContextValue = string | number | boolean | null | undefined | LogContextValue[] | { [key: string]: LogContextValue };
+export type LogContextValue = string | number | boolean | null | undefined | LogContextValue[] | { [key: string]: LogContextValue } | Record<string, unknown>;
 
 export interface LogContext {
   userId?: string;

@@ -43,6 +43,16 @@ public interface ISeedDataProvider
     Task<IEnumerable<Permission>> GetPermissionsAsync();
 
     /// <summary>
+    /// Gets default role-permission assignments
+    /// </summary>
+    Task<IEnumerable<RolePermissionAssignment>> GetRolePermissionAssignmentsAsync();
+
+    /// <summary>
+    /// Gets default user-role assignments
+    /// </summary>
+    Task<IEnumerable<UserRoleAssignment>> GetUserRoleAssignmentsAsync();
+
+    /// <summary>
     /// Gets the users to be seeded
     /// </summary>
     Task<IEnumerable<User>> GetUsersAsync();

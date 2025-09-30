@@ -66,7 +66,9 @@ class ErrorBoundary extends React.Component<
       .captureError(error, {
         component: 'RootErrorBoundary',
         action: 'render',
-        extra: { errorInfo },
+        extra: {
+          componentStack: errorInfo.componentStack
+        },
         handled: true,
       })
       .then((errorId) => {

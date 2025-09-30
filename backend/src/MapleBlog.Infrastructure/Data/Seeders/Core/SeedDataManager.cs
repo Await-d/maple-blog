@@ -329,11 +329,25 @@ public class SeedDataManager
             await SeedPermissionsAsync(permissions, result);
         }
 
+        var rolePermissionAssignments = (await provider.GetRolePermissionAssignmentsAsync()).ToList();
+        if (rolePermissionAssignments.Any())
+        {
+            await _context.SaveChangesAsync(cancellationToken);
+            await SeedRolePermissionsAsync(rolePermissionAssignments, result, cancellationToken);
+        }
+
         // Seed users
         var users = await provider.GetUsersAsync();
         if (users.Any())
         {
             await SeedUsersAsync(users, result);
+        }
+
+        var userRoleAssignments = (await provider.GetUserRoleAssignmentsAsync()).ToList();
+        if (userRoleAssignments.Any())
+        {
+            await _context.SaveChangesAsync(cancellationToken);
+            await SeedUserRolesAsync(userRoleAssignments, result, cancellationToken);
         }
 
         // Seed categories
@@ -365,6 +379,206 @@ public class SeedDataManager
         }
 
         await _context.SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task SeedRolePermissionsAsync(IEnumerable<RolePermissionAssignment> assignments, SeedResult result, CancellationToken cancellationToken)
+    {
+        var assignmentList = assignments
+            .Where(a => !string.IsNullOrWhiteSpace(a.RoleName) && !string.IsNullOrWhiteSpace(a.PermissionName))
+            .ToList();
+
+        if (!assignmentList.Any())
+        {
+            return;
+        }
+
+        var roleLookup = new Dictionary<string, Role>(StringComparer.OrdinalIgnoreCase);
+        foreach (var role in _context.Roles.Local)
+        {
+            var key = role.NormalizedName ?? role.Name;
+            if (!string.IsNullOrWhiteSpace(key))
+            {
+                roleLookup[key] = role;
+            }
+        }
+
+        foreach (var role in await _context.Roles.AsNoTracking().ToListAsync(cancellationToken))
+        {
+            var key = role.NormalizedName ?? role.Name;
+            if (!string.IsNullOrWhiteSpace(key))
+            {
+                roleLookup[key] = role;
+            }
+        }
+
+        var permissionLookup = new Dictionary<string, Permission>(StringComparer.OrdinalIgnoreCase);
+        foreach (var permission in _context.Permissions.Local)
+        {
+            if (!string.IsNullOrWhiteSpace(permission.Name))
+            {
+                permissionLookup[permission.Name] = permission;
+            }
+        }
+
+        foreach (var permission in await _context.Permissions.AsNoTracking().ToListAsync(cancellationToken))
+        {
+            if (!string.IsNullOrWhiteSpace(permission.Name))
+            {
+                permissionLookup[permission.Name] = permission;
+            }
+        }
+
+        var existingAssignments = new HashSet<(Guid RoleId, Guid PermissionId)>();
+        foreach (var rp in _context.RolePermissions.Local)
+        {
+            existingAssignments.Add((rp.RoleId, rp.PermissionId));
+        }
+
+        var persistedAssignments = await _context.RolePermissions
+            .Select(rp => new { rp.RoleId, rp.PermissionId })
+            .ToListAsync(cancellationToken);
+        foreach (var rp in persistedAssignments)
+        {
+            existingAssignments.Add((rp.RoleId, rp.PermissionId));
+        }
+
+        foreach (var assignment in assignmentList)
+        {
+            var normalizedRole = assignment.RoleName.Trim().ToUpperInvariant();
+            if (!roleLookup.TryGetValue(normalizedRole, out var role))
+            {
+                _logger.LogWarning("Skipping role-permission assignment. Role '{RoleName}' not found.", assignment.RoleName);
+                result.RolePermissionsSkipped++;
+                continue;
+            }
+
+            if (!permissionLookup.TryGetValue(assignment.PermissionName, out var permission))
+            {
+                _logger.LogWarning("Skipping role-permission assignment. Permission '{PermissionName}' not found.", assignment.PermissionName);
+                result.RolePermissionsSkipped++;
+                continue;
+            }
+
+            var key = (role.Id, permission.Id);
+            if (existingAssignments.Contains(key))
+            {
+                result.RolePermissionsSkipped++;
+                continue;
+            }
+
+            var rolePermission = new RolePermission
+            {
+                RoleId = role.Id,
+                PermissionId = permission.Id,
+                GrantedAt = DateTime.UtcNow,
+                GrantedBy = assignment.GrantedBy
+            };
+
+            await _context.RolePermissions.AddAsync(rolePermission, cancellationToken);
+            existingAssignments.Add(key);
+            result.RolePermissionsCreated++;
+        }
+    }
+
+    private async Task SeedUserRolesAsync(IEnumerable<UserRoleAssignment> assignments, SeedResult result, CancellationToken cancellationToken)
+    {
+        var assignmentList = assignments
+            .Where(a => !string.IsNullOrWhiteSpace(a.UserName) && !string.IsNullOrWhiteSpace(a.RoleName))
+            .ToList();
+
+        if (!assignmentList.Any())
+        {
+            return;
+        }
+
+        var roleLookup = new Dictionary<string, Role>(StringComparer.OrdinalIgnoreCase);
+        foreach (var role in _context.Roles.Local)
+        {
+            var key = role.NormalizedName ?? role.Name;
+            if (!string.IsNullOrWhiteSpace(key))
+            {
+                roleLookup[key] = role;
+            }
+        }
+
+        foreach (var role in await _context.Roles.AsNoTracking().ToListAsync(cancellationToken))
+        {
+            var key = role.NormalizedName ?? role.Name;
+            if (!string.IsNullOrWhiteSpace(key))
+            {
+                roleLookup[key] = role;
+            }
+        }
+
+        var userLookup = new Dictionary<string, User>(StringComparer.OrdinalIgnoreCase);
+        foreach (var user in _context.Users.Local)
+        {
+            if (!string.IsNullOrWhiteSpace(user.UserName))
+            {
+                userLookup[user.UserName] = user;
+            }
+        }
+
+        foreach (var user in await _context.Users.AsNoTracking().ToListAsync(cancellationToken))
+        {
+            if (!string.IsNullOrWhiteSpace(user.UserName))
+            {
+                userLookup[user.UserName] = user;
+            }
+        }
+
+        var existingAssignments = new HashSet<(Guid UserId, Guid RoleId)>();
+        foreach (var ur in _context.UserRoles.Local)
+        {
+            existingAssignments.Add((ur.UserId, ur.RoleId));
+        }
+
+        var persistedAssignments = await _context.UserRoles
+            .Select(ur => new { ur.UserId, ur.RoleId })
+            .ToListAsync(cancellationToken);
+        foreach (var ur in persistedAssignments)
+        {
+            existingAssignments.Add((ur.UserId, ur.RoleId));
+        }
+
+        foreach (var assignment in assignmentList)
+        {
+            if (!userLookup.TryGetValue(assignment.UserName.Trim(), out var user))
+            {
+                _logger.LogWarning("Skipping user-role assignment. User '{UserName}' not found.", assignment.UserName);
+                result.UserRolesSkipped++;
+                continue;
+            }
+
+            var normalizedRole = assignment.RoleName.Trim().ToUpperInvariant();
+            if (!roleLookup.TryGetValue(normalizedRole, out var role))
+            {
+                _logger.LogWarning("Skipping user-role assignment. Role '{RoleName}' not found.", assignment.RoleName);
+                result.UserRolesSkipped++;
+                continue;
+            }
+
+            var key = (user.Id, role.Id);
+            if (existingAssignments.Contains(key))
+            {
+                result.UserRolesSkipped++;
+                continue;
+            }
+
+            var userRole = new MapleBlog.Domain.Entities.UserRole
+            {
+                UserId = user.Id,
+                RoleId = role.Id,
+                AssignedAt = DateTime.UtcNow,
+                AssignedBy = assignment.AssignedBy,
+                CreatedAt = DateTime.UtcNow,
+                CreatedBy = assignment.AssignedBy
+            };
+
+            await _context.UserRoles.AddAsync(userRole, cancellationToken);
+            existingAssignments.Add(key);
+            result.UserRolesCreated++;
+        }
     }
 
     private async Task SeedRolesAsync(IEnumerable<Role> roles, SeedResult result)
@@ -413,8 +627,9 @@ public class SeedDataManager
     {
         foreach (var user in users)
         {
+            var emailValue = user.Email.Value;
             var existing = await _context.Users
-                .FirstOrDefaultAsync(u => u.UserName == user.UserName || u.Email.Value == user.Email.Value);
+                .FirstOrDefaultAsync(u => u.UserName == user.UserName || u.Email == emailValue);
 
             if (existing == null)
             {

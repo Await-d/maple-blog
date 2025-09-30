@@ -8,7 +8,7 @@ import React, { createElement } from 'react';
 import { logger, LogLevel } from './loggingService';
 
 // Type for extra error data that can be any JSON-serializable value
-export type ErrorExtraValue = string | number | boolean | null | undefined | ErrorExtraValue[] | { [key: string]: ErrorExtraValue };
+export type ErrorExtraValue = string | number | boolean | null | undefined | ErrorExtraValue[] | { [key: string]: ErrorExtraValue } | Record<string, unknown>;
 
 export interface ErrorContext {
   errorId?: string;
@@ -30,6 +30,7 @@ export interface ErrorContext {
   environment?: string;
   screenshot?: string;
   handled?: boolean;
+  [key: string]: ErrorExtraValue;
 }
 
 export interface Breadcrumb {
@@ -38,6 +39,7 @@ export interface Breadcrumb {
   category: string;
   level: 'debug' | 'info' | 'warning' | 'error';
   data?: Record<string, ErrorExtraValue>;
+  [key: string]: ErrorExtraValue;
 }
 
 export interface ErrorReport {
