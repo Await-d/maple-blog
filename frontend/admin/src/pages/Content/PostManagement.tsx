@@ -46,6 +46,7 @@ import {
   CommentOutlined
 } from '@ant-design/icons';
 import dayjs, { Dayjs } from 'dayjs';
+import { useNavigate } from 'react-router-dom';
 
 const { Title, Text, Paragraph } = Typography;
 const { Search } = Input;
@@ -148,6 +149,7 @@ interface PostFilters {
 }
 
 const PostManagement: React.FC = () => {
+  const navigate = useNavigate();
   const [posts, setPosts] = useState<Post[]>([]);
   const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
   const [filters, setFilters] = useState<PostFilters>({
@@ -484,9 +486,8 @@ const PostManagement: React.FC = () => {
           <Tooltip title="编辑">
             <Button
               type="text"
-              
               icon={<EditOutlined />}
-              onClick={() => message.info('跳转到编辑页面')}
+              onClick={() => navigate(`/content/posts/${record.id}/edit`)}
             />
           </Tooltip>
           <Dropdown
@@ -632,7 +633,7 @@ const PostManagement: React.FC = () => {
         <div className="flex justify-between items-center mb-4">
           <Title level={3} className="mb-0">文章管理</Title>
           <Space>
-            <Button icon={<PlusOutlined />} type="primary">
+            <Button icon={<PlusOutlined />} type="primary" onClick={() => navigate('/content/posts/new')}>
               新建文章
             </Button>
             <Button icon={<ImportOutlined />}>

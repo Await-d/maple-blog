@@ -28,13 +28,13 @@ const PostEditor = lazy(() => import('@/pages/content/PostEditor'));
 const CategoryManagement = lazy(() => import('@/pages/Content/CategoryManagement'));
 const TagManagement = lazy(() => import('@/pages/content/TagManagement'));
 const MediaLibrary = lazy(() => import('@/pages/Content/MediaLibrary'));
-const Analytics = lazy(() => import('@/pages/analytics/Analytics'));
+const Analytics = lazy(() => import('@/pages/Analytics'));
 const ContentAnalytics = lazy(() => import('@/pages/Analytics/ContentAnalytics'));
 const UserAnalytics = lazy(() => import('@/pages/Analytics/UserAnalytics'));
 const SystemSettings = lazy(() => import('@/pages/System/Settings'));
 const SystemMonitoring = lazy(() => import('@/pages/System/Monitoring'));
 const SystemLogs = lazy(() => import('@/pages/System/Logs'));
-const AuditLogs = lazy(() => import('@/pages/system/AuditLogs'));
+const AuditLogs = lazy(() => import('@/pages/System/AuditLogs'));
 const Profile = lazy(() => import('@/pages/profile/Profile'));
 const NotFound = lazy(() => import('@/pages/error/NotFound'));
 

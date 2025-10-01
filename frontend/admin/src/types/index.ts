@@ -63,6 +63,67 @@ export enum UserStatus {
   Pending = 'pending'
 }
 
+export interface UserListQuery extends QueryParams {
+  status?: UserStatus;
+  roleId?: string;
+  startDate?: string;
+  endDate?: string;
+}
+
+export interface CreateUserInput {
+  username: string;
+  email: string;
+  password: string;
+  displayName?: string;
+  avatar?: string;
+  status?: UserStatus;
+  roleIds?: string[];
+}
+
+export interface UpdateUserInput {
+  username?: string;
+  email?: string;
+  password?: string;
+  displayName?: string;
+  avatar?: string;
+  status?: UserStatus;
+  roleIds?: string[];
+}
+
+export interface UserActivityLog {
+  id: string;
+  userId: string;
+  type: 'login' | 'logout' | 'update' | 'permission_change' | 'security';
+  description: string;
+  createdAt: string;
+  ip?: string;
+  userAgent?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface UserSession {
+  id: string;
+  ip: string;
+  location?: string;
+  device?: string;
+  createdAt: string;
+}
+
+export interface CreateRoleInput {
+  name: string;
+  description?: string;
+  level: number;
+  permissionIds: string[];
+  isBuiltIn?: boolean;
+}
+
+export interface UpdateRoleInput {
+  name?: string;
+  description?: string;
+  level?: number;
+  permissionIds?: string[];
+}
+
 // 内容相关类型
 export interface Post {
   id: string;
@@ -71,6 +132,7 @@ export interface Post {
   content: string;
   excerpt?: string;
   featuredImage?: string;
+  featured?: boolean;
   status: PostStatus;
   publishedAt?: string;
   authorId: string;
@@ -83,6 +145,43 @@ export interface Post {
   viewCount: number;
   commentCount: number;
   likeCount: number;
+}
+
+export interface PostListQuery extends QueryParams {
+  status?: PostStatus;
+  categoryId?: string;
+  tagIds?: string[];
+  startDate?: string;
+  endDate?: string;
+  featured?: boolean;
+}
+
+export interface CreatePostInput {
+  title: string;
+  slug: string;
+  excerpt?: string;
+  content: string;
+  status: PostStatus;
+  categoryId: string;
+  tagIds: string[];
+  featuredImage?: string;
+  featured?: boolean;
+  seoTitle?: string;
+  seoDescription?: string;
+}
+
+export interface UpdatePostInput {
+  title?: string;
+  slug?: string;
+  excerpt?: string;
+  content?: string;
+  status?: PostStatus;
+  categoryId?: string;
+  tagIds?: string[];
+  featuredImage?: string;
+  featured?: boolean;
+  seoTitle?: string;
+  seoDescription?: string;
 }
 
 export interface Category {
@@ -99,6 +198,24 @@ export interface Category {
   createdAt: string;
 }
 
+export interface CreateCategoryInput {
+  name: string;
+  slug: string;
+  description?: string;
+  parentId?: string;
+  sortOrder?: number;
+  isActive?: boolean;
+}
+
+export interface UpdateCategoryInput {
+  name?: string;
+  slug?: string;
+  description?: string;
+  parentId?: string;
+  sortOrder?: number;
+  isActive?: boolean;
+}
+
 export interface Tag {
   id: string;
   name: string;
@@ -108,6 +225,22 @@ export interface Tag {
   postCount: number;
   isActive: boolean;
   createdAt: string;
+}
+
+export interface CreateTagInput {
+  name: string;
+  slug: string;
+  description?: string;
+  color?: string;
+  isActive?: boolean;
+}
+
+export interface UpdateTagInput {
+  name?: string;
+  slug?: string;
+  description?: string;
+  color?: string;
+  isActive?: boolean;
 }
 
 export enum PostStatus {
