@@ -31,7 +31,7 @@ interface RichTextRendererProps {
   enableTables?: boolean;
   enableTaskLists?: boolean;
   enableLinkify?: boolean;
-  sanitizeOptions?: DOMPurify.Config;
+  sanitizeOptions?: DOMPurifyConfig;
 }
 
 /**
@@ -266,7 +266,7 @@ export default function RichTextRenderer({
       }) as string;
 
       // 配置DOMPurify选项
-      const purifyConfig: DOMPurify.Config = {
+      const purifyConfig: DOMPurifyConfig = {
         ALLOWED_TAGS: allowedTags,
         ALLOWED_ATTR: [
           'href', 'title', 'alt', 'src', 'class', 'id',

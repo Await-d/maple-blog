@@ -23,27 +23,23 @@ COPY . .
 # 还原依赖
 RUN dotnet restore
 
-# 创建非root用户
-RUN groupadd -r appuser && useradd -r -g appuser appuser
-RUN chown -R appuser:appuser /app
-USER appuser
-
 # 健康检查
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
   CMD curl -f http://localhost:5000/health || exit 1
 
 # 暴露端口
 EXPOSE 5000
-EXPOSE 5001
 
 # 环境变量
 ENV ASPNETCORE_ENVIRONMENT=Development
-ENV ASPNETCORE_URLS=http://+:5000;https://+:5001
+ENV ASPNETCORE_URLS=http://+:5000
 ENV DOTNET_WATCH_RESTART_ON_RUDE_EDIT=true
 ENV DOTNET_USE_POLLING_FILE_WATCHER=true
+ENV DOTNET_CLI_HOME=/app
+ENV HOME=/app
 
 # 工作目录
 WORKDIR /app/src/MapleBlog.API
 
 # 启动开发服务器
-CMD ["dotnet", "watch", "run", "--urls", "http://+:5000;https://+:5001"]
+CMD ["dotnet", "watch", "run", "--urls", "http://+:5000"]

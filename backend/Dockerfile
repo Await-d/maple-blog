@@ -64,7 +64,7 @@ ENV DOTNET_USE_POLLING_FILE_WATCHER=true
 
 # 启动应用
 ENTRYPOINT ["dumb-init", "--"]
-CMD ["dotnet", "${PROJECT_NAME}.dll"]
+CMD ["dotnet", "MapleBlog.API.dll"]
 
 # 构建参数和标签
 ARG BUILD_DATE

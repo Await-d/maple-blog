@@ -4,27 +4,22 @@
 FROM node:20-alpine AS base
 WORKDIR /app
 
-# 安装系统依赖
+# 安装系统依赖和pnpm
 RUN apk add --no-cache \
     libc6-compat \
     curl \
     git \
-    && rm -rf /var/cache/apk/*
+    && rm -rf /var/cache/apk/* \
+    && npm install -g pnpm
 
 # 复制包管理文件并安装依赖
 COPY package.json ./
-COPY package-lock.json ./
-RUN npm ci
+COPY pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile
 
 # 开发环境配置
 FROM base AS development
 COPY . .
-
-# 创建非root用户
-RUN addgroup -g 1001 -S nodejs && \
-    adduser -S nextjs -u 1001
-RUN chown -R nextjs:nodejs /app
-USER nextjs
 
 # 暴露端口
 EXPOSE 3000
@@ -40,4 +35,4 @@ ENV CHOKIDAR_USEPOLLING=true
 ENV WATCHPACK_POLLING=true
 
 # 启动开发服务器
-CMD ["npm", "run", "dev"]
+CMD ["pnpm", "run", "dev"]

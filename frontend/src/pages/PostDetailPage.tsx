@@ -6,7 +6,7 @@
 import React, { useCallback, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Helmet } from 'react-helmet-async';
+import { Helmet } from '@/components/common/DocumentHead';
 import { useLogger } from '@/utils/logger';
 import blogApi from '@/services/blog/blogApi';
 import { analytics } from '@/services/analytics';

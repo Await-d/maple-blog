@@ -5,38 +5,39 @@
 FROM node:20-alpine AS base
 WORKDIR /app
 
-# 安装系统依赖
+# 安装系统依赖和pnpm
 RUN apk add --no-cache \
     libc6-compat \
     curl \
-    && rm -rf /var/cache/apk/*
+    && rm -rf /var/cache/apk/* \
+    && npm install -g pnpm
 
 # 复制包管理文件
 COPY package.json ./
-COPY package-lock.json ./
+COPY pnpm-lock.yaml ./
 
 # 阶段2: 依赖安装
 FROM base AS deps
-RUN npm ci
+RUN pnpm install --frozen-lockfile
 
 # 阶段3: 开发环境
 FROM base AS development
-RUN npm ci
+RUN pnpm install --frozen-lockfile
 COPY . .
 EXPOSE 3000
 ENV NODE_ENV=development
-CMD ["npm", "run", "dev"]
+CMD ["pnpm", "run", "dev"]
 
 # 阶段4: 构建环境
 FROM base AS builder
-RUN npm ci
+RUN pnpm install --frozen-lockfile
 COPY . .
 
 # 构建应用
 ENV NODE_ENV=production
 ENV VITE_API_URL=/api
 ENV GENERATE_SOURCEMAP=false
-RUN npm run build
+RUN pnpm run build
 
 # 优化构建结果（dist目录）
 RUN find ./dist -name "*.map" -delete 2>/dev/null || true
